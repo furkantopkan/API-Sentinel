@@ -43,4 +43,18 @@ describe('validateDraft', () => {
 
     expect(!result.ok && result.errors.map((error) => error.field)).toEqual(['url', 'body']);
   });
+
+  const withTimeout = (timeoutMs: number) =>
+    draft({ url: 'https://x.io', options: { timeoutMs, followRedirects: true } });
+
+  // Boundary values: 100 and 60 000 are the first/last allowed values.
+  it.each([100, 15_000, 60_000])('accepts timeout %i ms', (timeoutMs) => {
+    expect(validateDraft(withTimeout(timeoutMs)).ok).toBe(true);
+  });
+
+  it.each([99, 60_001, 0, -1, 1.5, Number.NaN])('rejects timeout %d ms', (timeoutMs) => {
+    const result = validateDraft(withTimeout(timeoutMs));
+
+    expect(!result.ok && result.errors.map((error) => error.field)).toEqual(['timeout']);
+  });
 });

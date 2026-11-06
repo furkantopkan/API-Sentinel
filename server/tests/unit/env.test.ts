@@ -42,6 +42,29 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ REQUEST_BODY_LIMIT: limit })).toThrow(/REQUEST_BODY_LIMIT/);
   });
 
+  it('parses SSRF_ALLOWLIST into lower-case host:port entries', () => {
+    const config = loadConfig({ SSRF_ALLOWLIST: ' LocalHost:4010 , [::1]:8080 ,' });
+
+    expect([...config.requestEngine.allowlist]).toEqual(['localhost:4010', '[::1]:8080']);
+  });
+
+  it('defaults to an empty allowlist (everything private is blocked)', () => {
+    expect(loadConfig({}).requestEngine.allowlist.size).toBe(0);
+  });
+
+  it.each(['localhost', 'localhost:0', 'localhost:70000', 'http://localhost:4010', '*:80'])(
+    'rejects SSRF_ALLOWLIST=%j',
+    (raw) => {
+      expect(() => loadConfig({ SSRF_ALLOWLIST: raw })).toThrow(/SSRF_ALLOWLIST/);
+    },
+  );
+
+  it('rejects a default timeout above the maximum', () => {
+    expect(() =>
+      loadConfig({ REQUEST_TIMEOUT_DEFAULT_MS: '9000', REQUEST_TIMEOUT_MAX_MS: '5000' }),
+    ).toThrow(/REQUEST_TIMEOUT_DEFAULT_MS/);
+  });
+
   it('reports every invalid variable at once', () => {
     let message = '';
     try {

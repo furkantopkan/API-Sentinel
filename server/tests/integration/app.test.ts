@@ -1,4 +1,8 @@
-import { apiErrorResponseSchema, healthResponseSchema } from '@api-sentinel/shared';
+import {
+  apiErrorResponseSchema,
+  executeResultSchema,
+  healthResponseSchema,
+} from '@api-sentinel/shared';
 import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app';
@@ -55,6 +59,40 @@ describe('unknown routes', () => {
     const response = await request(app).get('/api/nope?token=SECRET123');
 
     expect(JSON.stringify(response.body)).not.toContain('SECRET123');
+  });
+});
+
+describe('POST /api/requests/execute', () => {
+  const valid = {
+    method: 'GET',
+    url: 'http://127.0.0.1/',
+    queryParams: [],
+    headers: [],
+    auth: { type: 'none' },
+    body: '',
+    options: { followRedirects: true },
+  };
+
+  it('returns 400 VALIDATION_ERROR with issue paths but without the submitted values', async () => {
+    const response = await request(app)
+      .post('/api/requests/execute')
+      .send({ ...valid, method: 'TRACE', auth: { type: 'bearer', token: 123 }, url: 'SECRET-URL' });
+
+    expect(response.status).toBe(400);
+    const body = apiErrorResponseSchema.parse(response.body);
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(JSON.stringify(body.error.details)).toContain('method');
+    expect(JSON.stringify(response.body)).not.toContain('SECRET-URL');
+  });
+
+  it('returns 403 BLOCKED_TARGET for a loopback target (SSRF guard is wired in)', async () => {
+    const response = await request(app).post('/api/requests/execute').send(valid);
+
+    expect(response.status).toBe(403);
+    expect(executeResultSchema.parse(response.body)).toMatchObject({
+      ok: false,
+      error: { code: 'BLOCKED_TARGET' },
+    });
   });
 });
 
