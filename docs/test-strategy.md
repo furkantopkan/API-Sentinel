@@ -134,6 +134,28 @@ Mock target endpoint taslağı:
 
 ---
 
+### 4.4 Assertion Engine (Faz 4)
+Ön koşul: `npm run mock`; URL `/nested`. Otomatik karşılıkları: `e2e/assertions.spec.ts`.
+
+| ID | Senaryo | Beklenen |
+|---|---|---|
+| AS-01 / 02 | Status equals 200 ekle; Send | Önce sonuç yok + ipucu; sonra PASS, "Tests 1/1" |
+| AS-03 / 04 | Beklenen `201`, sonra `abc` (yeniden göndermeden) | Anında FAIL ("200 does not equal 201."), sonra ERROR |
+| AS-05 / 06 | `data.total` equals `2` / `"2"` | PASS / FAIL + "The types differ" |
+| AS-07 | `meta["first name"]` equals `Ada` | PASS |
+| AS-08 / 09 | `data.nextPage` is null; `data.items` is of type array | PASS; is null'da değer alanı yok |
+| AS-10 / 11 | `tags` contains `usb`; `price` > 40 / 60 | PASS; PASS / FAIL |
+| AS-12 / 13 | `data.yok` exists; `data.items[` | FAIL; ERROR (geçersiz path) |
+| AS-14 / 15 | Header `Content-Type` contains json; `X-Yok` exists | PASS; FAIL |
+| AS-16 / 17 | Body contains / not contains `Keyboard`; time < 5000 | PASS / FAIL; PASS |
+| AS-18 / 19 | Satırı devre dışı bırak; sil | Sonuç kaybolur, toplam azalır; satır silinir |
+| AS-20 | Tests sekmesi | Özet + Expected/Actual tablosu |
+| AS-21 / 22 | Ağaçtan `price` ve `items` için Add assertion | `equals 49.9` ve `is of type array`, ikisi PASS |
+| AS-23 | `/text` ile JSON path + status | JSON path ERROR ("not JSON"), status PASS |
+| AS-24 | Satırın türünü değiştir | Operatör/değer yeni türün varsayılanına döner |
+
+---
+
 ## 5. Otomasyon kapsamı (MVP)
 
 **Unit – server**

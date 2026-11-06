@@ -2,7 +2,7 @@
 
 A web-based REST API testing tool for QA engineers: build HTTP requests, inspect responses, and (in later versions) run assertions and generate test cases with AI.
 
-> **Status:** Phases 1–3 complete: Request Builder, backend request engine with SSRF protection, Response Viewer and Response Analyzer. Next: Phase 4 (Assertion Engine). See [docs/development-roadmap.md](docs/development-roadmap.md).
+> **Status:** Phases 1–4 complete: Request Builder, backend request engine with SSRF protection, Response Viewer, Response Analyzer and Assertion Engine. Next: Phase 5 (AI features). See [docs/development-roadmap.md](docs/development-roadmap.md).
 
 ## Features (MVP)
 
@@ -12,6 +12,7 @@ A web-based REST API testing tool for QA engineers: build HTTP requests, inspect
 - Per-request timeout and "follow redirects" setting
 - Response: status (colour-coded), time, size, redirects, formatted JSON / text, headers, copy to clipboard
 - Response Analyzer: collapsible JSON tree with type badges, field details with copyable path (`data.items[0].id`), JSON summary, warning for integers that JavaScript cannot represent exactly, and an Info tab (encoding, decoded vs wire size, redirect chain)
+- Assertions: status code, response time, headers, body text and JSON path checks (exists, equals, null, type, contains, greater/less than) with live PASS / FAIL / ERROR results, expected vs actual, and one-click assertions from the JSON tree
 - Clear error messages for timeouts, DNS/connection failures, too-large responses, blocked targets
 - Requests are sent **by the server**, never directly from the browser, and every target is checked against SSRF rules
 

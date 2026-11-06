@@ -216,6 +216,8 @@ Header'lar dizi olarak tutulur çünkü aynı isimde birden fazla header (ör. `
 - `POST /api/requests/execute` → isteğe `assertions[]` eklenebilir; cevapta `assertionResults[]` döner.
 - `POST /api/assertions/evaluate` → kaydedilmiş bir response üzerinde assertion'ları yeniden çalıştırır (gönderim yapmadan).
 
+> **Faz 4 uygulama kararı (2026-11-06):** Assertion motoru `shared/src/assertions/` içinde saf fonksiyon olarak yazıldı ve şimdilik **tarayıcıda** çalışıyor (assertion düzenlenirken sonuç anında, ağ isteği olmadan güncellenir). Yukarıdaki iki endpoint'e henüz ihtiyaç yok; aynı fonksiyon Faz 6'da (collection runner, test geçmişi) server tarafında kullanılacak ve endpoint'ler o zaman eklenecek. Model: `kind` (status / responseTime / header / body / jsonPath) + `target` + `operator` + `expected` (ham metin; mümkünse JSON olarak yorumlanır). Sonuç: `pass` / `fail` / `error` (error = assertion'ın kendisi geçersiz).
+
 **Faz 5 – AI**
 - `GET /api/ai/status` → AI yapılandırılmış mı (anahtarın kendisi asla dönmez).
 - `POST /api/ai/test-cases` → endpoint açıklamasından senaryo üretir.

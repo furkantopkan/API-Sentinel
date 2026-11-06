@@ -107,7 +107,17 @@ JSON ağaç görünümü, alan tipi gösterimi, JSON path kopyalama, response me
 
 **Durum (2026-11-06):** Plan kullanıcının isteğiyle ayrı onay beklenmeden uygulandı. Manuel testler AN-01…AN-18 kullanıcı tarafından çalıştırıldı, hepsi PASS. Otomasyon: 62 shared + 200 server + 143 client test, 9 Playwright testi geçiyor; mutasyon kontrolü (sayfalama, büyük sayı koruması, prototip koruması) testlerin hataları yakaladığını gösterdi. Yeni paket eklenmedi.
 
-## Faz 4 – Assertion Engine
+## Faz 4 – Assertion Engine ✅ (2026-11-06 tamamlandı)
+
+| Parça | Uygulama |
+|---|---|
+| Model | `shared/src/assertions/schema.ts`: tür başına Zod discriminated union, en fazla 50 assertion |
+| Motor | `evaluateAssertions` (saf, eval yok): status, response time, header, body text, JSON path (exists, equals, null, type, contains, büyük/küçük). FR-04'teki tüm kontroller |
+| Sonuç | `pass` / `fail` / `error`; kontrol adı, beklenen, gerçekleşen, açıklama (FR-04). Tip uyuşmazlığı ve 2^53 üstü sayılar mesajda belirtilir |
+| UI | Request'te Assertions sekmesi (canlı PASS/FAIL), Response'ta Tests sekmesi, JSON ağacından "Add assertion" |
+
+**Durum (2026-11-06):** Plan kullanıcının isteğiyle ayrı onay beklenmeden uygulandı. Manuel testler AS-01…AS-24: kullanıcı bir kısmını çalıştırdı (hepsi doğru) ve kalanların kontrolünü bana bıraktı; kalan senaryoların tamamı Playwright ile gerçek tarayıcıda otomatikleştirildi ve geçiyor (`e2e/assertions.spec.ts`). Otomasyon: 210 shared + 203 server + 173 client test, 14 Playwright testi; mutasyon kontrolü (tip duyarlı eşitlik, sınır değer, devre dışı assertion, null/yok ayrımı) testlerin hataları yakaladığını gösterdi. Test yazarken sayı karşılaştırma mesajlarındaki dil hatası bulundu ve düzeltildi (`bd80b35`). Süreç notu: bir test commit'i typecheck/lint çalıştırılmadan atıldı, `8d5d49a` ile düzeltildi. Yeni paket eklenmedi.
+
 Assertion modeli (shared şema), değerlendirme motoru (saf fonksiyonlar, **eval yok**), JSON path çözümleyici, operatörler, PASS/FAIL arayüzü. Manuel + unit + integration testleri.
 
 ## Faz 5 – AI özellikleri
