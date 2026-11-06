@@ -98,9 +98,22 @@ function compareNumbers(
     default:
       return invalid(`Operator "${operator}" cannot compare numbers.`, shown);
   }
-  const relation = `${shown} ${ok ? '' : 'not '}${OPERATOR_LABELS[operator]} ${expected}${unit}`;
-  return ok ? pass(shown, `${relation}.`) : fail(shown, `${relation}.`);
+  // State what is actually true: "200 equals 200" / "200 does not equal 201".
+  const [whenTrue, whenFalse] = NUMBER_PHRASES[operator];
+  const message = `${shown} ${ok ? whenTrue : whenFalse} ${expected}${unit}.`;
+  return ok ? pass(shown, message) : fail(shown, message);
 }
+
+/** [phrase when the check holds, phrase when it does not] */
+const NUMBER_PHRASES: Record<
+  'equals' | 'notEquals' | 'lessThan' | 'greaterThan',
+  [string, string]
+> = {
+  equals: ['equals', 'does not equal'],
+  notEquals: ['does not equal', 'equals'],
+  lessThan: ['is less than', 'is not less than'],
+  greaterThan: ['is greater than', 'is not greater than'],
+};
 
 function headerValue(response: ExecutedResponse, name: string): string | undefined {
   const lower = name.toLowerCase();
