@@ -4,7 +4,7 @@ import {
   MOCK_BEARER_TOKEN,
   SAMPLE_JSON,
 } from '@api-sentinel/mock-target';
-import type { ExecuteRequest } from '@api-sentinel/shared';
+import { evaluateAssertions, type Assertion, type ExecuteRequest } from '@api-sentinel/shared';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -284,6 +284,75 @@ describe('limits and failures', () => {
 
     await expect(pending).rejects.toThrow();
     expect(logLines.at(-1)).toMatch(/cancelled by client$/);
+  });
+});
+
+// Phase 4: the shared assertion engine applied to real responses from the mock target.
+describe('assertions on real responses', () => {
+  const check = (kind: Assertion['kind'], target: string, operator: string, expected = '') =>
+    ({
+      id: `${kind}-${target}-${operator}-${expected}`,
+      enabled: true,
+      kind,
+      target,
+      operator,
+      expected,
+    }) as Assertion;
+
+  it('evaluates status, time, header, body and JSON path checks on /nested', async () => {
+    const response = await engine.execute(req({ url: `${base}/nested` }));
+    const results = evaluateAssertions(
+      [
+        check('status', '', 'equals', '200'),
+        check('responseTime', '', 'lessThan', '5000'),
+        check('header', 'content-type', 'contains', 'application/json'),
+        check('body', '', 'contains', 'Keyboard'),
+        check('jsonPath', 'data.total', 'equals', '2'),
+        check('jsonPath', 'data.total', 'equals', '"2"'),
+        check('jsonPath', 'meta["first name"]', 'equals', 'Ada'),
+        check('jsonPath', 'data.nextPage', 'isNull'),
+        check('jsonPath', 'data.items[0].tags', 'contains', 'usb'),
+        check('jsonPath', 'data.items[1].price', 'lessThan', '20'),
+        check('jsonPath', 'data.items[', 'exists'),
+      ],
+      response,
+    );
+
+    expect(results.map((r) => `${r.name} → ${r.outcome}`)).toEqual([
+      'Status code equals 200 → pass',
+      'Response time is less than 5000 ms → pass',
+      'Header content-type contains application/json → pass',
+      'Body contains Keyboard → pass',
+      'data.total equals 2 → pass',
+      'data.total equals "2" → fail',
+      'meta["first name"] equals Ada → pass',
+      'data.nextPage is null → pass',
+      'data.items[0].tags contains usb → pass',
+      'data.items[1].price is less than 20 → pass',
+      'data.items[ exists → error',
+    ]);
+  });
+
+  it('checks the decoded body of a gzip response and the final response after redirects', async () => {
+    const gzip = await engine.execute(req({ url: `${base}/gzip` }));
+    const redirected = await engine.execute(req({ url: `${base}/redirect/2` }));
+
+    expect(
+      evaluateAssertions([check('jsonPath', 'compressed', 'equals', 'true')], gzip)[0]?.outcome,
+    ).toBe('pass');
+    expect(
+      evaluateAssertions([check('jsonPath', 'redirected', 'equals', 'true')], redirected)[0]
+        ?.outcome,
+    ).toBe('pass');
+  });
+
+  it('reports JSON path checks on a text response as errors, not failures', async () => {
+    const response = await engine.execute(req({ url: `${base}/text` }));
+
+    expect(evaluateAssertions([check('jsonPath', 'a', 'exists')], response)[0]).toMatchObject({
+      outcome: 'error',
+      message: 'The body is not JSON (text).',
+    });
   });
 });
 
