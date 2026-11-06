@@ -10,3 +10,4 @@ export * from './json/jsonPath';
 export * from './assertions/schema';
 export * from './assertions/values';
 export * from './assertions/evaluate';
+export * from './schemas/ai';

@@ -3,6 +3,10 @@ import type { AppConfig } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { createApiRouter } from './routes/index';
+import { createAnthropicAiClient, type AiClient } from './services/ai-engine/aiClient';
+import { createAiService } from './services/ai-engine/aiService';
+import { createMockAiClient } from './services/ai-engine/mockAiClient';
+import { createRateLimiter } from './services/ai-engine/rateLimiter';
 import {
   createRequestEngine,
   type EngineLogger,
@@ -13,6 +17,20 @@ export interface AppDependencies {
   /** Defaults to a real engine built from config; tests may pass their own logger. */
   engine?: RequestEngine;
   engineLogger?: EngineLogger;
+  /** Overrides the AI client chosen from config (tests pass a fake). null = AI off. */
+  aiClient?: AiClient | null;
+  aiLogger?: (line: string) => void;
+}
+
+function aiClientFor(config: AppConfig): AiClient | null {
+  switch (config.ai.mode) {
+    case 'anthropic':
+      return createAnthropicAiClient(config.ai);
+    case 'mock':
+      return createMockAiClient();
+    case 'off':
+      return null;
+  }
 }
 
 /**
@@ -24,6 +42,12 @@ export interface AppDependencies {
  */
 export function createApp(config: AppConfig, deps: AppDependencies = {}): Express {
   const engine = deps.engine ?? createRequestEngine(config.requestEngine, deps.engineLogger);
+  const ai = createAiService(
+    config.ai,
+    deps.aiClient !== undefined ? deps.aiClient : aiClientFor(config),
+    createRateLimiter(config.ai.ratePerMinute),
+    deps.aiLogger ?? ((line) => console.info(line)),
+  );
   const app = express();
 
   // Do not advertise the framework in an `X-Powered-By` header.
@@ -31,7 +55,7 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
 
   app.use(express.json({ limit: config.requestBodyLimit }));
 
-  app.use('/api', createApiRouter(config, engine));
+  app.use('/api', createApiRouter(config, engine, ai));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

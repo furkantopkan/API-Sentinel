@@ -59,6 +59,13 @@ const envSchema = z
       .refine((raw) => parseAllowlist(raw) !== null, {
         message: 'must be a comma-separated list of host:port entries, e.g. "localhost:4010"',
       }),
+    // Phase 5 – AI. "auto": use Anthropic when a key is set, otherwise AI is off.
+    AI_MODE: z.enum(['auto', 'off', 'mock']).default('auto'),
+    ANTHROPIC_API_KEY: z.string().trim().default(''),
+    AI_MODEL: z.string().trim().min(1).default('claude-sonnet-5-5'),
+    AI_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
+    AI_TIMEOUT_MS: positiveInt(90_000),
+    AI_RATE_LIMIT_PER_MINUTE: positiveInt(10),
   })
   .refine((env) => env.REQUEST_TIMEOUT_DEFAULT_MS <= env.REQUEST_TIMEOUT_MAX_MS, {
     message: 'must not be greater than REQUEST_TIMEOUT_MAX_MS',
@@ -76,6 +83,18 @@ export interface RequestEngineConfig {
   readonly userAgent: string;
 }
 
+/** Settings of the AI features (Phase 5). */
+export interface AiConfig {
+  /** Resolved mode: "auto" becomes "anthropic" (key set) or "off" (no key). */
+  readonly mode: 'off' | 'mock' | 'anthropic';
+  /** Secret: never log it or put it in an error message. Empty unless mode is "anthropic". */
+  readonly apiKey: string;
+  readonly model: string;
+  readonly effort: 'low' | 'medium' | 'high';
+  readonly timeoutMs: number;
+  readonly ratePerMinute: number;
+}
+
 export interface AppConfig {
   readonly port: number;
   readonly host: string;
@@ -83,6 +102,7 @@ export interface AppConfig {
   readonly requestBodyLimit: string;
   readonly version: string;
   readonly requestEngine: RequestEngineConfig;
+  readonly ai: AiConfig;
 }
 
 export class ConfigError extends Error {
@@ -120,5 +140,18 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       maxRedirects: parsed.MAX_REDIRECTS,
       userAgent: `API-Sentinel/${packageJson.version}`,
     },
+    ai: {
+      mode: resolveAiMode(parsed.AI_MODE, parsed.ANTHROPIC_API_KEY),
+      apiKey: parsed.AI_MODE === 'auto' ? parsed.ANTHROPIC_API_KEY : '',
+      model: parsed.AI_MODEL,
+      effort: parsed.AI_EFFORT,
+      timeoutMs: parsed.AI_TIMEOUT_MS,
+      ratePerMinute: parsed.AI_RATE_LIMIT_PER_MINUTE,
+    },
   };
+}
+
+function resolveAiMode(mode: 'auto' | 'off' | 'mock', apiKey: string): AiConfig['mode'] {
+  if (mode === 'auto') return apiKey === '' ? 'off' : 'anthropic';
+  return mode;
 }

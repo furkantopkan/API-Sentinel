@@ -34,7 +34,8 @@ export default defineConfig({
     {
       command: 'npm run start --workspace=@api-sentinel/server',
       url: `http://127.0.0.1:${API_PORT}/api/health`,
-      env: { PORT: String(API_PORT), SSRF_ALLOWLIST: `localhost:${MOCK_PORT}` },
+      // AI_MODE=mock: AI screens run on fixed example answers (no key, no cost, no network).
+      env: { PORT: String(API_PORT), SSRF_ALLOWLIST: `localhost:${MOCK_PORT}`, AI_MODE: 'mock' },
       reuseExistingServer: false,
       cwd: '..',
     },

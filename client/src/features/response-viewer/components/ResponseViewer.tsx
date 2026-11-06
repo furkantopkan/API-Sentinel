@@ -1,5 +1,5 @@
 import type { AssertionResult, ExecutedResponse } from '@api-sentinel/shared';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Tabs } from '../../../components/Tabs';
 import { AssertionResults } from '../../assertions/components/AssertionResults';
 import { summarizeResults } from '../../assertions/lib/summarizeResults';
@@ -11,7 +11,7 @@ import { ResponseBodyView } from './ResponseBodyView';
 import { ResponseMetadata } from './ResponseMetadata';
 import { StatusBadge } from './StatusBadge';
 
-type ResponseTabId = 'body' | 'headers' | 'tests' | 'info';
+type ResponseTabId = 'body' | 'headers' | 'tests' | 'ai' | 'info';
 
 /** Called when the user turns a JSON field into an assertion. */
 export type AddFieldAssertion = (path: string, value: unknown) => void;
@@ -29,9 +29,10 @@ interface SuccessViewProps {
   response: ExecutedResponse;
   results: readonly AssertionResult[];
   onAddAssertion?: AddFieldAssertion;
+  aiTab?: ReactNode;
 }
 
-function SuccessView({ response, results, onAddAssertion }: SuccessViewProps) {
+function SuccessView({ response, results, onAddAssertion, aiTab }: SuccessViewProps) {
   const [activeTab, setActiveTab] = useState<ResponseTabId>('body');
   const redirected = response.redirects.length > 0;
   const summary = summarizeResults(results);
@@ -66,6 +67,7 @@ function SuccessView({ response, results, onAddAssertion }: SuccessViewProps) {
             id: 'tests',
             label: summary.total > 0 ? `Tests ${summary.passed}/${summary.total}` : 'Tests',
           },
+          ...(aiTab ? [{ id: 'ai' as const, label: 'AI' }] : []),
           { id: 'info', label: 'Info' },
         ]}
         activeId={activeTab}
@@ -82,6 +84,7 @@ function SuccessView({ response, results, onAddAssertion }: SuccessViewProps) {
         )}
         {activeTab === 'headers' && <HeadersTable headers={response.headers} />}
         {activeTab === 'tests' && <AssertionResults results={results} />}
+        {activeTab === 'ai' && aiTab}
         {activeTab === 'info' && <ResponseMetadata response={response} />}
       </div>
     </div>
@@ -94,12 +97,15 @@ interface ResponseViewerProps {
   /** Results for the current response; empty when there are no assertions. */
   assertionResults?: readonly AssertionResult[];
   onAddAssertion?: AddFieldAssertion;
+  /** Content of the AI tab (owned by the ai-assistant feature); no tab when absent. */
+  aiTab?: ReactNode;
 }
 
 export function ResponseViewer({
   state,
   assertionResults = [],
   onAddAssertion,
+  aiTab,
 }: ResponseViewerProps) {
   return (
     <section
@@ -141,6 +147,7 @@ export function ResponseViewer({
           response={state.response}
           results={assertionResults}
           onAddAssertion={onAddAssertion}
+          aiTab={aiTab}
         />
       )}
     </section>

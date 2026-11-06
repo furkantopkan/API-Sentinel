@@ -1,9 +1,19 @@
 import {
+  aiStatusResponseSchema,
+  analysisResponseSchema,
+  apiErrorResponseSchema,
   executeResultSchema,
   healthResponseSchema,
+  testCasesResponseSchema,
+  type AiStatus,
+  type AnalysisResponse,
+  type AnalyzeResponseRequest,
+  type ApiErrorResponse,
   type ExecuteRequest,
   type ExecuteResult,
+  type GenerateTestCasesRequest,
   type HealthResponse,
+  type TestCasesResponse,
 } from '@api-sentinel/shared';
 
 /**
@@ -80,4 +90,77 @@ export async function executeRequest(
     throw new ApiClientError('The backend answered in an unexpected format.');
   }
   return result.data;
+}
+
+/**
+ * Shared POST helper for endpoints that answer with `{ ok: true, ... }` or the
+ * standard error shape. Same rules as executeRequest: validated, and
+ * ApiClientError only when the backend is unreachable or off-contract.
+ */
+/** The part of a Zod schema we need (the client has no direct zod dependency). */
+interface Schema<T> {
+  safeParse(data: unknown): { success: true; data: T } | { success: false };
+}
+
+async function postJson<T extends { ok: true }>(
+  path: string,
+  body: unknown,
+  successSchema: Schema<T>,
+  signal?: AbortSignal,
+): Promise<T | ApiErrorResponse> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw new ApiClientError('Could not reach the API Sentinel backend.');
+  }
+
+  let json: unknown;
+  try {
+    json = await response.json();
+  } catch {
+    throw new ApiClientError(
+      `The API Sentinel backend is not reachable (HTTP ${response.status}). Is the server running?`,
+    );
+  }
+
+  const success = successSchema.safeParse(json);
+  if (success.success) return success.data;
+  const failure = apiErrorResponseSchema.safeParse(json);
+  if (failure.success) return failure.data;
+  throw new ApiClientError('The backend answered in an unexpected format.');
+}
+
+export async function fetchAiStatus(signal?: AbortSignal): Promise<AiStatus> {
+  let json: unknown;
+  try {
+    const response = await fetch(`${API_BASE_URL}/ai/status`, { signal });
+    json = await response.json();
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    throw new ApiClientError('Could not reach the API Sentinel backend.');
+  }
+  const result = aiStatusResponseSchema.safeParse(json);
+  if (!result.success) throw new ApiClientError('The backend answered in an unexpected format.');
+  return result.data.status;
+}
+
+export function generateTestCases(
+  input: GenerateTestCasesRequest,
+  signal?: AbortSignal,
+): Promise<TestCasesResponse | ApiErrorResponse> {
+  return postJson('/ai/test-cases', input, testCasesResponseSchema, signal);
+}
+
+export function analyzeResponse(
+  input: AnalyzeResponseRequest,
+  signal?: AbortSignal,
+): Promise<AnalysisResponse | ApiErrorResponse> {
+  return postJson('/ai/analyze', input, analysisResponseSchema, signal);
 }

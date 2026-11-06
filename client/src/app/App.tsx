@@ -1,6 +1,12 @@
-import { evaluateAssertions } from '@api-sentinel/shared';
-import { useMemo, useReducer } from 'react';
+import {
+  assertionSchema,
+  evaluateAssertions,
+  type ExecuteRequest,
+  type SuggestedAssertion,
+} from '@api-sentinel/shared';
+import { useMemo, useReducer, useState } from 'react';
 import { BackendStatusBadge } from '../components/BackendStatusBadge';
+import { AiPanel } from '../features/ai-assistant/components/AiPanel';
 import { AssertionEditor } from '../features/assertions/components/AssertionEditor';
 import {
   assertionForField,
@@ -20,6 +26,18 @@ export function App() {
   const { state, send, cancel } = useSendRequest();
   // Assertions are edited in the builder and their results shown in the viewer.
   const [assertions, dispatchAssertions] = useReducer(assertionsReducer, []);
+  // The request that produced the current response (the AI needs both).
+  const [lastRequest, setLastRequest] = useState<ExecuteRequest | null>(null);
+
+  /** AI suggestions are re-validated before they become real assertions. */
+  const addSuggestion = (suggestion: SuggestedAssertion) => {
+    const parsed = assertionSchema.safeParse({
+      ...suggestion,
+      id: crypto.randomUUID(),
+      enabled: true,
+    });
+    if (parsed.success) dispatchAssertions({ type: 'add', assertion: parsed.data });
+  };
 
   // Derived, never stored: re-evaluated whenever the response or an assertion changes,
   // so editing an assertion updates its PASS/FAIL immediately without re-sending.
@@ -41,7 +59,10 @@ export function App() {
         <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <RequestBuilder
-              onSend={(request) => void send(request)}
+              onSend={(request) => {
+                setLastRequest(request);
+                void send(request);
+              }}
               onCancel={cancel}
               isSending={state.status === 'loading'}
               assertionsTab={{
@@ -75,6 +96,16 @@ export function App() {
                   type: 'add',
                   assertion: assertionForField(crypto.randomUUID(), path, value),
                 })
+              }
+              aiTab={
+                response &&
+                lastRequest && (
+                  <AiPanel
+                    request={lastRequest}
+                    response={response}
+                    onAddAssertion={addSuggestion}
+                  />
+                )
               }
             />
           </div>

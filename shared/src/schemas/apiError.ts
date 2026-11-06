@@ -19,6 +19,14 @@ export const ERROR_CODES = [
   'PAYLOAD_TOO_LARGE',
   'NOT_FOUND',
   'INTERNAL_ERROR',
+  // Phase 5 – AI features
+  'RATE_LIMITED',
+  'AI_NOT_CONFIGURED',
+  'AI_RATE_LIMITED',
+  'AI_TIMEOUT',
+  'AI_UNAVAILABLE',
+  'AI_REFUSED',
+  'AI_INVALID_OUTPUT',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);

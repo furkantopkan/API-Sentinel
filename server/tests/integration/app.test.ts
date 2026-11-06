@@ -24,6 +24,14 @@ const testConfig: AppConfig = {
     maxRedirects: 5,
     userAgent: 'API-Sentinel/test',
   },
+  ai: {
+    mode: 'off',
+    apiKey: '',
+    model: 'test-model',
+    effort: 'medium',
+    timeoutMs: 1000,
+    ratePerMinute: 5,
+  },
 };
 
 const app = createApp(testConfig, { engineLogger: () => undefined });
