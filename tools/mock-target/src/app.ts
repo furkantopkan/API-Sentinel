@@ -52,6 +52,9 @@ export function createMockTargetApp(): Express {
         'GET /binary',
         'GET /gzip',
         'GET /headers',
+        'GET /nested',
+        'GET /large-json/:n',
+        'GET /bigint',
       ],
     });
   });
@@ -156,6 +159,34 @@ export function createMockTargetApp(): Express {
       .type('application/json')
       .set('Content-Encoding', 'gzip')
       .send(gzipSync(JSON.stringify({ compressed: true, ...SAMPLE_JSON })));
+  });
+
+  // Phase 3: every JSON type, nesting, awkward keys (spaces, dashes, dots) and an empty array/object.
+  app.get('/nested', (_req, res) => {
+    res.json({
+      data: {
+        items: [
+          { id: 1, name: 'Keyboard', price: 49.9, inStock: true, tags: ['usb', 'black'] },
+          { id: 2, name: 'Mouse', price: 19.5, inStock: false, tags: [] },
+        ],
+        total: 2,
+        nextPage: null,
+      },
+      meta: { 'request-id': 'abc-123', 'first name': 'Ada', 'version.major': 3, empty: {} },
+    });
+  });
+
+  // Many objects: checks that the tree stays fast (paging) — /large-json/5000
+  app.get('/large-json/:n', (req, res) => {
+    const n = clampInt(req.params.n, 1, 50_000) ?? 1;
+    res.json(
+      Array.from({ length: n }, (_, i) => ({ id: i, name: `user-${i}`, active: i % 2 === 0 })),
+    );
+  });
+
+  // Integers beyond 2^53: JSON.parse rounds them. Sent as raw text on purpose.
+  app.get('/bigint', (_req, res) => {
+    res.type('application/json').send('{"id": 12345678901234567890, "small": 42}');
   });
 
   app.get('/headers', (_req, res) => {

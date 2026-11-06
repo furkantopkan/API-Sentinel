@@ -6,3 +6,4 @@ export * from './schemas/health';
 export * from './schemas/apiError';
 export * from './schemas/execute';
 export * from './url/buildFinalUrl';
+export * from './json/jsonPath';

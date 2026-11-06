@@ -6,9 +6,10 @@ import { formatBytes, formatDuration } from '../lib/formatBytes';
 import { ErrorView } from './ErrorView';
 import { HeadersTable } from './HeadersTable';
 import { ResponseBodyView } from './ResponseBodyView';
+import { ResponseMetadata } from './ResponseMetadata';
 import { StatusBadge } from './StatusBadge';
 
-type ResponseTabId = 'body' | 'headers';
+type ResponseTabId = 'body' | 'headers' | 'info';
 
 function CenteredMessage({ title, subtitle }: { title: string; subtitle: string }) {
   return (
@@ -49,17 +50,18 @@ function SuccessView({ response }: { response: ExecutedResponse }) {
         tabs={[
           { id: 'body', label: 'Body' },
           { id: 'headers', label: 'Headers', count: response.headers.length },
+          { id: 'info', label: 'Info' },
         ]}
         activeId={activeTab}
         onChange={setActiveTab}
         ariaLabel="Response sections"
       />
       <div role="tabpanel">
-        {activeTab === 'body' ? (
+        {activeTab === 'body' && (
           <ResponseBodyView body={response.body} sizeBytes={response.sizeBytes} />
-        ) : (
-          <HeadersTable headers={response.headers} />
         )}
+        {activeTab === 'headers' && <HeadersTable headers={response.headers} />}
+        {activeTab === 'info' && <ResponseMetadata response={response} />}
       </div>
     </div>
   );
