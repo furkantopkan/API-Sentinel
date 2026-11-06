@@ -10,7 +10,7 @@ import {
   type generateTestCasesRequestSchema,
   type analyzeResponseRequestSchema,
 } from '@api-sentinel/shared';
-import type { z } from 'zod';
+import { ZodError, type z } from 'zod';
 import type { AiConfig } from '../../config/env';
 import { AppError } from '../../errors/AppError';
 import type { AiClient } from './aiClient';
@@ -91,7 +91,16 @@ export function createAiService(
       const output = await call(ai);
       log(`[ai] ${task} -> ok (${Math.round(performance.now() - started)} ms)`);
       return { ai, output };
-    } catch (error) {
+    } catch (caught) {
+      // Output that fails our schema is the model's fault, not a server bug.
+      const error =
+        caught instanceof ZodError
+          ? new AppError(
+              'AI_INVALID_OUTPUT',
+              'The AI answer did not match the expected format.',
+              502,
+            )
+          : caught;
       log(`[ai] ${task} -> ${error instanceof AppError ? error.code : 'ERROR'}`);
       throw error;
     }
