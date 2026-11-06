@@ -169,6 +169,16 @@ describe('successful requests', () => {
     expect(response.sizeBytes).toBe(Buffer.byteLength(text));
   });
 
+  // The server must pass the body through as text: parsing it would round big integers.
+  it('returns JSON bodies byte-for-byte, so integers beyond 2^53 keep every digit', async () => {
+    const response = await engine.execute(req({ url: `${base}/bigint` }));
+
+    expect(response.body).toEqual({
+      kind: 'json',
+      text: '{"id": 12345678901234567890, "small": 42}',
+    });
+  });
+
   it('keeps repeated response headers (two set-cookie entries)', async () => {
     const response = await engine.execute(req({ url: `${base}/headers` }));
     const cookies = response.headers.filter(([name]) => name.toLowerCase() === 'set-cookie');

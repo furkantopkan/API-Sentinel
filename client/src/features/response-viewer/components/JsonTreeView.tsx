@@ -41,7 +41,10 @@ const VALUE_STYLES: Record<JsonType, string> = {
 
 function TypeBadge({ type }: { type: JsonType }) {
   return (
-    <span className={`rounded px-1 py-px font-sans text-[10px] font-medium ${TYPE_STYLES[type]}`}>
+    <span
+      data-testid="type-badge"
+      className={`rounded px-1 py-px font-sans text-[10px] font-medium ${TYPE_STYLES[type]}`}
+    >
       {type}
     </span>
   );
