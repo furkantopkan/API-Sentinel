@@ -14,8 +14,9 @@ function offsetToLineColumn(text: string, offset: number): { line: number; colum
  * Browsers word it differently:
  *   Chrome/Edge: "... at position 7 (line 1 column 8)"
  *   Firefox:     "... at line 1 column 8 of the JSON data"
+ * Exported for unit tests (tests run in Node, which words it like Chrome).
  */
-function findErrorLocation(
+export function findErrorLocation(
   text: string,
   message: string,
 ): { line: number; column: number } | undefined {
