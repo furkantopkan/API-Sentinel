@@ -2,7 +2,7 @@
 
 A web-based REST API testing tool for QA engineers: build HTTP requests, inspect responses, and (in later versions) run assertions and generate test cases with AI.
 
-> **Status:** Phases 1–4 complete: Request Builder, backend request engine with SSRF protection, Response Viewer, Response Analyzer and Assertion Engine. Next: Phase 5 (AI features). See [docs/development-roadmap.md](docs/development-roadmap.md).
+> **Status:** Phases 1–5 complete: Request Builder, backend request engine with SSRF protection, Response Viewer, Response Analyzer, Assertion Engine and AI features. Next: Phase 6 (collections, environments, reports). See [docs/development-roadmap.md](docs/development-roadmap.md).
 
 ## Features (MVP)
 
@@ -13,6 +13,7 @@ A web-based REST API testing tool for QA engineers: build HTTP requests, inspect
 - Response: status (colour-coded), time, size, redirects, formatted JSON / text, headers, copy to clipboard
 - Response Analyzer: collapsible JSON tree with type badges, field details with copyable path (`data.items[0].id`), JSON summary, warning for integers that JavaScript cannot represent exactly, and an Info tab (encoding, decoded vs wire size, redirect chain)
 - Assertions: status code, response time, headers, body text and JSON path checks (exists, equals, null, type, contains, greater/less than) with live PASS / FAIL / ERROR results, expected vs actual, and one-click assertions from the JSON tree
+- AI (optional, Claude): generate editable test cases and analyse a response, with one-click suggested assertions and Markdown export. Secrets are masked before anything is sent; without an API key the AI tab is simply off
 - Clear error messages for timeouts, DNS/connection failures, too-large responses, blocked targets
 - Requests are sent **by the server**, never directly from the browser, and every target is checked against SSRF rules
 
@@ -21,7 +22,7 @@ A web-based REST API testing tool for QA engineers: build HTTP requests, inspect
 | Layer | Technology |
 |---|---|
 | Client | React 19, TypeScript, Vite, Tailwind CSS |
-| Server | Node.js, Express 5, Zod, undici (outbound HTTP) |
+| Server | Node.js, Express 5, Zod, undici (outbound HTTP), Anthropic SDK (AI) |
 | Shared | Zod schemas and types used by both sides (the API contract) |
 | Tests | Vitest (unit), Supertest (integration), Testing Library + jsdom (components), Playwright (E2E) |
 | Quality | ESLint (type-aware), Prettier |
@@ -78,6 +79,10 @@ cp .env.example .env        # Windows (cmd): copy .env.example .env
 | `REQUEST_BODY_LIMIT` | `1mb` | Max size of a request sent to our API |
 | `MAX_REDIRECTS` | `5` | Redirects followed before `TOO_MANY_REDIRECTS` |
 | `SSRF_ALLOWLIST` | empty | Comma-separated exact `host:port` pairs that may be private/local, e.g. `localhost:4010` |
+| `ANTHROPIC_API_KEY` | empty | Enables the AI features (server only, never logged) |
+| `AI_MODE` | `auto` | `auto` (AI on when a key is set), `off`, or `mock` (fixed example answers, no key or cost) |
+| `AI_MODEL` / `AI_EFFORT` | `claude-sonnet-5-5` / `medium` | Model and reasoning effort for AI calls |
+| `AI_TIMEOUT_MS` / `AI_RATE_LIMIT_PER_MINUTE` | `90000` / `10` | Limits for AI calls |
 
 Invalid values stop the server at startup with a message naming the variable. Never commit `.env`.
 

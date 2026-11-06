@@ -77,6 +77,7 @@ Kullanıcı bir soru sorduğunda **kodlamayı durdur**, önce konuyu örneklerle
 ## Komutlar (kökten)
 - `npm run dev`: server (3001) + client (5173) birlikte
 - `npm run mock`: mock target (4010; `.env` içinde `SSRF_ALLOWLIST=localhost:4010,localhost:4011`)
+- AI: `.env` içinde `AI_MODE=mock` (anahtarsız sabit cevaplar); E2E backend'i her zaman mock AI ile çalışır
 - `npm test` · `npm run test:e2e` (Playwright; portlar 4998/3998/5998) · `npm run typecheck` · `npm run lint` · `npm run format:check` · `npm run build`
 - Commit öncesi: typecheck + lint + format:check + test geçmeli.
 - Kendi denemelerimde farklı portlar kullan (backend `PORT=3999`, Vite `--port 5999` + `API_PROXY_TARGET`), bitince süreçleri kapat ve portun boşaldığını HTTP isteğiyle doğrula.

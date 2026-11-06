@@ -120,7 +120,16 @@ JSON ağaç görünümü, alan tipi gösterimi, JSON path kopyalama, response me
 
 Assertion modeli (shared şema), değerlendirme motoru (saf fonksiyonlar, **eval yok**), JSON path çözümleyici, operatörler, PASS/FAIL arayüzü. Manuel + unit + integration testleri.
 
-## Faz 5 – AI özellikleri
+## Faz 5 – AI özellikleri ✅ (2026-11-06 tamamlandı)
+
+| Parça | Uygulama |
+|---|---|
+| Kararlar | Kullanıcı onayıyla `@anthropic-ai/sdk` (yalnızca server) eklendi; model kullanıcı seçimiyle **Claude Sonnet 5.5**; anahtar yokken AI kapalı, `AI_MODE=mock` ile anahtarsız deneme |
+| Server | `ai-engine`: `AiClient` (SDK / mock), secret maskeleme, etiketli veri ile prompt injection önlemi, Zod + assertion şeması ile çıktı doğrulama, rate limit, hata eşleme; `GET /api/ai/status`, `POST /api/ai/test-cases`, `POST /api/ai/analyze` |
+| Client | Response'ta AI sekmesi: düzenlenebilir test senaryoları (FR-05), Markdown dışa aktarma, analiz, tek tıkla önerilen assertion ekleme |
+
+**Durum (2026-11-06):** Manuel testler AI-01…AI-15 kullanıcı tarafından çalıştırıldı, hepsi PASS. Kullanıcının bulduğu hata: response sekmesi değişince AI sonuçları siliniyordu (state sekme içinde tutuluyordu) → state `App`'e taşındı, regresyon E2E testi eklendi (`0508800`). Aynı turda ortak `Button` bileşeniyle buton stilleri birleştirildi. Düzeltme sonrası manuel tekrar yerine kullanıcının isteğiyle otomasyonla doğrulandı. Otomasyon: 210 shared + 257 server + 186 client test, 19 Playwright testi; mutasyon kontrolü (maskeleme, öneri filtresi, rate limit sınırı) testlerin hataları yakaladığını gösterdi. **Bilinen sınır:** gerçek Anthropic çağrısının başarılı yolu henüz anahtar olmadığı için manuel denenmedi (geçersiz anahtarla hata yolu denendi); SDK tipleriyle derlenip birim testlerle hata eşlemesi doğrulandı.
+
 `ai-engine` servisi, Anthropic SDK, yapılandırılmış çıktı + Zod doğrulama, AI kapalıyken uygulamanın çalışmaya devam etmesi, "bu bir öneridir" uyarısı, rate limit. Manuel + otomasyon (AI istemcisi mock'lanarak).
 
 ## Faz 6 – Collections, Environments, Raporlama

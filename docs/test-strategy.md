@@ -156,6 +156,25 @@ Mock target endpoint taslağı:
 
 ---
 
+### 4.5 AI özellikleri (Faz 5)
+Ön koşul: `.env` içinde `AI_MODE=mock` (anahtarsız, sabit cevaplar). Otomatik karşılıkları: `e2e/ai.spec.ts`, `server/tests/integration/ai.test.ts`.
+
+| ID | Senaryo | Beklenen |
+|---|---|---|
+| AI-01 / 02 | `/nested` → AI → Generate test cases | Uyarı kutusu (mock), 5 senaryo kartı |
+| AI-03 | Not satırı | "1 invalid suggested assertion(s) removed by the server" |
+| AI-04 / 05 | Öneriyi Add / Add all | Assertion eklenir, "Added ✓"; 401 bekleyen senaryo FAIL verir |
+| AI-06 / 07 | Edit → Done; ✕ | Değişiklik kalır; diğer kartların durumu bozulmaz |
+| AI-08 | Copy as Markdown | Düzenlenmiş haliyle Markdown |
+| AI-09 / 10 | Analyze response; Add all | Özet + gözlemler; öneriler PASS |
+| AI-11 | Yeni Send | Analiz gizlenir, test senaryoları kalır |
+| AI-12 | Token'lı istekle AI | Server logunda yalnızca `[ai] … -> ok` |
+| AI-13 | Dakikada 11 istek | `RATE_LIMITED` |
+| AI-14 / 15 | `AI_MODE=off` / tekrar `mock` | "AI features are not configured"; diğer özellikler çalışır |
+| AI-16 | Response sekmeleri arasında geçiş (regresyon) | AI sonuçları kaybolmaz |
+
+---
+
 ## 5. Otomasyon kapsamı (MVP)
 
 **Unit – server**

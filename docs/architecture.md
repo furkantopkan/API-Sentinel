@@ -221,7 +221,9 @@ Header'lar dizi olarak tutulur çünkü aynı isimde birden fazla header (ör. `
 **Faz 5 – AI**
 - `GET /api/ai/status` → AI yapılandırılmış mı (anahtarın kendisi asla dönmez).
 - `POST /api/ai/test-cases` → endpoint açıklamasından senaryo üretir.
-- `POST /api/ai/analyze-response` → response'u yorumlar, şüpheli durumları listeler.
+- `POST /api/ai/analyze` → response'u yorumlar, şüpheli durumları listeler.
+
+> **Faz 5 uygulama notu (2026-11-06):** `server/src/services/ai-engine/`. `AiClient` arayüzünün iki uygulaması var: Anthropic SDK (`claude-sonnet-5-5`, structured outputs + Zod, `fallbacks: "default"`, timeout, 1 retry) ve deterministik mock (`AI_MODE=mock`; anahtarsız deneme ve E2E). Gönderilmeden önce secret'lar maskelenir (`redact.ts`); request/response prompt'a etiketli **veri** olarak girer (prompt injection önlemi); çıktı şema + assertion şemasıyla yeniden doğrulanır; süreç başına dakikalık rate limit; loglar içerik içermez. Client tarafında AI durumu `App` seviyesinde tutulur (`useAiAssistant`), sekme değişiminde kaybolmaz.
 
 **Faz 6 – Collections / Environments / Runs**
 - `GET|POST /api/collections`, `GET|PATCH|DELETE /api/collections/:id`
@@ -341,6 +343,11 @@ Notlar:
 | `REQUEST_BODY_LIMIT` | `1mb` | Backend'e gelen istek limiti |
 | `MAX_REDIRECTS` | `5` | |
 | `SSRF_ALLOWLIST` | (boş) | Virgülle ayrılmış `host:port` listesi |
-| `ANTHROPIC_API_KEY` | (boş) | Faz 5 |
+| `ANTHROPIC_API_KEY` | (boş) | Faz 5. Yalnızca backend; loglanmaz |
+| `AI_MODE` | `auto` | `auto` (anahtar varsa Anthropic, yoksa kapalı) / `off` / `mock` |
+| `AI_MODEL` | `claude-sonnet-5-5` | |
+| `AI_EFFORT` | `medium` | `low` / `medium` / `high` |
+| `AI_TIMEOUT_MS` | `90000` | |
+| `AI_RATE_LIMIT_PER_MINUTE` | `10` | Süreç başına AI isteği sınırı |
 
 Uygulama başlarken bu değerler Zod ile doğrulanır; hatalıysa sunucu açıklayıcı mesajla **başlamaz** (fail fast).
