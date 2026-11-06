@@ -7,3 +7,6 @@ export * from './schemas/apiError';
 export * from './schemas/execute';
 export * from './url/buildFinalUrl';
 export * from './json/jsonPath';
+export * from './assertions/schema';
+export * from './assertions/values';
+export * from './assertions/evaluate';

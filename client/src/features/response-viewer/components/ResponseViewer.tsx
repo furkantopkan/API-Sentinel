@@ -1,6 +1,8 @@
-import type { ExecutedResponse } from '@api-sentinel/shared';
+import type { AssertionResult, ExecutedResponse } from '@api-sentinel/shared';
 import { useState } from 'react';
 import { Tabs } from '../../../components/Tabs';
+import { AssertionResults } from '../../assertions/components/AssertionResults';
+import { summarizeResults } from '../../assertions/lib/summarizeResults';
 import type { SendState } from '../../../hooks/useSendRequest';
 import { formatBytes, formatDuration } from '../lib/formatBytes';
 import { ErrorView } from './ErrorView';
@@ -9,7 +11,10 @@ import { ResponseBodyView } from './ResponseBodyView';
 import { ResponseMetadata } from './ResponseMetadata';
 import { StatusBadge } from './StatusBadge';
 
-type ResponseTabId = 'body' | 'headers' | 'info';
+type ResponseTabId = 'body' | 'headers' | 'tests' | 'info';
+
+/** Called when the user turns a JSON field into an assertion. */
+export type AddFieldAssertion = (path: string, value: unknown) => void;
 
 function CenteredMessage({ title, subtitle }: { title: string; subtitle: string }) {
   return (
@@ -20,9 +25,16 @@ function CenteredMessage({ title, subtitle }: { title: string; subtitle: string 
   );
 }
 
-function SuccessView({ response }: { response: ExecutedResponse }) {
+interface SuccessViewProps {
+  response: ExecutedResponse;
+  results: readonly AssertionResult[];
+  onAddAssertion?: AddFieldAssertion;
+}
+
+function SuccessView({ response, results, onAddAssertion }: SuccessViewProps) {
   const [activeTab, setActiveTab] = useState<ResponseTabId>('body');
   const redirected = response.redirects.length > 0;
+  const summary = summarizeResults(results);
 
   return (
     <div className="space-y-3">
@@ -50,6 +62,10 @@ function SuccessView({ response }: { response: ExecutedResponse }) {
         tabs={[
           { id: 'body', label: 'Body' },
           { id: 'headers', label: 'Headers', count: response.headers.length },
+          {
+            id: 'tests',
+            label: summary.total > 0 ? `Tests ${summary.passed}/${summary.total}` : 'Tests',
+          },
           { id: 'info', label: 'Info' },
         ]}
         activeId={activeTab}
@@ -58,9 +74,14 @@ function SuccessView({ response }: { response: ExecutedResponse }) {
       />
       <div role="tabpanel">
         {activeTab === 'body' && (
-          <ResponseBodyView body={response.body} sizeBytes={response.sizeBytes} />
+          <ResponseBodyView
+            body={response.body}
+            sizeBytes={response.sizeBytes}
+            onAddAssertion={onAddAssertion}
+          />
         )}
         {activeTab === 'headers' && <HeadersTable headers={response.headers} />}
+        {activeTab === 'tests' && <AssertionResults results={results} />}
         {activeTab === 'info' && <ResponseMetadata response={response} />}
       </div>
     </div>
@@ -68,7 +89,18 @@ function SuccessView({ response }: { response: ExecutedResponse }) {
 }
 
 /** Shows one of: empty, loading, cancelled, error or the received response. */
-export function ResponseViewer({ state }: { state: SendState }) {
+interface ResponseViewerProps {
+  state: SendState;
+  /** Results for the current response; empty when there are no assertions. */
+  assertionResults?: readonly AssertionResult[];
+  onAddAssertion?: AddFieldAssertion;
+}
+
+export function ResponseViewer({
+  state,
+  assertionResults = [],
+  onAddAssertion,
+}: ResponseViewerProps) {
   return (
     <section
       aria-label="Response"
@@ -103,7 +135,14 @@ export function ResponseViewer({ state }: { state: SendState }) {
       {state.status === 'error' && <ErrorView error={state.error} />}
 
       {/* key: a NEW response (not a re-render) resets the tab and "show all" state */}
-      {state.status === 'success' && <SuccessView key={state.id} response={state.response} />}
+      {state.status === 'success' && (
+        <SuccessView
+          key={state.id}
+          response={state.response}
+          results={assertionResults}
+          onAddAssertion={onAddAssertion}
+        />
+      )}
     </section>
   );
 }

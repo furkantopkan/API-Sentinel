@@ -157,7 +157,13 @@ interface Selection {
   value: unknown;
 }
 
-function FieldDetails({ selection }: { selection: Selection }) {
+interface FieldDetailsProps {
+  selection: Selection;
+  onAddAssertion?: (path: string, value: unknown) => void;
+}
+
+function FieldDetails({ selection, onAddAssertion }: FieldDetailsProps) {
+  const [added, setAdded] = useState(false);
   const path = formatJsonPath(selection.path);
   const type = jsonTypeOf(selection.value);
   const valueText = JSON.stringify(selection.value, null, 2);
@@ -179,6 +185,18 @@ function FieldDetails({ selection }: { selection: Selection }) {
         </code>
         {path !== '' && <CopyButton text={path} label="Copy path" />}
         <CopyButton text={valueText} label="Copy value" />
+        {onAddAssertion && (
+          <button
+            type="button"
+            onClick={() => {
+              onAddAssertion(path, selection.value);
+              setAdded(true);
+            }}
+            className="rounded-md border border-indigo-200 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+          >
+            {added ? 'Added ✓ (see Assertions tab)' : 'Add assertion'}
+          </button>
+        )}
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-500">
         <span>
@@ -200,7 +218,13 @@ function FieldDetails({ selection }: { selection: Selection }) {
  * Collapsible JSON tree with type badges. Clicking a field shows its path
  * (e.g. `data.items[0].id`, the format assertions will use) and details.
  */
-export function JsonTreeView({ data }: { data: unknown }) {
+interface JsonTreeViewProps {
+  data: unknown;
+  /** When set, the field details offer an "Add assertion" button. */
+  onAddAssertion?: (path: string, value: unknown) => void;
+}
+
+export function JsonTreeView({ data, onAddAssertion }: JsonTreeViewProps) {
   const [selection, setSelection] = useState<Selection | null>(null);
   // Changing `version` remounts the tree, so every node re-reads expandDepth.
   const [expand, setExpand] = useState({ depth: DEFAULT_EXPAND_DEPTH, version: 0 });
@@ -225,7 +249,12 @@ export function JsonTreeView({ data }: { data: unknown }) {
       </div>
 
       {selection ? (
-        <FieldDetails selection={selection} />
+        // key: selecting another field resets the "Added" feedback
+        <FieldDetails
+          key={formatJsonPath(selection.path)}
+          selection={selection}
+          onAddAssertion={onAddAssertion}
+        />
       ) : (
         <p className="text-xs text-slate-400">Click a field to see its path and type.</p>
       )}

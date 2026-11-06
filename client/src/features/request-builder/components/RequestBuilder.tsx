@@ -1,5 +1,5 @@
 import { buildFinalUrl, type ExecuteRequest } from '@api-sentinel/shared';
-import { useReducer, useState, type FormEvent } from 'react';
+import { useReducer, useState, type FormEvent, type ReactNode } from 'react';
 import { Tabs, type TabItem } from '../../../components/Tabs';
 import { toExecuteRequest } from '../lib/toExecuteRequest';
 import { validateDraft } from '../lib/validateDraft';
@@ -16,7 +16,7 @@ import { KeyValueEditor } from './KeyValueEditor';
 import { MethodSelect } from './MethodSelect';
 import { SettingsPanel } from './SettingsPanel';
 
-type RequestTabId = 'params' | 'headers' | 'auth' | 'body' | 'settings';
+type RequestTabId = 'params' | 'headers' | 'auth' | 'body' | 'assertions' | 'settings';
 
 function countEnabled(rows: readonly KeyValueRow[]): number {
   return rows.filter((row) => row.enabled && row.key.trim() !== '').length;
@@ -26,9 +26,19 @@ interface RequestBuilderProps {
   onSend: (request: ExecuteRequest) => void;
   onCancel: () => void;
   isSending: boolean;
+  /**
+   * The Assertions tab is owned by the assertions feature (App passes it in),
+   * so the request builder does not depend on assertion logic.
+   */
+  assertionsTab?: { count: number; content: ReactNode };
 }
 
-export function RequestBuilder({ onSend, onCancel, isSending }: RequestBuilderProps) {
+export function RequestBuilder({
+  onSend,
+  onCancel,
+  isSending,
+  assertionsTab,
+}: RequestBuilderProps) {
   const [draft, dispatch] = useReducer(requestDraftReducer, initialRequestDraft);
   const [activeTab, setActiveTab] = useState<RequestTabId>('params');
   // Errors are only shown after the first Send attempt, then they update live.
@@ -46,6 +56,9 @@ export function RequestBuilder({ onSend, onCancel, isSending }: RequestBuilderPr
     { id: 'headers', label: 'Headers', count: countEnabled(draft.headers) },
     { id: 'auth', label: 'Auth', count: draft.auth.type === 'none' ? 0 : 1 },
     { id: 'body', label: 'Body', count: draft.body.trim() === '' ? 0 : 1 },
+    ...(assertionsTab
+      ? [{ id: 'assertions' as const, label: 'Assertions', count: assertionsTab.count }]
+      : []),
     { id: 'settings', label: 'Settings', count: settingsChanged ? 1 : 0 },
   ];
 
@@ -138,6 +151,7 @@ export function RequestBuilder({ onSend, onCancel, isSending }: RequestBuilderPr
             onChange={(body) => dispatch({ type: 'setBody', body })}
           />
         )}
+        {activeTab === 'assertions' && assertionsTab?.content}
         {activeTab === 'settings' && (
           <SettingsPanel
             options={draft.options}

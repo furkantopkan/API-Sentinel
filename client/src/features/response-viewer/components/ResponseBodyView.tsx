@@ -14,6 +14,7 @@ type ViewMode = 'tree' | 'raw';
 interface ResponseBodyViewProps {
   body: ResponseBody;
   sizeBytes: number;
+  onAddAssertion?: (path: string, value: unknown) => void;
 }
 
 function JsonSummaryLine({ summary }: { summary: JsonSummary }) {
@@ -53,7 +54,7 @@ function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (mode: ViewM
   );
 }
 
-export function ResponseBodyView({ body, sizeBytes }: ResponseBodyViewProps) {
+export function ResponseBodyView({ body, sizeBytes, onAddAssertion }: ResponseBodyViewProps) {
   const text = useMemo(() => bodyText(body), [body]);
   // Parse and analyse once per response, not on every render.
   const json = useMemo(() => {
@@ -101,7 +102,7 @@ export function ResponseBodyView({ body, sizeBytes }: ResponseBodyViewProps) {
       )}
 
       {showTree ? (
-        <JsonTreeView data={json.value} />
+        <JsonTreeView data={json.value} onAddAssertion={onAddAssertion} />
       ) : (
         <>
           {/* Rendered as text by React (escaped), so HTML or scripts are never executed. */}
