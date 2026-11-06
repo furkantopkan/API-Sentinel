@@ -1,0 +1,9 @@
+{
+  // Playwright tests run in Node and control the browser remotely.
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"]
+  },
+  "include": ["."]
+}
