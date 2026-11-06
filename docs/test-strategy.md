@@ -112,6 +112,28 @@ Mock target endpoint taslağı:
 
 ---
 
+### 4.3 Response Analyzer (Faz 3)
+Ön koşul: `npm run mock` (yeni endpoint'ler: `/nested`, `/large-json/:n`, `/bigint`).
+
+| ID | Senaryo | Beklenen |
+|---|---|---|
+| AN-01 | `/nested` | Tree görünümü; kök ve ilk seviye açık; tip rozetleri |
+| AN-02 | Özet satırı | `24 values · depth 5 · 6 objects, 3 arrays, 6 strings, 6 numbers, 2 booleans, 1 null` |
+| AN-03 / 04 | Düğüm aç/kapa; Expand all / Collapse all | Beklenen düğümler açılır/kapanır |
+| AN-05 / 06 | `data.items[0].name` seç; Copy path | Path, tip `string`, 8 karakter; panoya path kopyalanır |
+| AN-07 | `first name`, `request-id`, `version.major` | `meta["first name"]` vb. (tırnaklı anahtar) |
+| AN-08 | `data` → Copy value | Girintili JSON |
+| AN-09 | Boş dizi / nesne | `[0 items]`, `{0 keys}`, açma oku yok |
+| AN-10 | Raw ↔ Tree | Görünüm değişir |
+| AN-11 / 12 | `/bigint` | Uyarı + "⚠ precision"; Raw'da `12345678901234567890` aynen |
+| AN-13 / 14 | `/large-json/20000`; Show more | Donma yok; 100'er öğe eklenir |
+| AN-15 | `/gzip` → Info | `gzip`, çözülmüş vs. Content-Length boyutu |
+| AN-16 | `/redirect/3` → Info | 3 redirect adımı |
+| AN-17 | `/text`, `/html` | Tree/Raw yok, düz metin, script çalışmaz |
+| AN-18 | Alan seç, yeniden Send | Seçim ve görünüm sıfırlanır |
+
+---
+
 ## 5. Otomasyon kapsamı (MVP)
 
 **Unit – server**

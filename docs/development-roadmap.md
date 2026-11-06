@@ -94,8 +94,18 @@ Notlar: Adımlar tek bir `feat` commit'inde (2.1–2.10) ve iki `test` commit'in
 
 ---
 
-## Faz 3 – Response Analyzer
+## Faz 3 – Response Analyzer ✅ (2026-11-06 tamamlandı)
 JSON ağaç görünümü, alan tipi gösterimi, JSON path kopyalama, response metadata detayları, büyük response optimizasyonu. Manuel + otomasyon testleri.
+
+| Parça | Uygulama |
+|---|---|
+| JSON path (B-10) | `shared/src/json/jsonPath.ts`: `formatJsonPath` / `parseJsonPath` / `resolveJsonPath` — nokta notasyonu, tanımlayıcı olmayan anahtarlar `["first name"]`, yalnızca kendi özellikleri (prototip yok). Faz 4 assertion'ları aynı fonksiyonu kullanacak |
+| Tree görünümü | `JsonTreeView`: tip rozetleri, aç/kapa, Expand/Collapse all, alan detayı (path, tip, boyut, Copy path/value) |
+| Büyük response | Kapalı düğümün çocukları render edilmez; düğüm başına 100'lük sayfalama ("Show more"). 20 000 öğe ≈ 400 satır |
+| Veri doğruluğu | 2^53 üzerindeki tam sayılar için uyarı; Raw görünüm bu durumda gövdeyi değiştirmeden gösterir; backend gövdeyi metin olarak aynen iletir |
+| Metadata | Info sekmesi: status sınıfı, Content-Type/Encoding, çözülmüş vs. hat üstü boyut, Server/Date/Cache-Control, final URL, redirect zinciri |
+
+**Durum (2026-11-06):** Plan kullanıcının isteğiyle ayrı onay beklenmeden uygulandı. Manuel testler AN-01…AN-18 kullanıcı tarafından çalıştırıldı, hepsi PASS. Otomasyon: 62 shared + 200 server + 143 client test, 9 Playwright testi geçiyor; mutasyon kontrolü (sayfalama, büyük sayı koruması, prototip koruması) testlerin hataları yakaladığını gösterdi. Yeni paket eklenmedi.
 
 ## Faz 4 – Assertion Engine
 Assertion modeli (shared şema), değerlendirme motoru (saf fonksiyonlar, **eval yok**), JSON path çözümleyici, operatörler, PASS/FAIL arayüzü. Manuel + unit + integration testleri.
