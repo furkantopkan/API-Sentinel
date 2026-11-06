@@ -8,6 +8,7 @@ import {
   previewValue,
   type JsonType,
 } from '../lib/jsonTypes';
+import { Button } from '../../../components/Button';
 
 /**
  * Large responses: children are only rendered when their parent is expanded,
@@ -137,13 +138,13 @@ function JsonNode({ name, value, path, depth, expandDepth, selectedPath, onSelec
           ))}
           {children.length > visibleCount && (
             <li>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
                 onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
-                className="ml-5 font-sans text-xs font-medium text-indigo-700 hover:underline"
+                className="ml-5 font-sans"
               >
                 Show more ({children.length - visibleCount} remaining)
-              </button>
+              </Button>
             </li>
           )}
         </ul>
@@ -186,16 +187,14 @@ function FieldDetails({ selection, onAddAssertion }: FieldDetailsProps) {
         {path !== '' && <CopyButton text={path} label="Copy path" />}
         <CopyButton text={valueText} label="Copy value" />
         {onAddAssertion && (
-          <button
-            type="button"
+          <Button
             onClick={() => {
               onAddAssertion(path, selection.value);
               setAdded(true);
             }}
-            className="rounded-md border border-indigo-200 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
           >
             {added ? 'Added ✓ (see Assertions tab)' : 'Add assertion'}
-          </button>
+          </Button>
         )}
       </div>
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-500">
@@ -231,21 +230,19 @@ export function JsonTreeView({ data, onAddAssertion }: JsonTreeViewProps) {
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2">
-        <button
-          type="button"
+      <div className="flex gap-1">
+        <Button
+          variant="ghost"
           onClick={() => setExpand((e) => ({ depth: EXPAND_ALL_DEPTH, version: e.version + 1 }))}
-          className="text-xs font-medium text-indigo-700 hover:underline"
         >
           Expand all
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="ghost"
           onClick={() => setExpand((e) => ({ depth: 1, version: e.version + 1 }))}
-          className="text-xs font-medium text-indigo-700 hover:underline"
         >
           Collapse all
-        </button>
+        </Button>
       </div>
 
       {selection ? (

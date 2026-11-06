@@ -1,5 +1,6 @@
 import type { HttpMethod } from '@api-sentinel/shared';
 import { formatJsonBody, validateJsonBody } from '../lib/validateJsonBody';
+import { Button } from '../../../components/Button';
 
 const METHODS_WITHOUT_BODY: ReadonlySet<HttpMethod> = new Set(['GET', 'DELETE']);
 
@@ -22,14 +23,9 @@ export function BodyEditor({ body, method, onChange }: BodyEditorProps) {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-slate-600">JSON body</span>
-        <button
-          type="button"
-          onClick={handleFormat}
-          disabled={!validation.ok || validation.empty}
-          className="rounded-md px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
-        >
+        <Button onClick={handleFormat} disabled={!validation.ok || validation.empty}>
           Format
-        </button>
+        </Button>
       </div>
 
       {METHODS_WITHOUT_BODY.has(method) && body.trim() !== '' && (

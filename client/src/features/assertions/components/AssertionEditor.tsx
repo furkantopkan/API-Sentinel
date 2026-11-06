@@ -13,6 +13,7 @@ import {
 } from '@api-sentinel/shared';
 import type { AssertionPatch } from '../state/assertionsReducer';
 import { OutcomeBadge } from './OutcomeBadge';
+import { Button } from '../../../components/Button';
 
 const KIND_LABELS: Record<AssertionKind, string> = {
   status: 'Status code',
@@ -156,14 +157,15 @@ export function AssertionEditor({
                   {(!operatorNeedsExpected(assertion.operator) ||
                     assertion.operator === 'isType') && <span className="flex-1" />}
                   {result && <OutcomeBadge outcome={result.outcome} />}
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    danger
+                    size="md"
                     onClick={() => onRemove(assertion.id)}
                     aria-label={`Remove assertion ${n}`}
-                    className="rounded-md px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
                   >
                     ✕
-                  </button>
+                  </Button>
                 </div>
                 {result && result.outcome !== 'pass' && (
                   <p className="ml-6 text-xs text-slate-500">{result.message}</p>
@@ -174,14 +176,14 @@ export function AssertionEditor({
         </ul>
       )}
       <div className="flex items-center gap-3">
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="md"
           onClick={onAdd}
           disabled={assertions.length >= MAX_ASSERTIONS}
-          className="rounded-md px-2 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:text-slate-300"
         >
           + Add assertion
-        </button>
+        </Button>
         {assertions.length > 0 && (
           <span className="text-xs text-slate-400">
             {results === null

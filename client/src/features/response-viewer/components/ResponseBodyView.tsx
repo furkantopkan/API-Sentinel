@@ -5,6 +5,7 @@ import { analyzeJson, formatJsonSummary, type JsonSummary } from '../lib/analyze
 import { bodyText, parseJsonBody } from '../lib/bodyText';
 import { formatBytes } from '../lib/formatBytes';
 import { JsonTreeView } from './JsonTreeView';
+import { Button } from '../../../components/Button';
 
 /** Rendering megabytes of text at once freezes the page (NFR-04); show a preview first. */
 const PREVIEW_CHARS = 200_000;
@@ -111,14 +112,10 @@ export function ResponseBodyView({ body, sizeBytes, onAddAssertion }: ResponseBo
           </pre>
 
           {isTruncated && (
-            <button
-              type="button"
-              onClick={() => setShowFull(true)}
-              className="text-xs font-medium text-indigo-700 hover:underline"
-            >
+            <Button variant="ghost" onClick={() => setShowFull(true)}>
               Showing the first {PREVIEW_CHARS.toLocaleString()} characters — show all (
               {formatBytes(sizeBytes)})
-            </button>
+            </Button>
           )}
         </>
       )}

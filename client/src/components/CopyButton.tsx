@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Button } from './Button';
 
 type CopyState = 'idle' | 'copied' | 'failed';
 
@@ -23,12 +24,8 @@ export function CopyButton({ text, label = 'Copy' }: { text: string; label?: str
   };
 
   return (
-    <button
-      type="button"
-      onClick={() => void handleClick()}
-      className="rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
-    >
+    <Button onClick={() => void handleClick()}>
       {state === 'copied' ? 'Copied!' : state === 'failed' ? 'Copy failed' : label}
-    </button>
+    </Button>
   );
 }

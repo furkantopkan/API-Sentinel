@@ -1,17 +1,11 @@
-import type {
-  AiMeta,
-  AiStatus,
-  ExecuteRequest,
-  ExecutedResponse,
-  SuggestedAssertion,
-  TestCase,
-  TestCasesResponse,
-} from '@api-sentinel/shared';
-import { useCallback, useEffect, useState } from 'react';
+import type { AiMeta, AiStatus, ExecuteRequest, SuggestedAssertion } from '@api-sentinel/shared';
+import { useEffect, useState } from 'react';
+import { Button } from '../../../components/Button';
 import { CopyButton } from '../../../components/CopyButton';
-import { analyzeResponse, fetchAiStatus, generateTestCases } from '../../../services/apiClient';
-import { useAiAction, type AiActionState } from '../hooks/useAiAction';
-import { toAiRequestContext, toAiResponseContext } from '../lib/buildAiContext';
+import { fetchAiStatus } from '../../../services/apiClient';
+import type { AiActionState } from '../hooks/useAiAction';
+import type { AiAssistant } from '../hooks/useAiAssistant';
+import { toAiRequestContext } from '../lib/buildAiContext';
 import { testCasesToMarkdown } from '../lib/testCasesToMarkdown';
 import { SuggestionList } from './SuggestionList';
 import { TestCaseCard } from './TestCaseCard';
@@ -24,8 +18,10 @@ const SEVERITY_STYLES = {
 
 interface AiPanelProps {
   request: ExecuteRequest;
-  response: ExecutedResponse;
+  /** State from useAiAssistant (kept in App, so it survives tab switches). */
+  assistant: AiAssistant;
   onAddAssertion: (suggestion: SuggestedAssertion) => void;
+  isAdded: (suggestion: SuggestedAssertion) => boolean;
 }
 
 function MetaNote({ meta }: { meta: AiMeta }) {
@@ -54,12 +50,9 @@ function ActionError({ state }: { state: AiActionState<unknown> }) {
  * Everything here is a suggestion: nothing is added to the assertions or
  * sent anywhere else unless the user clicks.
  */
-export function AiPanel({ request, response, onAddAssertion }: AiPanelProps) {
+export function AiPanel({ request, assistant, onAddAssertion, isAdded }: AiPanelProps) {
+  // Only the availability check lives here: it is cheap to repeat when the tab opens.
   const [aiStatus, setAiStatus] = useState<AiStatus | 'loading' | 'unreachable'>('loading');
-  const [description, setDescription] = useState('');
-  // Editable copy of the generated cases; ids keep each card's own state (edit mode,
-  // "Added ✓") attached to the right card when another one is removed.
-  const [testCases, setTestCases] = useState<{ id: string; testCase: TestCase }[] | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -68,29 +61,6 @@ export function AiPanel({ request, response, onAddAssertion }: AiPanelProps) {
     });
     return () => controller.abort();
   }, []);
-
-  const context = useCallback(
-    () => ({
-      request: toAiRequestContext(request),
-      response: toAiResponseContext(response),
-      description,
-    }),
-    [request, response, description],
-  );
-
-  const generate = useAiAction(
-    useCallback((signal: AbortSignal) => generateTestCases(context(), signal), [context]),
-    useCallback((data: TestCasesResponse) => {
-      setTestCases(
-        data.result.testCases.map((testCase) => ({ id: crypto.randomUUID(), testCase })),
-      );
-    }, []),
-  );
-  const analysis = useAiAction(
-    useCallback((signal: AbortSignal) => analyzeResponse(context(), signal), [context]),
-  );
-
-  const generated = generate.state.status === 'success' ? generate.state.data : null;
 
   if (aiStatus === 'loading') {
     return <p className="py-6 text-center text-sm text-slate-400">Checking AI availability…</p>;
@@ -111,7 +81,9 @@ export function AiPanel({ request, response, onAddAssertion }: AiPanelProps) {
     );
   }
 
-  const busy = generate.state.status === 'loading' || analysis.state.status === 'loading';
+  const { testCases, analysis } = assistant;
+  const generating = assistant.generateState.status === 'loading';
+  const analyzing = assistant.analyzeState.status === 'loading';
   const endpoint = `${request.method} ${toAiRequestContext(request).url}`;
 
   return (
@@ -125,8 +97,8 @@ export function AiPanel({ request, response, onAddAssertion }: AiPanelProps) {
       <label className="block text-xs font-medium text-slate-600">
         Endpoint description (optional)
         <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          value={assistant.description}
+          onChange={(e) => assistant.setDescription(e.target.value)}
           maxLength={4000}
           rows={2}
           placeholder="e.g. Returns the current user's profile. Requires a valid token."
@@ -134,44 +106,36 @@ export function AiPanel({ request, response, onAddAssertion }: AiPanelProps) {
         />
       </label>
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => void generate.run()}
-          disabled={busy}
-          className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:bg-slate-300"
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="primary"
+          size="md"
+          onClick={() => void assistant.runGenerate()}
+          disabled={generating || analyzing}
         >
-          {generate.state.status === 'loading' ? 'Generating…' : 'Generate test cases'}
-        </button>
-        <button
-          type="button"
-          onClick={() => void analysis.run()}
-          disabled={busy}
-          className="rounded-md border border-indigo-300 px-3 py-1.5 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:text-slate-300"
+          {generating ? 'Generating…' : 'Generate test cases'}
+        </Button>
+        <Button
+          size="md"
+          onClick={() => void assistant.runAnalyze()}
+          disabled={generating || analyzing}
         >
-          {analysis.state.status === 'loading' ? 'Analyzing…' : 'Analyze response'}
-        </button>
-        {busy && (
-          <button
-            type="button"
-            onClick={() => {
-              generate.cancel();
-              analysis.cancel();
-            }}
-            className="text-sm text-slate-500 hover:underline"
-          >
+          {analyzing ? 'Analyzing…' : 'Analyze response'}
+        </Button>
+        {(generating || analyzing) && (
+          <Button variant="ghost" size="md" onClick={assistant.cancel}>
             Cancel
-          </button>
+          </Button>
         )}
       </div>
 
-      <ActionError state={analysis.state} />
-      {analysis.state.status === 'success' && (
+      <ActionError state={assistant.analyzeState} />
+      {analysis && (
         <section aria-label="Response analysis" className="space-y-2">
           <h3 className="text-sm font-semibold text-slate-700">Analysis</h3>
-          <p className="text-sm text-slate-700">{analysis.state.data.result.summary}</p>
+          <p className="text-sm text-slate-700">{analysis.result.summary}</p>
           <ul className="space-y-1">
-            {analysis.state.data.result.observations.map((o, i) => (
+            {analysis.result.observations.map((o, i) => (
               <li
                 key={i}
                 className={`rounded-md border px-2 py-1 text-xs ${SEVERITY_STYLES[o.severity]}`}
@@ -182,15 +146,16 @@ export function AiPanel({ request, response, onAddAssertion }: AiPanelProps) {
             ))}
           </ul>
           <SuggestionList
-            suggestions={analysis.state.data.result.assertions}
+            suggestions={analysis.result.assertions}
+            isAdded={isAdded}
             onAdd={onAddAssertion}
           />
-          <MetaNote meta={analysis.state.data.meta} />
+          <MetaNote meta={analysis.meta} />
         </section>
       )}
 
-      <ActionError state={generate.state} />
-      {generated && testCases && (
+      <ActionError state={assistant.generateState} />
+      {testCases && (
         <section aria-label="Generated test cases" className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-700">
@@ -209,16 +174,13 @@ export function AiPanel({ request, response, onAddAssertion }: AiPanelProps) {
               key={id}
               index={index}
               testCase={testCase}
-              onChange={(updated) =>
-                setTestCases(
-                  (list) => list && list.map((t) => (t.id === id ? { id, testCase: updated } : t)),
-                )
-              }
-              onRemove={() => setTestCases((list) => list && list.filter((t) => t.id !== id))}
+              onChange={(updated) => assistant.updateTestCase(id, updated)}
+              onRemove={() => assistant.removeTestCase(id)}
               onAddAssertion={onAddAssertion}
+              isAdded={isAdded}
             />
           ))}
-          <MetaNote meta={generated.meta} />
+          {assistant.testCasesMeta && <MetaNote meta={assistant.testCasesMeta} />}
         </section>
       )}
     </div>

@@ -7,6 +7,7 @@ import {
 import { useMemo, useReducer, useState } from 'react';
 import { BackendStatusBadge } from '../components/BackendStatusBadge';
 import { AiPanel } from '../features/ai-assistant/components/AiPanel';
+import { useAiAssistant } from '../features/ai-assistant/hooks/useAiAssistant';
 import { AssertionEditor } from '../features/assertions/components/AssertionEditor';
 import {
   assertionForField,
@@ -29,6 +30,16 @@ export function App() {
   // The request that produced the current response (the AI needs both).
   const [lastRequest, setLastRequest] = useState<ExecuteRequest | null>(null);
 
+  /** A suggestion counts as added when an assertion with the same check exists. */
+  const isAdded = (s: SuggestedAssertion) =>
+    assertions.some(
+      (a) =>
+        a.kind === s.kind &&
+        a.target === s.target &&
+        a.operator === s.operator &&
+        a.expected === s.expected,
+    );
+
   /** AI suggestions are re-validated before they become real assertions. */
   const addSuggestion = (suggestion: SuggestedAssertion) => {
     const parsed = assertionSchema.safeParse({
@@ -36,7 +47,9 @@ export function App() {
       id: crypto.randomUUID(),
       enabled: true,
     });
-    if (parsed.success) dispatchAssertions({ type: 'add', assertion: parsed.data });
+    if (parsed.success && !isAdded(suggestion)) {
+      dispatchAssertions({ type: 'add', assertion: parsed.data });
+    }
   };
 
   // Derived, never stored: re-evaluated whenever the response or an assertion changes,
@@ -45,6 +58,12 @@ export function App() {
   const results = useMemo(
     () => (response ? evaluateAssertions(assertions, response) : null),
     [assertions, response],
+  );
+  // AI state lives here, above the response tabs, so switching tabs does not clear it.
+  const assistant = useAiAssistant(
+    lastRequest,
+    response,
+    state.status === 'success' ? state.id : null,
   );
 
   return (
@@ -102,8 +121,9 @@ export function App() {
                 lastRequest && (
                   <AiPanel
                     request={lastRequest}
-                    response={response}
+                    assistant={assistant}
                     onAddAssertion={addSuggestion}
+                    isAdded={isAdded}
                   />
                 )
               }

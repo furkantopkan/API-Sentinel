@@ -1,5 +1,6 @@
 import { TEST_CASE_CATEGORIES, type SuggestedAssertion, type TestCase } from '@api-sentinel/shared';
 import { useState } from 'react';
+import { Button } from '../../../components/Button';
 import { SuggestionList } from './SuggestionList';
 
 const PRIORITY_STYLES: Record<TestCase['priority'], string> = {
@@ -16,6 +17,7 @@ interface TestCaseCardProps {
   onChange: (testCase: TestCase) => void;
   onRemove: () => void;
   onAddAssertion: (suggestion: SuggestedAssertion) => void;
+  isAdded: (suggestion: SuggestedAssertion) => boolean;
 }
 
 /** One generated test case. "Edit" turns the text into form fields (FR-05: editable). */
@@ -25,6 +27,7 @@ export function TestCaseCard({
   onChange,
   onRemove,
   onAddAssertion,
+  isAdded,
 }: TestCaseCardProps) {
   const [editing, setEditing] = useState(false);
   const n = index + 1;
@@ -34,7 +37,7 @@ export function TestCaseCard({
       aria-label={`Test case ${n}`}
       className="space-y-2 rounded-md border border-slate-200 p-3 text-sm"
     >
-      <header className="flex flex-wrap items-start gap-2">
+      <header className="flex flex-wrap items-center gap-2">
         <span className="font-mono text-xs text-slate-400">{n}.</span>
         {editing ? (
           <input
@@ -52,21 +55,10 @@ export function TestCaseCard({
         <span className={`rounded px-1.5 py-0.5 text-[11px] ${PRIORITY_STYLES[testCase.priority]}`}>
           {testCase.priority}
         </span>
-        <button
-          type="button"
-          onClick={() => setEditing((e) => !e)}
-          className="text-xs font-medium text-indigo-700 hover:underline"
-        >
-          {editing ? 'Done' : 'Edit'}
-        </button>
-        <button
-          type="button"
-          onClick={onRemove}
-          aria-label={`Remove test case ${n}`}
-          className="text-xs text-slate-400 hover:text-red-600"
-        >
+        <Button onClick={() => setEditing((e) => !e)}>{editing ? 'Done' : 'Edit'}</Button>
+        <Button variant="ghost" danger onClick={onRemove} aria-label={`Remove test case ${n}`}>
           ✕
-        </button>
+        </Button>
       </header>
 
       {editing ? (
@@ -141,7 +133,7 @@ export function TestCaseCard({
         </>
       )}
 
-      <SuggestionList suggestions={testCase.assertions} onAdd={onAddAssertion} />
+      <SuggestionList suggestions={testCase.assertions} isAdded={isAdded} onAdd={onAddAssertion} />
     </article>
   );
 }

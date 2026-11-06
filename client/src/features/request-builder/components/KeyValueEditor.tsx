@@ -1,4 +1,5 @@
 import type { KeyValueRow } from '../types';
+import { Button } from '../../../components/Button';
 
 type RowPatch = Partial<Pick<KeyValueRow, 'key' | 'value' | 'enabled'>>;
 
@@ -60,25 +61,22 @@ export function KeyValueEditor({
                 spellCheck={false}
                 className={`flex-1 rounded-md border border-slate-300 px-2 py-1.5 font-mono text-sm ${row.enabled ? '' : 'text-slate-400 line-through'}`}
               />
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                danger
+                size="md"
                 onClick={() => onRemove(row.id)}
                 aria-label={`Remove ${itemName} ${index + 1}`}
-                className="rounded-md px-2 py-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
               >
                 ✕
-              </button>
+              </Button>
             </li>
           ))}
         </ul>
       )}
-      <button
-        type="button"
-        onClick={onAdd}
-        className="rounded-md px-2 py-1 text-sm font-medium text-indigo-700 hover:bg-indigo-50"
-      >
+      <Button variant="ghost" size="md" onClick={onAdd}>
         + Add {itemName}
-      </button>
+      </Button>
     </div>
   );
 }
