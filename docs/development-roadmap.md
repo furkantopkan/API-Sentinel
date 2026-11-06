@@ -53,7 +53,7 @@ Amaç: Çalışan ama henüz istek göndermeyen bir uygulama. Altyapı, komutlar
 
 ---
 
-## Faz 2 – API Request Engine (MVP tamamlanır)
+## Faz 2 – API Request Engine (MVP tamamlanır) ✅ (2026-11-06 tamamlandı)
 
 | Adım | Görev |
 |---|---|
@@ -71,7 +71,26 @@ Amaç: Çalışan ama henüz istek göndermeyen bir uygulama. Altyapı, komutlar
 | 2.12 | Unit + integration testleri; Playwright smoke |
 | 2.13 | MVP kabul kriterleri kontrolü (AC-01…AC-12), README güncellemesi |
 
-Her adım ayrı plan + onay ile ilerler; Faz 2 başlamadan önce detaylı plan sunulacaktır.
+**Durum (2026-11-06):** 2.1–2.13 geliştirildi ve commit'lendi. Manuel testler API-001…020 ve SEC-001…012 kullanıcı tarafından çalıştırıldı, hepsi PASS (API-014: ağ NXDOMAIN'i 192.168.1.1'e yönlendirdiği için `BLOCKED_TARGET` görüldü; beklenen davranış). Otomasyon: 18 shared + 199 server + 82 client test ve 5 Playwright smoke testi geçiyor; mutasyon kontrolüyle (SSRF aralığı, redirect'te credential silme, log hijyeni) testlerin hataları yakaladığı doğrulandı.
+
+Notlar: Adımlar tek bir `feat` commit'inde (2.1–2.10) ve iki `test` commit'inde toplandı. 2.4'te ek paket yerine Node'un yerleşik `net.BlockList`'i seçildi. Faz 1'den ertelenen component testleri (D-10) bu fazda yazıldı. Bilinen açık: `minimatch` moderate advisory (yalnızca dev/lint); düzeltmesi ESLint'i düşürdüğü için ESLint güncellemesi beklenecek.
+
+**MVP kabul kriterleri:**
+
+| AC | Durum | Kanıt |
+|---|---|---|
+| AC-01 GET | ✅ | API-001; integration `GET returns status, headers, JSON body…`; E2E |
+| AC-02 POST JSON | ✅ | API-002; integration `POST sends query params, headers and the JSON body` |
+| AC-03 Params & headers | ✅ | API-003/004/019; `buildFinalUrl` + `headerPolicy` unit; integration echo |
+| AC-04 Bearer & Basic | ✅ | API-011/012; `authApplier` unit; integration auth |
+| AC-05 Status, headers, body, süre | ✅ | API-001; integration; `StatusBadge` component |
+| AC-06 JSON format | ✅ | API-001; `bodyText`/`BodyEditor` testleri |
+| AC-07 JSON olmayan response | ✅ | API-008/015/016; `responseNormalizer` unit; integration; E2E (HTML çalıştırılmaz) |
+| AC-08 Timeout & bağlantı hatası | ✅ | API-007/013/014; `errorMapper` unit; integration TIMEOUT/CONNECTION_ERROR |
+| AC-09 Geçersiz URL & JSON | ✅ | API-005/006; `validateDraft` unit; integration INVALID_URL/INVALID_JSON_BODY; E2E |
+| AC-10 Engellenen hedefler | ✅ | SEC-001…012; `ssrfGuard` unit (sınır değerler); integration (redirect yeniden kontrolü dahil); E2E |
+| AC-11 Testler geçer | ✅ | `npm test`, `npm run test:e2e` çıktıları |
+| AC-12 README ile kurulum | ✅ | Temiz klonda `npm ci` → typecheck/test/build denendi |
 
 ---
 

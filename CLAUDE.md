@@ -76,14 +76,15 @@ Kullanıcı bir soru sorduğunda **kodlamayı durdur**, önce konuyu örneklerle
 
 ## Komutlar (kökten)
 - `npm run dev`: server (3001) + client (5173) birlikte
-- `npm test` · `npm run typecheck` · `npm run lint` · `npm run format:check` · `npm run build`
+- `npm run mock`: mock target (4010; `.env` içinde `SSRF_ALLOWLIST=localhost:4010,localhost:4011`)
+- `npm test` · `npm run test:e2e` (Playwright; portlar 4998/3998/5998) · `npm run typecheck` · `npm run lint` · `npm run format:check` · `npm run build`
 - Commit öncesi: typecheck + lint + format:check + test geçmeli.
 - Kendi denemelerimde farklı portlar kullan (backend `PORT=3999`, Vite `--port 5999` + `API_PROXY_TARGET`), bitince süreçleri kapat ve portun boşaldığını HTTP isteğiyle doğrula.
 
 ## Yapı notları
 - `shared` paketi derlenmez; TS kaynağını doğrudan export eder (tsx ve Vite çalıştırır).
 - TypeScript 6.0.x'te sabit: typescript-eslint henüz TS 7'yi desteklemiyor.
-- Server testleri `server/tests/{unit,integration}`; client testleri test edilen dosyanın yanında (`*.test.ts`).
+- Server testleri `server/tests/{unit,integration}`; client testleri test edilen dosyanın yanında (`*.test.ts`, component testleri `*.test.tsx` + dosya başında `// @vitest-environment jsdom`); E2E `e2e/`.
 
 ## Ortam
 Windows 11, Node.js 26, npm 11, Git 2.56.

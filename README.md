@@ -2,16 +2,26 @@
 
 A web-based REST API testing tool for QA engineers: build HTTP requests, inspect responses, and (in later versions) run assertions and generate test cases with AI.
 
-> **Status:** Phase 1 complete — project infrastructure, backend health check and the Request Builder UI. Sending requests arrives in Phase 2. See [docs/development-roadmap.md](docs/development-roadmap.md).
+> **Status:** MVP complete (Phases 1–2): Request Builder, backend request engine with SSRF protection, and Response Viewer. Next: Phase 3 (Response Analyzer). See [docs/development-roadmap.md](docs/development-roadmap.md).
+
+## Features (MVP)
+
+- Methods GET, POST, PUT, PATCH, DELETE; query parameters and headers with on/off toggles; final URL preview
+- Auth: Bearer token and Basic auth
+- JSON body editor with validation (error line/column) and formatting
+- Per-request timeout and "follow redirects" setting
+- Response: status (colour-coded), time, size, redirects, formatted JSON / text, headers, copy to clipboard
+- Clear error messages for timeouts, DNS/connection failures, too-large responses, blocked targets
+- Requests are sent **by the server**, never directly from the browser, and every target is checked against SSRF rules
 
 ## Tech stack
 
 | Layer | Technology |
 |---|---|
 | Client | React 19, TypeScript, Vite, Tailwind CSS |
-| Server | Node.js, Express 5, Zod |
+| Server | Node.js, Express 5, Zod, undici (outbound HTTP) |
 | Shared | Zod schemas and types used by both sides (the API contract) |
-| Tests | Vitest (unit), Supertest (integration) |
+| Tests | Vitest (unit), Supertest (integration), Testing Library + jsdom (components), Playwright (E2E) |
 | Quality | ESLint (type-aware), Prettier |
 
 ## Requirements
@@ -39,6 +49,17 @@ Then open **http://127.0.0.1:5173**. The badge in the top-right corner should sh
 
 During development the client calls `/api/...` on its own origin and Vite forwards those requests to the server, so no CORS configuration is needed.
 
+### Trying it with the local mock API
+
+The project includes a fake API with predictable endpoints (`/json`, `/echo`, `/delay/:ms`, `/status/:code`, `/redirect/:n`, `/auth/bearer`, …). Private and local addresses are blocked by default, so the mock must be allow-listed first:
+
+1. Create `.env` (see below) and set `SSRF_ALLOWLIST=localhost:4010`.
+2. Terminal A: `npm run mock` (listens on http://localhost:4010, `GET /` lists all endpoints).
+3. Terminal B: `npm run dev` (restart it after changing `.env`).
+4. In the UI, send `GET http://localhost:4010/json`.
+
+Test credentials: Bearer token `test-token`; Basic auth `qa` / `secret`.
+
 ### Configuration (optional)
 
 The server works with safe defaults. To change them, copy the template and edit it:
@@ -46,6 +67,15 @@ The server works with safe defaults. To change them, copy the template and edit 
 ```bash
 cp .env.example .env        # Windows (cmd): copy .env.example .env
 ```
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `PORT` / `HOST` | `3001` / `127.0.0.1` | Where the API listens |
+| `REQUEST_TIMEOUT_DEFAULT_MS` / `REQUEST_TIMEOUT_MAX_MS` | `15000` / `60000` | Outbound request timeout (default / upper limit) |
+| `RESPONSE_MAX_BYTES` | `5242880` (5 MB) | Larger responses are rejected with `RESPONSE_TOO_LARGE` |
+| `REQUEST_BODY_LIMIT` | `1mb` | Max size of a request sent to our API |
+| `MAX_REDIRECTS` | `5` | Redirects followed before `TOO_MANY_REDIRECTS` |
+| `SSRF_ALLOWLIST` | empty | Comma-separated exact `host:port` pairs that may be private/local, e.g. `localhost:4010` |
 
 Invalid values stop the server at startup with a message naming the variable. Never commit `.env`.
 
@@ -57,7 +87,9 @@ Run from the project root.
 |---|---|
 | `npm run dev` | Start server and client together (with auto-reload) |
 | `npm run dev:server` / `npm run dev:client` | Start only one side |
-| `npm test` | Run all unit and integration tests |
+| `npm run mock` | Start the local mock API on port 4010 |
+| `npm test` | Run all unit, integration and component tests (no internet needed) |
+| `npm run test:e2e` | Playwright smoke tests in a real browser (first time: `npx playwright install chromium`) |
 | `npm run typecheck` | TypeScript type check for all packages |
 | `npm run lint` | ESLint (includes security rules: no `eval`, `new Function`, `dangerouslySetInnerHTML`) |
 | `npm run format` / `npm run format:check` | Format code with Prettier / check formatting |
@@ -65,13 +97,17 @@ Run from the project root.
 
 Before committing, all of `typecheck`, `lint`, `format:check` and `test` should pass.
 
+`npm run test:e2e` starts its own mock, API and UI servers on ports 4998, 3998 and 5998, so it does not interfere with a running `npm run dev`.
+
 ## Project structure
 
 ```
-client/   React UI (features/request-builder, features/response-viewer, services/apiClient)
-server/   Express API (config, routes, controllers, middleware, errors) + tests/
-shared/   Zod schemas and types shared by client and server
-docs/     Requirements analysis, architecture, test strategy, roadmap
+client/             React UI (features/request-builder, features/response-viewer, services/apiClient)
+server/             Express API (config, routes, controllers, services/request-engine) + tests/
+shared/             Zod schemas, types and URL building shared by client and server
+tools/mock-target/  Fake API used for manual and automated tests
+e2e/                Playwright smoke tests
+docs/               Requirements analysis, architecture, test strategy, roadmap
 ```
 
 ## Documentation
@@ -83,4 +119,11 @@ docs/     Requirements analysis, architecture, test strategy, roadmap
 
 ## Security notes
 
-This is a local portfolio application. Because the server will send requests to user-supplied URLs (Phase 2), it is protected against SSRF; see [docs/architecture.md §7](docs/architecture.md). The server binds to `127.0.0.1` by default. Do not expose it publicly without a security review.
+This is a local portfolio application. Because the server sends requests to user-supplied URLs, it is protected against SSRF (see [docs/architecture.md §7](docs/architecture.md)):
+
+- private, loopback, link-local and other reserved IPv4/IPv6 ranges are blocked, including the cloud metadata address `169.254.169.254`;
+- the check runs on the IP addresses returned by DNS at connect time (defeats DNS rebinding) and again on every redirect;
+- credentials are dropped when a redirect changes the origin;
+- the server logs only method, host and outcome — never paths, query strings, headers or bodies.
+
+The server binds to `127.0.0.1` by default. Do not expose it publicly without a security review.

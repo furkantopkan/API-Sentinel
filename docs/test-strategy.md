@@ -1,6 +1,6 @@
 # API Sentinel – Test Stratejisi
 
-**Durum:** Faz 0 – Taslak (onay bekleniyor)
+**Durum:** Onaylandı (2026-11-05). MVP senaryoları Faz 2 sonunda (2026-11-06) çalıştırıldı.
 
 ---
 
@@ -83,8 +83,8 @@ Mock target endpoint taslağı:
 | API-010 | 500 | `/status/500` | Status 500 gösterilir | – |
 | API-011 | Bearer Token | `/auth/bearer`, önce token'sız, sonra doğru token | 401 → 200 | AC-04 |
 | API-012 | Basic Auth | `/auth/basic`, yanlış sonra doğru bilgi | 401 → 200 | AC-04 |
-| API-013 | Bağlantı hatası | `http://localhost:4999` (allowlist'te ama kapalı port) | "Connection refused" türünde anlaşılır hata | AC-08 |
-| API-014 | DNS hatası | `https://this-domain-does-not-exist-xyz.invalid` | DNS hata mesajı | AC-08 |
+| API-013 | Bağlantı hatası | `http://localhost:4011/` (`.env` allowlist'inde ama kapalı port) | "Connection refused" türünde anlaşılır hata | AC-08 |
+| API-014 | DNS hatası | `https://this-domain-does-not-exist-xyz.invalid` | `DNS_ERROR`. **Not:** Bazı modem/ISS'ler bulunamayan alan adlarını kendi IP'lerine (ör. `192.168.1.1`) yönlendirir; bu durumda `BLOCKED_TARGET (… → 192.168.1.1)` beklenen ve güvenli sonuçtur (PASS). | AC-08 |
 | API-015 | Boş body | `/empty` | 204 ve "No content" boş durumu | AC-07 |
 | API-016 | Bozuk JSON response | `/malformed-json` | Uygulama çökmez, metin olarak gösterilir + uyarı | AC-07 |
 | API-017 | Büyük response | `/large/6000` (6 MB) | `RESPONSE_TOO_LARGE` mesajı, arayüz donmaz | – |
@@ -136,15 +136,15 @@ Mock target endpoint taslağı:
 
 ---
 
-## 6. Komutlar (Faz 1'de oluşturulacak)
+## 6. Komutlar
 
 | Komut | Amaç |
 |---|---|
 | `npm run typecheck` | Tüm workspace'lerde `tsc --noEmit` |
 | `npm run lint` | ESLint |
-| `npm test` | Tüm unit + integration testleri |
-| `npm run test:e2e` | Playwright |
-| `npm run test:coverage` | Kapsam raporu (hedef: `services/` için %80+, zorunlu değil yol gösterici) |
+| `npm test` | Tüm unit + integration + component testleri (internete çıkmaz) |
+| `npm run test:e2e` | Playwright smoke (kendi sunucularını 4998/3998/5998 portlarında açar ve kapatır) |
+| `npm run test:coverage` | *Henüz yok* (ayrı paket gerektirir; ihtiyaç olursa sonraki fazlarda). Hedef: `services/` için %80+, yol gösterici |
 
 ---
 
