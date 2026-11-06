@@ -35,8 +35,8 @@ function response(overrides: Partial<ExecutedResponse> = {}): ExecutedResponse {
 let nextId = 0;
 function make(
   partial: Omit<Assertion, 'id' | 'enabled' | 'expected' | 'target'> & Partial<Assertion>,
-) {
-  return { id: `a${++nextId}`, enabled: true, target: '', expected: '', ...partial } as Assertion;
+): Assertion {
+  return { id: `a${++nextId}`, enabled: true, target: '', expected: '', ...partial };
 }
 
 function run(assertion: Assertion, res = response()): AssertionResult {

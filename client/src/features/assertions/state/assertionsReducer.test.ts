@@ -68,7 +68,8 @@ describe('assertionsReducer', () => {
 
   it('changeKind resets operator, target and expected to the new kind defaults', () => {
     const edited: Assertion = {
-      ...b,
+      id: 'b',
+      kind: 'jsonPath',
       target: 'x.y',
       operator: 'equals',
       expected: '5',
