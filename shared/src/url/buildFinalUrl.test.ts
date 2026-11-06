@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { KeyValueRow } from '../types';
-import { buildFinalUrl } from './buildFinalUrl';
+import { buildFinalUrl, type QueryParamInput } from './buildFinalUrl';
 
-function row(key: string, value: string, enabled = true): KeyValueRow {
-  return { id: `${key}-${value}`, key, value, enabled };
+function row(key: string, value: string, enabled = true): QueryParamInput {
+  return { key, value, enabled };
 }
 
 describe('buildFinalUrl', () => {

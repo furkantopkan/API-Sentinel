@@ -1,4 +1,9 @@
-import type { KeyValueRow } from '../types';
+/** Minimal shape of a query-parameter row (client rows also carry an `id`). */
+export interface QueryParamInput {
+  key: string;
+  value: string;
+  enabled: boolean;
+}
 
 export type BuildFinalUrlResult = { ok: true; url: string } | { ok: false; error: string };
 
@@ -6,13 +11,17 @@ const SUPPORTED_PROTOCOLS = new Set(['http:', 'https:']);
 
 /**
  * Combines the typed URL with the enabled query-parameter rows.
+ * Used by the client (live preview, validation) AND the server (the URL that is
+ * actually requested), so both sides always agree on the final URL.
  *
  * - Rows that are disabled or have an empty key are skipped.
- * - Values are encoded by URLSearchParams (e.g. "a b" → "a+b", "&" → "%26"),
- *   so users never have to encode by hand.
+ * - Values are encoded by URLSearchParams (e.g. "a b" → "a+b", "&" → "%26").
  * - Parameters already present in the typed URL are kept; table rows are appended.
  */
-export function buildFinalUrl(rawUrl: string, params: readonly KeyValueRow[]): BuildFinalUrlResult {
+export function buildFinalUrl(
+  rawUrl: string,
+  params: readonly QueryParamInput[],
+): BuildFinalUrlResult {
   const trimmed = rawUrl.trim();
   if (trimmed === '') {
     return { ok: false, error: 'Enter a request URL.' };

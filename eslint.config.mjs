@@ -56,7 +56,7 @@ export default defineConfig([
 
   // Backend + Vite config: Node environment.
   {
-    files: ['server/**/*.ts', 'client/vite.config.ts'],
+    files: ['server/**/*.ts', 'tools/**/*.ts', 'client/vite.config.ts'],
     languageOptions: { globals: globals.node },
   },
 

@@ -1,4 +1,4 @@
-import type { BuildFinalUrlResult } from '../lib/buildFinalUrl';
+import type { BuildFinalUrlResult } from '@api-sentinel/shared';
 
 interface FinalUrlPreviewProps {
   result: BuildFinalUrlResult;

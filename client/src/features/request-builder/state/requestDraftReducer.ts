@@ -1,5 +1,14 @@
 import type { HttpMethod } from '@api-sentinel/shared';
-import type { AuthConfig, KeyValueListName, KeyValueRow, RequestDraft } from '../types';
+import type {
+  AuthConfig,
+  KeyValueListName,
+  KeyValueRow,
+  RequestDraft,
+  RequestOptions,
+} from '../types';
+
+/** Matches the server default (REQUEST_TIMEOUT_DEFAULT_MS). */
+export const DEFAULT_TIMEOUT_MS = 15_000;
 
 export const initialRequestDraft: RequestDraft = {
   method: 'GET',
@@ -8,6 +17,7 @@ export const initialRequestDraft: RequestDraft = {
   headers: [],
   auth: { type: 'none' },
   body: '',
+  options: { timeoutMs: DEFAULT_TIMEOUT_MS, followRedirects: true },
 };
 
 /** Every change the UI can make to the draft is one of these actions. */
@@ -25,7 +35,8 @@ export type RequestDraftAction =
     }
   | { type: 'removeRow'; list: KeyValueListName; id: string }
   | { type: 'setAuth'; auth: AuthConfig }
-  | { type: 'setBody'; body: string };
+  | { type: 'setBody'; body: string }
+  | { type: 'setOptions'; patch: Partial<RequestOptions> };
 
 /**
  * Pure function: takes the current draft and an action, returns a NEW draft.
@@ -68,5 +79,8 @@ export function requestDraftReducer(state: RequestDraft, action: RequestDraftAct
 
     case 'setBody':
       return { ...state, body: action.body };
+
+    case 'setOptions':
+      return { ...state, options: { ...state.options, ...action.patch } };
   }
 }

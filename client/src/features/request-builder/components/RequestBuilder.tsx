@@ -1,23 +1,34 @@
+import { buildFinalUrl, type ExecuteRequest } from '@api-sentinel/shared';
 import { useReducer, useState, type FormEvent } from 'react';
 import { Tabs, type TabItem } from '../../../components/Tabs';
-import { buildFinalUrl } from '../lib/buildFinalUrl';
-import { maskDraftSecrets } from '../lib/maskDraftSecrets';
+import { toExecuteRequest } from '../lib/toExecuteRequest';
 import { validateDraft } from '../lib/validateDraft';
-import { initialRequestDraft, requestDraftReducer } from '../state/requestDraftReducer';
+import {
+  DEFAULT_TIMEOUT_MS,
+  initialRequestDraft,
+  requestDraftReducer,
+} from '../state/requestDraftReducer';
 import type { KeyValueListName, KeyValueRow } from '../types';
 import { AuthPanel } from './AuthPanel';
 import { BodyEditor } from './BodyEditor';
 import { FinalUrlPreview } from './FinalUrlPreview';
 import { KeyValueEditor } from './KeyValueEditor';
 import { MethodSelect } from './MethodSelect';
+import { SettingsPanel } from './SettingsPanel';
 
-type RequestTabId = 'params' | 'headers' | 'auth' | 'body';
+type RequestTabId = 'params' | 'headers' | 'auth' | 'body' | 'settings';
 
 function countEnabled(rows: readonly KeyValueRow[]): number {
   return rows.filter((row) => row.enabled && row.key.trim() !== '').length;
 }
 
-export function RequestBuilder() {
+interface RequestBuilderProps {
+  onSend: (request: ExecuteRequest) => void;
+  onCancel: () => void;
+  isSending: boolean;
+}
+
+export function RequestBuilder({ onSend, onCancel, isSending }: RequestBuilderProps) {
   const [draft, dispatch] = useReducer(requestDraftReducer, initialRequestDraft);
   const [activeTab, setActiveTab] = useState<RequestTabId>('params');
   // Errors are only shown after the first Send attempt, then they update live.
@@ -27,25 +38,27 @@ export function RequestBuilder() {
   const finalUrl = buildFinalUrl(draft.url, draft.queryParams);
   const validation = validateDraft(draft);
   const visibleErrors = hasTriedToSend && !validation.ok ? validation.errors : [];
+  const settingsChanged =
+    draft.options.timeoutMs !== DEFAULT_TIMEOUT_MS || !draft.options.followRedirects;
 
   const tabs: TabItem<RequestTabId>[] = [
     { id: 'params', label: 'Params', count: countEnabled(draft.queryParams) },
     { id: 'headers', label: 'Headers', count: countEnabled(draft.headers) },
     { id: 'auth', label: 'Auth', count: draft.auth.type === 'none' ? 0 : 1 },
     { id: 'body', label: 'Body', count: draft.body.trim() === '' ? 0 : 1 },
+    { id: 'settings', label: 'Settings', count: settingsChanged ? 1 : 0 },
   ];
 
-  const handleSend = (event: FormEvent) => {
+  const handleSubmit = (event: FormEvent) => {
     event.preventDefault(); // stop the browser from reloading the page
+    if (isSending) {
+      onCancel();
+      return;
+    }
     setHasTriedToSend(true);
+    // Invalid input (e.g. broken JSON) never leaves the browser (API-005, API-006).
     if (!validation.ok) return;
-
-    // Phase 2 replaces this with a real call to POST /api/requests/execute.
-    // Secrets are masked even in the console.
-    console.info('[request-builder] Prepared request (sending arrives in Phase 2):', {
-      finalUrl: validation.finalUrl,
-      draft: maskDraftSecrets(draft),
-    });
+    onSend(toExecuteRequest(draft));
   };
 
   const rowHandlers = (list: KeyValueListName) => ({
@@ -57,7 +70,7 @@ export function RequestBuilder() {
 
   return (
     <section aria-label="Request builder" className="space-y-3">
-      <form onSubmit={handleSend} className="space-y-1.5">
+      <form onSubmit={handleSubmit} className="space-y-1.5">
         <div className="flex">
           <MethodSelect
             value={draft.method}
@@ -74,9 +87,11 @@ export function RequestBuilder() {
           />
           <button
             type="submit"
-            className="rounded-r-md bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-2 focus:outline-offset-2 focus:outline-indigo-500"
+            className={`w-24 rounded-r-md px-5 py-2 text-sm font-semibold text-white focus:outline-2 focus:outline-offset-2 focus:outline-indigo-500 ${
+              isSending ? 'bg-slate-500 hover:bg-slate-600' : 'bg-indigo-600 hover:bg-indigo-700'
+            }`}
           >
-            Send
+            {isSending ? 'Cancel' : 'Send'}
           </button>
         </div>
         <FinalUrlPreview result={finalUrl} isUrlEmpty={draft.url.trim() === ''} />
@@ -121,6 +136,12 @@ export function RequestBuilder() {
             body={draft.body}
             method={draft.method}
             onChange={(body) => dispatch({ type: 'setBody', body })}
+          />
+        )}
+        {activeTab === 'settings' && (
+          <SettingsPanel
+            options={draft.options}
+            onChange={(patch) => dispatch({ type: 'setOptions', patch })}
           />
         )}
       </div>

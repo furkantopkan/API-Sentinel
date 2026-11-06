@@ -1,4 +1,12 @@
-import type { HttpMethod } from '@api-sentinel/shared';
+import type { AuthConfig, HttpMethod } from '@api-sentinel/shared';
+
+/**
+ * AuthConfig is a discriminated union defined in the shared contract:
+ * the `type` field decides which other fields exist, so TypeScript rejects
+ * impossible states such as a `password` on a bearer configuration.
+ */
+export type { AuthConfig };
+export type AuthType = AuthConfig['type'];
 
 /** One row of the query-parameter or header table. */
 export interface KeyValueRow {
@@ -10,17 +18,10 @@ export interface KeyValueRow {
   enabled: boolean;
 }
 
-/**
- * Discriminated union: the `type` field decides which other fields exist.
- * TypeScript therefore rejects impossible states such as a `password`
- * on a bearer configuration.
- */
-export type AuthConfig =
-  | { type: 'none' }
-  | { type: 'bearer'; token: string }
-  | { type: 'basic'; username: string; password: string };
-
-export type AuthType = AuthConfig['type'];
+export interface RequestOptions {
+  timeoutMs: number;
+  followRedirects: boolean;
+}
 
 /** Everything the user has typed into the Request Builder (UI state). */
 export interface RequestDraft {
@@ -31,6 +32,7 @@ export interface RequestDraft {
   auth: AuthConfig;
   /** Raw JSON text exactly as typed; validated before sending. */
   body: string;
+  options: RequestOptions;
 }
 
 export type KeyValueListName = 'queryParams' | 'headers';

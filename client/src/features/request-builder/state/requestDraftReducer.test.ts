@@ -21,7 +21,17 @@ describe('requestDraftReducer', () => {
       headers: [],
       auth: { type: 'none' },
       body: '',
+      options: { timeoutMs: 15_000, followRedirects: true },
     });
+  });
+
+  it('setOptions merges the patch into the existing options', () => {
+    const next = requestDraftReducer(initialRequestDraft, {
+      type: 'setOptions',
+      patch: { followRedirects: false },
+    });
+
+    expect(next.options).toEqual({ timeoutMs: 15_000, followRedirects: false });
   });
 
   it('setMethod changes only the method', () => {

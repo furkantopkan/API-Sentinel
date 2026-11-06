@@ -12,9 +12,17 @@ const testConfig: AppConfig = {
   host: '127.0.0.1',
   requestBodyLimit: '1kb', // small limit so the "too large" case is cheap to trigger
   version: '9.9.9-test',
+  requestEngine: {
+    allowlist: new Set(),
+    defaultTimeoutMs: 5000,
+    maxTimeoutMs: 10_000,
+    maxResponseBytes: 1024 * 1024,
+    maxRedirects: 5,
+    userAgent: 'API-Sentinel/test',
+  },
 };
 
-const app = createApp(testConfig);
+const app = createApp(testConfig, { engineLogger: () => undefined });
 
 describe('GET /api/health', () => {
   it('returns 200 with a body matching the shared health schema', async () => {

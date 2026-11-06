@@ -10,12 +10,14 @@
   "workspaces": [
     "shared",
     "server",
-    "client"
+    "client",
+    "tools/mock-target"
   ],
   "scripts": {
     "dev": "concurrently --kill-others --names server,client --prefix-colors blue,green \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "npm run dev --workspace=@api-sentinel/server",
     "dev:client": "npm run dev --workspace=@api-sentinel/client",
+    "mock": "npm run start --workspace=@api-sentinel/mock-target",
     "start:server": "npm run start --workspace=@api-sentinel/server",
     "build": "npm run build --workspace=@api-sentinel/client",
     "typecheck": "npm run typecheck --workspaces --if-present",

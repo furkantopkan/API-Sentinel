@@ -1,6 +1,9 @@
 {
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
+    // "DOM" only for the URL / URLSearchParams types, which exist in both
+    // browsers and Node. Do not use browser-only APIs in this package.
+    "lib": ["ES2023", "DOM"],
     "types": []
   },
   "include": ["src"]

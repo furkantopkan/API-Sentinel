@@ -1,0 +1,22 @@
+{
+  "name": "@api-sentinel/mock-target",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local fake API used as a predictable target for manual and automated tests.",
+  "type": "module",
+  "exports": {
+    ".": "./src/app.ts"
+  },
+  "scripts": {
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "express": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.23.15"
+  }
+}
