@@ -37,6 +37,23 @@ test('an invalid URL is rejected in the browser before sending', async ({ page }
   await expect(page.getByText('No response yet')).toBeVisible();
 });
 
+test('an invalid JSON body blocks sending', async ({ page }) => {
+  let executeCalls = 0;
+  page.on('request', (request) => {
+    if (request.url().includes('/api/requests/execute')) executeCalls++;
+  });
+
+  await page.getByLabel('HTTP method').selectOption('POST');
+  await page.getByRole('tab', { name: /Body/ }).click();
+  await page.getByLabel('Request body').fill('{"a":1,}');
+  await send(page, `${MOCK}/echo`);
+
+  await expect(
+    page.getByRole('listitem').filter({ hasText: /Body is not valid JSON/ }),
+  ).toBeVisible();
+  expect(executeCalls).toBe(0);
+});
+
 test('HTML responses are shown as text, never executed', async ({ page }) => {
   let dialogOpened = false;
   page.on('dialog', (dialog) => {
