@@ -74,8 +74,16 @@ Kullanıcı bir soru sorduğunda **kodlamayı durdur**, önce konuyu örneklerle
 - **Stage (`git add`) ve commit öncesi açık onay al.** Otomatik commit yok. Push yalnızca istenirse.
 - Her commit'in neyi temsil ettiğini açıkla.
 
-## Komutlar
-(Faz 1'de oluşturulduktan sonra güncellenecek: `npm run dev`, `npm run typecheck`, `npm run lint`, `npm test`, `npm run test:e2e`.)
+## Komutlar (kökten)
+- `npm run dev`: server (3001) + client (5173) birlikte
+- `npm test` · `npm run typecheck` · `npm run lint` · `npm run format:check` · `npm run build`
+- Commit öncesi: typecheck + lint + format:check + test geçmeli.
+- Kendi denemelerimde farklı portlar kullan (backend `PORT=3999`, Vite `--port 5999` + `API_PROXY_TARGET`), bitince süreçleri kapat ve portun boşaldığını HTTP isteğiyle doğrula.
+
+## Yapı notları
+- `shared` paketi derlenmez; TS kaynağını doğrudan export eder (tsx ve Vite çalıştırır).
+- TypeScript 6.0.x'te sabit: typescript-eslint henüz TS 7'yi desteklemiyor.
+- Server testleri `server/tests/{unit,integration}`; client testleri test edilen dosyanın yanında (`*.test.ts`).
 
 ## Ortam
 Windows 11, Node.js 26, npm 11, Git 2.56.

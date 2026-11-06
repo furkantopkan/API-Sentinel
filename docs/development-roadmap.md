@@ -47,6 +47,8 @@ Amaç: Çalışan ama henüz istek göndermeyen bir uygulama. Altyapı, komutlar
 | 1.13 | Faz 1 manuel testleri → değerlendirme → otomasyon (health integration testi, reducer + `buildFinalUrl` + `validateJsonBody` unit testleri) | Vitest, Supertest, test yazımı | `npm test` geçer | `test: add phase 1 unit and integration tests` |
 | 1.14 | README: kurulum ve çalıştırma komutları | – | Komutlar README'deki gibi çalışır | `docs: add setup instructions` |
 
+**Durum (2026-11-06):** 1.1–1.14 geliştirildi ve commit'lendi; otomatik kontroller (typecheck, lint, format, 94 test, build) geçiyor. 1.8–1.12 arayüz manuel testleri (UI-01…UI-13) kullanıcı doğrulaması bekliyor. Notlar: 1.3+1.4 tek commit'te birleşti; component testleri (D-10) Faz 2'ye ertelendi.
+
 **Faz 1 DoD:** Uygulama tek komutla çalışır; health göstergesi doğru; Request Builder'da tüm alanlar doldurulabilir; Send butonu henüz istek göndermez (yalnızca hazırlanan istek nesnesini geliştirici konsolunda gösterir); typecheck/lint/test geçer.
 
 ---
