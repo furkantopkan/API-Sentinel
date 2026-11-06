@@ -1,0 +1,6 @@
+{
+  // "Solution" config: the browser code and the Node-side Vite config need
+  // different settings (DOM vs Node types), so each has its own tsconfig.
+  "files": [],
+  "references": [{ "path": "./tsconfig.app.json" }, { "path": "./tsconfig.node.json" }]
+}

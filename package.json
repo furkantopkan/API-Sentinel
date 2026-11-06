@@ -9,14 +9,29 @@
   },
   "workspaces": [
     "shared",
-    "server"
+    "server",
+    "client"
   ],
   "scripts": {
+    "dev": "concurrently --kill-others --names server,client --prefix-colors blue,green \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "npm run dev --workspace=@api-sentinel/server",
+    "dev:client": "npm run dev --workspace=@api-sentinel/client",
     "start:server": "npm run start --workspace=@api-sentinel/server",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "build": "npm run build --workspace=@api-sentinel/client",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
-    "typescript": "6.0.3"
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.6",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.14.0",
+    "prettier": "^3.9.10",
+    "typescript": "6.0.3",
+    "typescript-eslint": "^8.72.1"
   }
 }
