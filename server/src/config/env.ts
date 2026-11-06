@@ -57,9 +57,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const result = envSchema.safeParse(env);
 
   if (!result.success) {
-    throw new ConfigError(
-      `Invalid environment configuration:\n${z.prettifyError(result.error)}`,
-    );
+    throw new ConfigError(`Invalid environment configuration:\n${z.prettifyError(result.error)}`);
   }
 
   return {

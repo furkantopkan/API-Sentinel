@@ -72,10 +72,7 @@ export const errorHandler: ErrorRequestHandler = (error, _req, res, next) => {
 
   // Unexpected error: full details go to the server log only.
   // The client gets a generic message so internals are not leaked.
-  console.error(
-    '[server] Unexpected error:',
-    error instanceof Error ? error.stack : String(error),
-  );
+  console.error('[server] Unexpected error:', error instanceof Error ? error.stack : String(error));
   sendError(res, 500, {
     code: 'INTERNAL_ERROR',
     message: 'An unexpected error occurred.',
