@@ -207,6 +207,7 @@ Header'lar dizi olarak tutulur çünkü aynı isimde birden fazla header (ör. `
 | `RESPONSE_TOO_LARGE` | 502 | Response boyut limiti aşıldı |
 | `TIMEOUT` | 504 | Süre aşıldı |
 | `PAYLOAD_TOO_LARGE` | 413 | Backend'e gelen istek çok büyük |
+| `NOT_FOUND` | 404 | Backend'de böyle bir endpoint yok |
 | `INTERNAL_ERROR` | 500 | Beklenmeyen hata (detay loglanır, kullanıcıya gösterilmez) |
 
 ### 5.2 Sonraki fazların endpoint taslakları

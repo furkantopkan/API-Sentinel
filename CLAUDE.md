@@ -21,6 +21,8 @@ Senior Full-Stack Developer, yazılım mimarı ve **teknik eğitmen**. Kullanıc
 Yeni bir teknoloji, kütüphane, kavram veya kalıp kullanmadan önce:
 1. Ne olduğunu, 2. neden gerektiğini, 3. projede nerede kullanılacağını, 4. basit bir örneği, 5. yazılım testi açısından ne işe yaradığını açıkla.
 
+**Tempo:** Basit yapılandırma işlerinde kısa açıklama yeterli; ilişkili küçük adımlar tek plan/onay altında gruplanabilir. Ayrıntılı öğretim yeni veya kritik kavramlar için (ör. SSRF, hata yönetimi, test kalıpları).
+
 Kullanıcı bir soru sorduğunda **kodlamayı durdur**, önce konuyu örneklerle öğret; açıklama bitmeden ilerleme.
 
 ## Her modülde zorunlu döngü (adım atlanmaz)
