@@ -44,7 +44,9 @@ export type AssertionsAction =
   | { type: 'add'; assertion: Assertion }
   | { type: 'update'; id: string; patch: AssertionPatch }
   | { type: 'changeKind'; id: string; kind: AssertionKind }
-  | { type: 'remove'; id: string };
+  | { type: 'remove'; id: string }
+  /** Replaces the whole list, e.g. when a saved request is opened. */
+  | { type: 'replaceAll'; assertions: Assertion[] };
 
 function isOperatorOf(kind: AssertionKind, operator: AssertionOperator): boolean {
   return (ASSERTION_OPERATORS[kind] as readonly AssertionOperator[]).includes(operator);
@@ -77,5 +79,8 @@ export function assertionsReducer(state: Assertion[], action: AssertionsAction):
 
     case 'remove':
       return state.filter((assertion) => assertion.id !== action.id);
+
+    case 'replaceAll':
+      return action.assertions.slice(0, MAX_ASSERTIONS);
   }
 }

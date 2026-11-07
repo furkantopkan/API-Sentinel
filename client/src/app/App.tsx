@@ -1,10 +1,11 @@
 import {
   assertionSchema,
   evaluateAssertions,
+  type Assertion,
   type ExecuteRequest,
   type SuggestedAssertion,
 } from '@api-sentinel/shared';
-import { useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { BackendStatusBadge } from '../components/BackendStatusBadge';
 import { AiPanel } from '../features/ai-assistant/components/AiPanel';
 import { useAiAssistant } from '../features/ai-assistant/hooks/useAiAssistant';
@@ -14,19 +15,66 @@ import {
   assertionsReducer,
   newAssertion,
 } from '../features/assertions/state/assertionsReducer';
+import { CollectionsSidebar } from '../features/collections/components/CollectionsSidebar';
+import { SaveBar } from '../features/collections/components/SaveBar';
+import { useCollectionActions } from '../features/collections/hooks/useCollectionActions';
+import { useCollections } from '../features/collections/hooks/useCollections';
+import { useWorkspace } from '../features/collections/hooks/useWorkspace';
 import { RequestBuilder } from '../features/request-builder/components/RequestBuilder';
+import { fromExecuteRequest } from '../features/request-builder/lib/fromExecuteRequest';
+import { toExecuteRequest } from '../features/request-builder/lib/toExecuteRequest';
+import {
+  initialRequestDraft,
+  requestDraftReducer,
+} from '../features/request-builder/state/requestDraftReducer';
 import { ResponseViewer } from '../features/response-viewer/components/ResponseViewer';
 import { useBackendHealth } from '../hooks/useBackendHealth';
 import { useSendRequest } from '../hooks/useSendRequest';
-import { Sidebar } from './Sidebar';
 
 export function App() {
   const health = useBackendHealth();
   // The send state lives here because both the builder (Send/Cancel button)
   // and the viewer (response, error, loading) need it.
   const { state, send, cancel } = useSendRequest();
+  // The editor content lives here so saved requests can be loaded into it.
+  const [draft, dispatchDraft] = useReducer(requestDraftReducer, initialRequestDraft);
+  const currentRequest = useMemo(() => toExecuteRequest(draft), [draft]);
   // Assertions are edited in the builder and their results shown in the viewer.
   const [assertions, dispatchAssertions] = useReducer(assertionsReducer, []);
+
+  // --- Collections (Phase 6.1) ---
+  const collections = useCollections();
+  const refreshCollections = collections.refresh; // stable (useCallback inside the hook)
+  const loadIntoEditor = useCallback((request: ExecuteRequest | null, saved: Assertion[]) => {
+    dispatchDraft({
+      type: 'load',
+      draft: request ? fromExecuteRequest(request, () => crypto.randomUUID()) : initialRequestDraft,
+    });
+    dispatchAssertions({ type: 'replaceAll', assertions: saved });
+  }, []);
+  const confirmDiscard = useCallback(
+    () => window.confirm('This request has unsaved changes. Discard them?'),
+    [],
+  );
+  const workspace = useWorkspace({
+    request: currentRequest,
+    assertions,
+    loadIntoEditor,
+    refreshCollections,
+    confirmDiscard,
+  });
+  const collectionActions = useCollectionActions(refreshCollections, workspace, (message) =>
+    window.confirm(message),
+  );
+  const collectionList = collections.state.status === 'ready' ? collections.state.collections : [];
+
+  // Closing or reloading the tab with unsaved changes asks the browser to confirm.
+  useEffect(() => {
+    if (!workspace.dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [workspace.dirty]);
   // The request that produced the current response (the AI needs both).
   const [lastRequest, setLastRequest] = useState<ExecuteRequest | null>(null);
 
@@ -74,10 +122,30 @@ export function App() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <Sidebar />
+        <CollectionsSidebar
+          state={collections.state}
+          activeRequestId={workspace.open?.id ?? null}
+          onCreate={collectionActions.create}
+          onRename={collectionActions.rename}
+          onDelete={collectionActions.remove}
+          onOpenRequest={workspace.openRequest}
+          onDeleteRequest={collectionActions.removeRequest}
+          onNewRequest={workspace.newRequest}
+        />
         <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
           <div className="rounded-lg border border-slate-200 bg-white p-4">
             <RequestBuilder
+              draft={draft}
+              dispatch={dispatchDraft}
+              toolbar={
+                <SaveBar
+                  open={workspace.open}
+                  dirty={workspace.dirty}
+                  collections={collectionList}
+                  onSave={workspace.save}
+                  onSaveAs={workspace.saveAs}
+                />
+              }
               onSend={(request) => {
                 setLastRequest(request);
                 void send(request);

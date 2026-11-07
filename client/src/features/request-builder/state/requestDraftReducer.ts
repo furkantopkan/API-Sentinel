@@ -36,7 +36,9 @@ export type RequestDraftAction =
   | { type: 'removeRow'; list: KeyValueListName; id: string }
   | { type: 'setAuth'; auth: AuthConfig }
   | { type: 'setBody'; body: string }
-  | { type: 'setOptions'; patch: Partial<RequestOptions> };
+  | { type: 'setOptions'; patch: Partial<RequestOptions> }
+  /** Replaces the whole draft, e.g. when a saved request is opened. */
+  | { type: 'load'; draft: RequestDraft };
 
 /**
  * Pure function: takes the current draft and an action, returns a NEW draft.
@@ -82,5 +84,8 @@ export function requestDraftReducer(state: RequestDraft, action: RequestDraftAct
 
     case 'setOptions':
       return { ...state, options: { ...state.options, ...action.patch } };
+
+    case 'load':
+      return action.draft;
   }
 }

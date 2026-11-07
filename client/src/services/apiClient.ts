@@ -5,7 +5,16 @@ import {
   executeResultSchema,
   healthResponseSchema,
   testCasesResponseSchema,
+  collectionListResponseSchema,
+  collectionResponseSchema,
+  deletedResponseSchema,
+  savedRequestResponseSchema,
   type AiStatus,
+  type CollectionListResponse,
+  type CollectionResponse,
+  type DeletedResponse,
+  type SavedRequestInput,
+  type SavedRequestResponse,
   type AnalysisResponse,
   type AnalyzeResponseRequest,
   type ApiErrorResponse,
@@ -102,7 +111,8 @@ interface Schema<T> {
   safeParse(data: unknown): { success: true; data: T } | { success: false };
 }
 
-async function postJson<T extends { ok: true }>(
+async function sendJson<T extends { ok: true }>(
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body: unknown,
   successSchema: Schema<T>,
@@ -111,9 +121,9 @@ async function postJson<T extends { ok: true }>(
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      method,
+      headers: body === undefined ? undefined : { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     });
   } catch (error) {
@@ -155,12 +165,45 @@ export function generateTestCases(
   input: GenerateTestCasesRequest,
   signal?: AbortSignal,
 ): Promise<TestCasesResponse | ApiErrorResponse> {
-  return postJson('/ai/test-cases', input, testCasesResponseSchema, signal);
+  return sendJson('POST', '/ai/test-cases', input, testCasesResponseSchema, signal);
 }
 
 export function analyzeResponse(
   input: AnalyzeResponseRequest,
   signal?: AbortSignal,
 ): Promise<AnalysisResponse | ApiErrorResponse> {
-  return postJson('/ai/analyze', input, analysisResponseSchema, signal);
+  return sendJson('POST', '/ai/analyze', input, analysisResponseSchema, signal);
 }
+
+// --- Collections (Phase 6.1) ---------------------------------------------
+
+type Result<T> = Promise<T | ApiErrorResponse>;
+
+export const collectionsApi = {
+  list: (signal?: AbortSignal): Result<CollectionListResponse> =>
+    sendJson('GET', '/collections', undefined, collectionListResponseSchema, signal),
+  create: (name: string): Result<CollectionResponse> =>
+    sendJson('POST', '/collections', { name }, collectionResponseSchema),
+  rename: (id: string, name: string): Result<CollectionResponse> =>
+    sendJson('PATCH', `/collections/${encodeURIComponent(id)}`, { name }, collectionResponseSchema),
+  remove: (id: string): Result<DeletedResponse> =>
+    sendJson('DELETE', `/collections/${encodeURIComponent(id)}`, undefined, deletedResponseSchema),
+  getRequest: (id: string): Result<SavedRequestResponse> =>
+    sendJson(
+      'GET',
+      `/saved-requests/${encodeURIComponent(id)}`,
+      undefined,
+      savedRequestResponseSchema,
+    ),
+  createRequest: (input: SavedRequestInput): Result<SavedRequestResponse> =>
+    sendJson('POST', '/saved-requests', input, savedRequestResponseSchema),
+  updateRequest: (id: string, input: SavedRequestInput): Result<SavedRequestResponse> =>
+    sendJson('PUT', `/saved-requests/${encodeURIComponent(id)}`, input, savedRequestResponseSchema),
+  removeRequest: (id: string): Result<DeletedResponse> =>
+    sendJson(
+      'DELETE',
+      `/saved-requests/${encodeURIComponent(id)}`,
+      undefined,
+      deletedResponseSchema,
+    ),
+};

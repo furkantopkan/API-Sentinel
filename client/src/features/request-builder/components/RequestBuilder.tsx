@@ -1,14 +1,10 @@
 import { buildFinalUrl, type ExecuteRequest } from '@api-sentinel/shared';
-import { useReducer, useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type Dispatch, type FormEvent, type ReactNode } from 'react';
 import { Tabs, type TabItem } from '../../../components/Tabs';
 import { toExecuteRequest } from '../lib/toExecuteRequest';
 import { validateDraft } from '../lib/validateDraft';
-import {
-  DEFAULT_TIMEOUT_MS,
-  initialRequestDraft,
-  requestDraftReducer,
-} from '../state/requestDraftReducer';
-import type { KeyValueListName, KeyValueRow } from '../types';
+import { DEFAULT_TIMEOUT_MS, type RequestDraftAction } from '../state/requestDraftReducer';
+import type { KeyValueListName, KeyValueRow, RequestDraft } from '../types';
 import { AuthPanel } from './AuthPanel';
 import { BodyEditor } from './BodyEditor';
 import { FinalUrlPreview } from './FinalUrlPreview';
@@ -23,6 +19,12 @@ function countEnabled(rows: readonly KeyValueRow[]): number {
 }
 
 interface RequestBuilderProps {
+  /**
+   * The draft lives in App (controlled component), so a saved request can be
+   * loaded into the builder and compared with what was saved.
+   */
+  draft: RequestDraft;
+  dispatch: Dispatch<RequestDraftAction>;
   onSend: (request: ExecuteRequest) => void;
   onCancel: () => void;
   isSending: boolean;
@@ -31,15 +33,19 @@ interface RequestBuilderProps {
    * so the request builder does not depend on assertion logic.
    */
   assertionsTab?: { count: number; content: ReactNode };
+  /** Shown above the URL bar (e.g. the saved-request bar with Save / Save as). */
+  toolbar?: ReactNode;
 }
 
 export function RequestBuilder({
+  draft,
+  dispatch,
   onSend,
   onCancel,
   isSending,
   assertionsTab,
+  toolbar,
 }: RequestBuilderProps) {
-  const [draft, dispatch] = useReducer(requestDraftReducer, initialRequestDraft);
   const [activeTab, setActiveTab] = useState<RequestTabId>('params');
   // Errors are only shown after the first Send attempt, then they update live.
   const [hasTriedToSend, setHasTriedToSend] = useState(false);
@@ -83,6 +89,7 @@ export function RequestBuilder({
 
   return (
     <section aria-label="Request builder" className="space-y-3">
+      {toolbar}
       <form onSubmit={handleSubmit} className="space-y-1.5">
         <div className="flex">
           <MethodSelect
