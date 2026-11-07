@@ -4,7 +4,8 @@ import { z } from 'zod';
 import packageJson from '../../package.json' with { type: 'json' };
 
 /** `.env` lives in the project root, three levels above this file. */
-const ROOT_ENV_FILE = resolve(import.meta.dirname, '../../../.env');
+const ROOT_DIR = resolve(import.meta.dirname, '../../..');
+const ROOT_ENV_FILE = resolve(ROOT_DIR, '.env');
 
 /**
  * Loads the project-root `.env` file into `process.env` if it exists.
@@ -66,6 +67,8 @@ const envSchema = z
     AI_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
     AI_TIMEOUT_MS: positiveInt(90_000),
     AI_RATE_LIMIT_PER_MINUTE: positiveInt(10),
+    // Phase 6 – local SQLite file (relative to the project root), or ":memory:".
+    DB_PATH: z.string().trim().min(1).default('data/api-sentinel.db'),
   })
   .refine((env) => env.REQUEST_TIMEOUT_DEFAULT_MS <= env.REQUEST_TIMEOUT_MAX_MS, {
     message: 'must not be greater than REQUEST_TIMEOUT_MAX_MS',
@@ -103,6 +106,8 @@ export interface AppConfig {
   readonly version: string;
   readonly requestEngine: RequestEngineConfig;
   readonly ai: AiConfig;
+  /** Absolute path of the SQLite file, or ":memory:" (tests). */
+  readonly dbPath: string;
 }
 
 export class ConfigError extends Error {
@@ -148,6 +153,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       timeoutMs: parsed.AI_TIMEOUT_MS,
       ratePerMinute: parsed.AI_RATE_LIMIT_PER_MINUTE,
     },
+    dbPath: parsed.DB_PATH === ':memory:' ? ':memory:' : resolve(ROOT_DIR, parsed.DB_PATH),
   };
 }
 

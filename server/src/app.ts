@@ -2,11 +2,14 @@ import express, { type Express } from 'express';
 import type { AppConfig } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
+import { openDatabase, type Database } from './db/database';
+import { createCollectionRepository } from './repositories/collectionRepository';
 import { createApiRouter } from './routes/index';
 import { createAnthropicAiClient, type AiClient } from './services/ai-engine/aiClient';
 import { createAiService } from './services/ai-engine/aiService';
 import { createMockAiClient } from './services/ai-engine/mockAiClient';
 import { createRateLimiter } from './services/ai-engine/rateLimiter';
+import { createCollectionService, type ServiceClock } from './services/collectionService';
 import {
   createRequestEngine,
   type EngineLogger,
@@ -20,6 +23,9 @@ export interface AppDependencies {
   /** Overrides the AI client chosen from config (tests pass a fake). null = AI off. */
   aiClient?: AiClient | null;
   aiLogger?: (line: string) => void;
+  /** Defaults to the database at config.dbPath; tests pass an in-memory one. */
+  db?: Database;
+  clock?: ServiceClock;
 }
 
 function aiClientFor(config: AppConfig): AiClient | null {
@@ -48,6 +54,8 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
     createRateLimiter(config.ai.ratePerMinute),
     deps.aiLogger ?? ((line) => console.info(line)),
   );
+  const db = deps.db ?? openDatabase(config.dbPath);
+  const collections = createCollectionService(createCollectionRepository(db), deps.clock);
   const app = express();
 
   // Do not advertise the framework in an `X-Powered-By` header.
@@ -55,7 +63,7 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
 
   app.use(express.json({ limit: config.requestBodyLimit }));
 
-  app.use('/api', createApiRouter(config, engine, ai));
+  app.use('/api', createApiRouter(config, { engine, ai, collections }));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

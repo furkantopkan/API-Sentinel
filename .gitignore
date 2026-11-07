@@ -17,9 +17,12 @@ coverage/
 playwright-report/
 test-results/
 
-# Local databases (Phase 6)
+# Local databases (Phase 6): the whole data folder stays on this machine
+data/
 *.db
 *.db-journal
+*.db-wal
+*.db-shm
 
 # Logs
 *.log

@@ -38,6 +38,7 @@ function config(ratePerMinute = 100): AppConfig {
       timeoutMs: 1000,
       ratePerMinute,
     },
+    dbPath: ':memory:',
   };
 }
 

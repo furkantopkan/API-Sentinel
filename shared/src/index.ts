@@ -11,3 +11,4 @@ export * from './assertions/schema';
 export * from './assertions/values';
 export * from './assertions/evaluate';
 export * from './schemas/ai';
+export * from './schemas/collections';

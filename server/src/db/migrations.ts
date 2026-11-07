@@ -1,0 +1,43 @@
+/**
+ * Database migrations: numbered, append-only SQL steps.
+ *
+ * Each step runs exactly once per database (tracked in `schema_migrations`).
+ * Never edit a step that has shipped - add a new one instead, so every
+ * existing database file can be brought to the same schema.
+ */
+export interface Migration {
+  id: number;
+  name: string;
+  sql: string;
+}
+
+export const MIGRATIONS: readonly Migration[] = [
+  {
+    id: 1,
+    name: 'collections and saved requests',
+    sql: `
+      CREATE TABLE collections (
+        id         TEXT PRIMARY KEY,
+        name       TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      -- request_json / assertions_json hold the shared Zod shapes; they are
+      -- validated again whenever a row is read.
+      CREATE TABLE saved_requests (
+        id              TEXT PRIMARY KEY,
+        collection_id   TEXT NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+        name            TEXT NOT NULL,
+        method          TEXT NOT NULL,
+        url             TEXT NOT NULL,
+        request_json    TEXT NOT NULL,
+        assertions_json TEXT NOT NULL,
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL
+      );
+
+      CREATE INDEX saved_requests_collection ON saved_requests(collection_id);
+    `,
+  },
+];

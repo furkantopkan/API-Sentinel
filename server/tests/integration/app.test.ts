@@ -32,6 +32,7 @@ const testConfig: AppConfig = {
     timeoutMs: 1000,
     ratePerMinute: 5,
   },
+  dbPath: ':memory:',
 };
 
 const app = createApp(testConfig, { engineLogger: () => undefined });
