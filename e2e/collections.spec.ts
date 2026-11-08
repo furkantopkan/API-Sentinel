@@ -20,6 +20,8 @@ async function saveAs(page: Page, name: string, collection: string) {
   await page.getByLabel('Collection', { exact: true }).selectOption({ label: collection });
   await page.getByRole('form', { name: 'Save as' }).getByRole('button', { name: 'Save' }).click();
   await expect(page.getByLabel('Open request')).toContainText(`${collection} / ${name}`);
+  // The form closes just after the list refreshes; until then it has its own Save button.
+  await expect(page.getByRole('form', { name: 'Save as' })).toHaveCount(0);
 }
 
 const urlInput = (page: Page) => page.getByLabel('Request URL');
