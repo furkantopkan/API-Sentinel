@@ -258,7 +258,7 @@ test('EN-16: saved requests keep placeholders, never the values', async ({ page 
   const request = unique('Templated');
   await page.getByRole('button', { name: '+ New' }).click();
   await page.getByLabel('New collection name').fill(collection);
-  await page.getByRole('button', { name: 'OK' }).click();
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
   await expect(page.getByRole('listitem', { name: `Collection ${collection}` })).toBeVisible();
 
   await urlInput(page).fill('{{baseUrl}}/json');

@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 
 async function send(page: import('@playwright/test').Page, url: string) {
   await page.getByLabel('Request URL').fill(url);
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
 }
 
 test('GET to the mock target shows 200 and the JSON body', async ({ page }) => {

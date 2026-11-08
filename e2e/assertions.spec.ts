@@ -17,7 +17,7 @@ const outcome = (page: Page, n: number) =>
     .getByTestId('assertion-outcome');
 
 async function send(page: Page) {
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.getByTestId('response-status')).toBeVisible();
 }
 

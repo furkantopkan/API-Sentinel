@@ -6,7 +6,7 @@ const MOCK = `http://localhost:${MOCK_PORT}`;
 async function send(page: Page, url: string) {
   await page.goto('/');
   await page.getByLabel('Request URL').fill(url);
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.getByTestId('response-status')).toBeVisible();
 }
 
@@ -31,7 +31,7 @@ test('big integers: warning in the tree, exact digits in the raw view', async ({
   await send(page, `${MOCK}/bigint`);
 
   await expect(page.getByRole('note')).toContainText('larger than 2^53');
-  await page.getByRole('button', { name: 'Raw' }).click();
+  await page.getByRole('button', { name: 'Raw', exact: true }).click();
   await expect(page.getByText('12345678901234567890')).toBeVisible();
 });
 

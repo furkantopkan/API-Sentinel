@@ -11,7 +11,7 @@ const responseTab = (page: Page, name: string | RegExp) =>
 async function sendAndOpenAi(page: Page, url = `${MOCK}/nested`) {
   await page.goto('/');
   await page.getByLabel('Request URL').fill(url);
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.getByTestId('response-status')).toBeVisible();
   await responseTab(page, 'AI').click();
 }
@@ -44,7 +44,7 @@ test('AI results survive tab switches; a new Send keeps test cases but hides the
   await expect(page.getByText('Test cases (5)')).toBeVisible();
   await expect(page.getByRole('region', { name: 'Response analysis' })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
   await expect(page.getByTestId('response-status')).toBeVisible();
   await responseTab(page, 'AI').click();
   await expect(page.getByText('Test cases (5)')).toBeVisible();

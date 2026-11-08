@@ -61,8 +61,9 @@ function Comparison({ base, target }: { base: Run; target: Run }) {
   return (
     <section aria-label="Run comparison" className="space-y-2">
       <p className="text-sm text-slate-700">
-        Compared with {formatDate(base.startedAt)}: {counts.regression} regressions, {counts.fixed}{' '}
-        fixed, {counts.changed} changed, {counts.added} new, {counts.removed} removed.
+        Compared with {formatDate(base.startedAt)}: {counts.regression}{' '}
+        {counts.regression === 1 ? 'regression' : 'regressions'}, {counts.fixed} fixed,{' '}
+        {counts.changed} changed, {counts.added} new, {counts.removed} removed.
       </p>
       {visible.length === 0 ? (
         <p className="text-xs text-slate-400">No differences in outcomes.</p>

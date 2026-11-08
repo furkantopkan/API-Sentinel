@@ -10,7 +10,7 @@ const unique = (label: string) => `${label} ${Date.now()}-${++counter}`;
 async function createCollection(page: Page, name: string) {
   await page.getByRole('button', { name: '+ New' }).click();
   await page.getByLabel('New collection name').fill(name);
-  await page.getByRole('button', { name: 'OK' }).click();
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
   await expect(page.getByRole('listitem', { name: `Collection ${name}` })).toBeVisible();
 }
 
@@ -93,7 +93,7 @@ test('renames a saved request in place, keeping unsaved edits out of the stored 
   await urlInput(page).fill(`${MOCK}/unsaved-edit`);
   await clickRowAction(page, oldName, 'Rename');
   await page.getByLabel(`Rename request ${oldName}`).fill(newName);
-  await page.getByRole('button', { name: 'OK' }).click();
+  await page.getByRole('button', { name: 'OK', exact: true }).click();
 
   await expect(openButton(page, newName)).toBeVisible();
   await expect(openButton(page, oldName)).toHaveCount(0);
