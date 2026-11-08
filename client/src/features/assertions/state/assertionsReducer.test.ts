@@ -90,6 +90,15 @@ describe('assertionsReducer', () => {
     expect(assertionsReducer([a, b], { type: 'remove', id: 'a' })).toEqual([b]);
   });
 
+  it('replaceAll swaps the list and still respects the limit', () => {
+    const many = Array.from({ length: MAX_ASSERTIONS + 3 }, (_, i) => newAssertion(`id${i}`));
+
+    expect(assertionsReducer([a], { type: 'replaceAll', assertions: [b] })).toEqual([b]);
+    expect(assertionsReducer([], { type: 'replaceAll', assertions: many })).toHaveLength(
+      MAX_ASSERTIONS,
+    );
+  });
+
   it('never mutates the previous state', () => {
     const state = [a, b];
     const snapshot = structuredClone(state);

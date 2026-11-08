@@ -34,6 +34,12 @@ describe('requestDraftReducer', () => {
     expect(next.options).toEqual({ timeoutMs: 15_000, followRedirects: false });
   });
 
+  it('load replaces the whole draft', () => {
+    const draft = { ...draftWithParams(), url: 'https://loaded.io' };
+
+    expect(requestDraftReducer(initialRequestDraft, { type: 'load', draft })).toBe(draft);
+  });
+
   it('setMethod changes only the method', () => {
     const next = requestDraftReducer(initialRequestDraft, { type: 'setMethod', method: 'POST' });
 
