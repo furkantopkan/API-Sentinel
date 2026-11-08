@@ -138,6 +138,8 @@ Kararlar (2026-11-07, kullanıcı): veritabanı **`node:sqlite`** (Prisma yerine
 
 **6.1 Collections ✅ (2026-11-08):** SQLite + sıralı migration'lar, collection/saved-request API'si, sol panel, Save / Save as, kaydedilmemiş değişiklik uyarısı, yerinde ad değiştirme. Manuel testler CO-01…CO-17 kullanıcı tarafından çalıştırıldı, hepsi PASS; sonradan eklenen yerinde ad değiştirme E2E ile doğrulandı. Klasörler bilinçli olarak eklenmedi (FR-06 gerektirmiyor; ihtiyaç doğarsa migration ile eklenebilir). Mutasyon kontrolünde yakalanmayan bir hata (ad değişirken özet sütununun bozulması) test boşluğunu gösterdi; test güçlendirildi (`076d417`).
 
+**6.2 Environments ✅ (2026-11-08):** `{{değişken}}` çözümleme server'da; secret değerler yalnızca yazılır, API'den dönmez; hedef geri yankılarsa cevapta, hata mesajlarında ve loglarda maskelenir; SSRF guard çözülmüş değerlere de uygulanır. EN-01…EN-20 **kullanıcının isteğiyle elle değil otomasyonla** doğrulandı (`e2e/environments.spec.ts`, `server/tests/integration/environments.test.ts`). Bu sırada bulunan hata: formlar server'ın özel doğrulama mesajı yerine genel mesaj gösteriyordu (`eec0a16`). Mutasyon kontrolü (secret'ın dönmesi, secret'lığı kaldırınca açığa çıkması, devre dışı değişken, cevap maskeleme, maskeleme sırası) 5/5 yakalandı.
+
 Prisma + SQLite, migration, CRUD endpoint'leri, React Router, TanStack Query, `{{variable}}` çözümleme, secret maskeleme, test geçmişi, JSON/HTML rapor, çalıştırma karşılaştırma.
 
 ## Faz 7 – Portfolio hazırlığı

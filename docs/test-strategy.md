@@ -193,6 +193,23 @@ Otomatik karşılıkları: `e2e/collections.spec.ts`, `server/tests/integration/
 
 ---
 
+### 4.7 Environments (Faz 6.2)
+Otomatik karşılıkları: `e2e/environments.spec.ts`, `server/tests/integration/environments.test.ts`.
+
+| ID | Senaryo | Beklenen |
+|---|---|---|
+| EN-01 / 10 | Ortamsız veya tanımsız `{{x}}` | Uyarı, istek gönderilmez |
+| EN-02…04 | Ortam + secret oluştur, yeniden aç | Secret değeri tarayıcıya dönmez |
+| EN-05 / 06 | `{{baseUrl}}`, Bearer `{{token}}` | Çözülür; 200 |
+| EN-07 / 08 | Secret parametre, `/echo` | Önizlemede `***`, cevapta `[secret]` |
+| EN-09 | Body `{"id": {{num}}}` | Geçerli; `"id": 5` |
+| EN-11 / 12 | Secret'a dokunmadan kaydet; işareti kaldır | Değer korunur; değer silinir ve açığa çıkmaz (Bearer boş hatası) |
+| EN-13…15 | Devre dışı değişken; aynı ad; kaydetmeden kapat | Tanımsız; "Duplicate variable"; onay |
+| EN-16…18 | Kayıtlı istek; yenile; ortamı sil | Yer tutucu kalır; seçim hatırlanır; "No environment" |
+| EN-19 / 20 | Server logu; AI | Secret yok; AI'a yalnızca `{{ad}}` gider |
+
+---
+
 ## 5. Otomasyon kapsamı (MVP)
 
 **Unit – server**

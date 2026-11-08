@@ -15,6 +15,7 @@ A web-based REST API testing tool for QA engineers: build HTTP requests, inspect
 - Assertions: status code, response time, headers, body text and JSON path checks (exists, equals, null, type, contains, greater/less than) with live PASS / FAIL / ERROR results, expected vs actual, and one-click assertions from the JSON tree
 - AI (optional, Claude): generate editable test cases and analyse a response, with one-click suggested assertions and Markdown export. Secrets are masked before anything is sent; without an API key the AI tab is simply off
 - Collections: save requests with their assertions in a local SQLite database, reopen, rename and organise them from the sidebar, with an unsaved-changes guard
+- Environments: `{{variables}}` in URL, params, headers, auth and body, resolved on the server; secret values are write-only and masked in responses, errors and logs
 - Clear error messages for timeouts, DNS/connection failures, too-large responses, blocked targets
 - Requests are sent **by the server**, never directly from the browser, and every target is checked against SSRF rules
 
