@@ -34,6 +34,7 @@ export function createApiRouter(config: AppConfig, services: RouterServices): Ro
   router.post('/saved-requests', collections.createRequest);
   router.get('/saved-requests/:id', collections.getRequest);
   router.put('/saved-requests/:id', collections.updateRequest);
+  router.patch('/saved-requests/:id', collections.renameRequest);
   router.delete('/saved-requests/:id', collections.removeRequest);
 
   return router;

@@ -199,6 +199,13 @@ export const collectionsApi = {
     sendJson('POST', '/saved-requests', input, savedRequestResponseSchema),
   updateRequest: (id: string, input: SavedRequestInput): Result<SavedRequestResponse> =>
     sendJson('PUT', `/saved-requests/${encodeURIComponent(id)}`, input, savedRequestResponseSchema),
+  renameRequest: (id: string, name: string): Result<SavedRequestResponse> =>
+    sendJson(
+      'PATCH',
+      `/saved-requests/${encodeURIComponent(id)}`,
+      { name },
+      savedRequestResponseSchema,
+    ),
   removeRequest: (id: string): Result<DeletedResponse> =>
     sendJson(
       'DELETE',

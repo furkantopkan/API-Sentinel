@@ -19,6 +19,7 @@ interface CollectionsSidebarProps {
   onRename: (id: string, name: string) => Promise<string | null>;
   onDelete: (collection: Collection) => Promise<string | null>;
   onOpenRequest: (id: string) => Promise<string | null>;
+  onRenameRequest: (id: string, name: string) => Promise<string | null>;
   onDeleteRequest: (id: string, name: string) => Promise<string | null>;
   onNewRequest: () => void;
 }
@@ -184,6 +185,21 @@ export function CollectionsSidebar(props: CollectionsSidebarProps) {
                     )}
                     {collection.requests.map((saved) => {
                       const active = saved.id === activeRequestId;
+                      if (renamingId === saved.id) {
+                        return (
+                          <li key={saved.id} className="px-1 py-0.5">
+                            <NameForm
+                              label={`Rename request ${saved.name}`}
+                              initial={saved.name}
+                              onCancel={() => setRenamingId(null)}
+                              onSubmit={(name) => {
+                                setRenamingId(null);
+                                void run(props.onRenameRequest(saved.id, name));
+                              }}
+                            />
+                          </li>
+                        );
+                      }
                       return (
                         <li key={saved.id} className="group flex items-center">
                           <button
@@ -204,6 +220,14 @@ export function CollectionsSidebar(props: CollectionsSidebarProps) {
                             </span>
                             <span className="truncate">{saved.name}</span>
                           </button>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setRenamingId(saved.id)}
+                            aria-label={`Rename request ${saved.name}`}
+                            className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                          >
+                            ✎
+                          </Button>
                           <Button
                             variant="ghost"
                             danger

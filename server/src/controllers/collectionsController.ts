@@ -45,10 +45,25 @@ export function createCollectionsControllers(service: CollectionService) {
     const input = parseBody(savedRequestInputSchema, req.body);
     res.json({ ok: true, savedRequest: service.updateRequest(id, input) });
   };
+  const renameRequest: RequestHandler = (req, res) => {
+    const id = idParam(req);
+    const { name } = parseBody(collectionInputSchema, req.body);
+    res.json({ ok: true, savedRequest: service.renameRequest(id, name) });
+  };
   const removeRequest: RequestHandler = (req, res) => {
     service.removeRequest(idParam(req));
     res.json({ ok: true, deleted: true });
   };
 
-  return { list, create, rename, remove, getRequest, createRequest, updateRequest, removeRequest };
+  return {
+    list,
+    create,
+    rename,
+    remove,
+    getRequest,
+    createRequest,
+    updateRequest,
+    renameRequest,
+    removeRequest,
+  };
 }

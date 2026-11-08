@@ -96,7 +96,12 @@ export function useWorkspace({
     setOpen((current) => (current && deletedIds.includes(current.id) ? null : current));
   }, []);
 
-  return { open, dirty, openRequest, save, saveAs, newRequest, forget };
+  /** Keeps the open request's name current; a later Save would otherwise restore the old one. */
+  const renamed = useCallback((id: string, name: string) => {
+    setOpen((current) => (current?.id === id ? { ...current, name } : current));
+  }, []);
+
+  return { open, dirty, openRequest, save, saveAs, newRequest, forget, renamed };
 }
 
 export type Workspace = ReturnType<typeof useWorkspace>;

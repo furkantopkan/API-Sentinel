@@ -45,6 +45,9 @@ export function createCollectionRepository(db: Database) {
           SET collection_id = ?, name = ?, method = ?, url = ?, request_json = ?, assertions_json = ?, updated_at = ?
         WHERE id = ?`,
     ),
+    renameSavedRequest: db.prepare(
+      'UPDATE saved_requests SET name = ?, updated_at = ? WHERE id = ?',
+    ),
     deleteSavedRequest: db.prepare('DELETE FROM saved_requests WHERE id = ?'),
   };
 
@@ -142,6 +145,10 @@ export function createCollectionRepository(db: Database) {
           id,
         ),
       );
+    },
+
+    renameSavedRequest(id: string, name: string, now: string): boolean {
+      return changed(statements.renameSavedRequest.run(name, now, id));
     },
 
     deleteSavedRequest(id: string): boolean {

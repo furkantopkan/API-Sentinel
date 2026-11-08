@@ -14,7 +14,7 @@ export function useCollectionActions(
   workspace: Workspace,
   confirm: (message: string) => boolean,
 ) {
-  const { forget } = workspace;
+  const { forget, renamed } = workspace;
 
   const afterChange = useCallback(
     async (result: { ok: true } | { ok: false; message: string }) => {
@@ -49,6 +49,15 @@ export function useCollectionActions(
         return afterChange(result);
       },
       [afterChange, confirm, forget],
+    ),
+
+    renameRequest: useCallback(
+      async (id: string, name: string) => {
+        const result = await unwrap(collectionsApi.renameRequest(id, name));
+        if (result.ok) renamed(id, result.data.savedRequest.name);
+        return afterChange(result);
+      },
+      [afterChange, renamed],
     ),
 
     removeRequest: useCallback(

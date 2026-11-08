@@ -90,6 +90,12 @@ export function createCollectionService(
       return this.getRequest(id);
     },
 
+    /** Changes only the name, so unsaved editor content can never overwrite the stored request. */
+    renameRequest(id: string, name: string): SavedRequest {
+      if (!repo.renameSavedRequest(id, name, clock.now())) throw notFound('Saved request');
+      return this.getRequest(id);
+    },
+
     removeRequest(id: string): void {
       if (!repo.deleteSavedRequest(id)) throw notFound('Saved request');
     },

@@ -129,6 +129,7 @@ export function App() {
           onRename={collectionActions.rename}
           onDelete={collectionActions.remove}
           onOpenRequest={workspace.openRequest}
+          onRenameRequest={collectionActions.renameRequest}
           onDeleteRequest={collectionActions.removeRequest}
           onNewRequest={workspace.newRequest}
         />
