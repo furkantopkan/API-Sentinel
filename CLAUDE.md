@@ -85,6 +85,8 @@ Kullanıcı bir soru sorduğunda **kodlamayı durdur**, önce konuyu örneklerle
 ## Yapı notları
 - `shared` paketi derlenmez; TS kaynağını doğrudan export eder (tsx ve Vite çalıştırır).
 - TypeScript 6.0.x'te sabit: typescript-eslint henüz TS 7'yi desteklemiyor.
+- Veritabanı `node:sqlite` (`data/api-sentinel.db`, git'e girmez); testler ve E2E `:memory:` kullanır, gerçek dosyaya dokunmaz.
+- E2E dosyaları tek backend'i paralel paylaşır: test verisine benzersiz ad ver, kısa buton adlarında `exact: true` kullan.
 - Server testleri `server/tests/{unit,integration}`; client testleri test edilen dosyanın yanında (`*.test.ts`, component testleri `*.test.tsx` + dosya başında `// @vitest-environment jsdom`); E2E `e2e/`.
 
 ## Ortam

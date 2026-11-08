@@ -2,7 +2,7 @@
 
 A web-based REST API testing tool for QA engineers: build HTTP requests, inspect responses, and (in later versions) run assertions and generate test cases with AI.
 
-> **Status:** Phases 1–5 complete: Request Builder, backend request engine with SSRF protection, Response Viewer, Response Analyzer, Assertion Engine and AI features. Next: Phase 6 (collections, environments, reports). See [docs/development-roadmap.md](docs/development-roadmap.md).
+> **Status:** Phases 1–6 complete: request builder and engine with SSRF protection, response analyzer, assertions, AI features, collections, environments and test reports. Next: Phase 7 (portfolio preparation).
 
 ## Features (MVP)
 
@@ -16,6 +16,7 @@ A web-based REST API testing tool for QA engineers: build HTTP requests, inspect
 - AI (optional, Claude): generate editable test cases and analyse a response, with one-click suggested assertions and Markdown export. Secrets are masked before anything is sent; without an API key the AI tab is simply off
 - Collections: save requests with their assertions in a local SQLite database, reopen, rename and organise them from the sidebar, with an unsaved-changes guard
 - Environments: `{{variables}}` in URL, params, headers, auth and body, resolved on the server; secret values are write-only and masked in responses, errors and logs
+- Collection runs: run all saved requests with one click, keep a history of outcomes, download JSON or HTML reports and compare two runs to spot regressions
 - Clear error messages for timeouts, DNS/connection failures, too-large responses, blocked targets
 - Requests are sent **by the server**, never directly from the browser, and every target is checked against SSRF rules
 
@@ -24,7 +25,7 @@ A web-based REST API testing tool for QA engineers: build HTTP requests, inspect
 | Layer | Technology |
 |---|---|
 | Client | React 19, TypeScript, Vite, Tailwind CSS |
-| Server | Node.js, Express 5, Zod, undici (outbound HTTP), Anthropic SDK (AI) |
+| Server | Node.js, Express 5, Zod, undici (outbound HTTP), Anthropic SDK (AI), SQLite via `node:sqlite` |
 | Shared | Zod schemas and types used by both sides (the API contract) |
 | Tests | Vitest (unit), Supertest (integration), Testing Library + jsdom (components), Playwright (E2E) |
 | Quality | ESLint (type-aware), Prettier |

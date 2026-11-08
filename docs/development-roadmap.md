@@ -132,13 +132,17 @@ Assertion modeli (shared şema), değerlendirme motoru (saf fonksiyonlar, **eval
 
 `ai-engine` servisi, Anthropic SDK, yapılandırılmış çıktı + Zod doğrulama, AI kapalıyken uygulamanın çalışmaya devam etmesi, "bu bir öneridir" uyarısı, rate limit. Manuel + otomasyon (AI istemcisi mock'lanarak).
 
-## Faz 6 – Collections, Environments, Raporlama (devam ediyor)
+## Faz 6 – Collections, Environments, Raporlama ✅ (2026-11-08 tamamlandı)
 
 Kararlar (2026-11-07, kullanıcı): veritabanı **`node:sqlite`** (Prisma yerine, yeni paket yok); client'a **React Router / TanStack Query eklenmedi**; D-08: secret'lar **yerelde saklanır, her yerde maskelenir**. Alt modüller: 6.1 Collections, 6.2 Environments, 6.3 Çalıştırma ve raporlar.
 
 **6.1 Collections ✅ (2026-11-08):** SQLite + sıralı migration'lar, collection/saved-request API'si, sol panel, Save / Save as, kaydedilmemiş değişiklik uyarısı, yerinde ad değiştirme. Manuel testler CO-01…CO-17 kullanıcı tarafından çalıştırıldı, hepsi PASS; sonradan eklenen yerinde ad değiştirme E2E ile doğrulandı. Klasörler bilinçli olarak eklenmedi (FR-06 gerektirmiyor; ihtiyaç doğarsa migration ile eklenebilir). Mutasyon kontrolünde yakalanmayan bir hata (ad değişirken özet sütununun bozulması) test boşluğunu gösterdi; test güçlendirildi (`076d417`).
 
 **6.2 Environments ✅ (2026-11-08):** `{{değişken}}` çözümleme server'da; secret değerler yalnızca yazılır, API'den dönmez; hedef geri yankılarsa cevapta, hata mesajlarında ve loglarda maskelenir; SSRF guard çözülmüş değerlere de uygulanır. EN-01…EN-20 **kullanıcının isteğiyle elle değil otomasyonla** doğrulandı (`e2e/environments.spec.ts`, `server/tests/integration/environments.test.ts`). Bu sırada bulunan hata: formlar server'ın özel doğrulama mesajı yerine genel mesaj gösteriyordu (`eec0a16`). Mutasyon kontrolü (secret'ın dönmesi, secret'lığı kaldırınca açığa çıkması, devre dışı değişken, cevap maskeleme, maskeleme sırası) 5/5 yakalandı.
+
+**6.3 Çalıştırma ve raporlar ✅ (2026-11-08):** Collection'daki kayıtlı istekler server'da sırayla çalışır; assertion'lar `shared` motorla değerlendirilir (Faz 4'te ertelenen server kullanımı). Geçmiş yalnızca sonuçları saklar (response gövdesi yok), collection başına son 100 çalıştırma. JSON/HTML rapor, iki çalıştırmayı karşılaştırma (`compareRuns`). RU-01…RU-17 **kullanıcının isteğiyle elle değil otomasyonla** doğrulandı (`e2e/runs.spec.ts`, `server/tests/integration/runs.test.ts`). Mutasyon kontrolü 6/6 yakalandı.
+
+**Faz 6 sonu:** 243 shared + 350 server + 223 client test, 50 Playwright testi geçiyor. Mimari plandan bilinçli farklar: Prisma yerine `node:sqlite`; React Router / TanStack Query yok; klasörler yok; karşılaştırma ayrı endpoint yerine `shared` saf fonksiyonu; test senaryolarının kalıcı saklanması (`/api/test-cases`) yapılmadı (FR-06 kapsamında değil, AI senaryoları Markdown olarak dışa aktarılıyor).
 
 Prisma + SQLite, migration, CRUD endpoint'leri, React Router, TanStack Query, `{{variable}}` çözümleme, secret maskeleme, test geçmişi, JSON/HTML rapor, çalıştırma karşılaştırma.
 

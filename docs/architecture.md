@@ -226,6 +226,8 @@ Header'lar dizi olarak tutulur çünkü aynı isimde birden fazla header (ör. `
 > **Faz 5 uygulama notu (2026-11-06):** `server/src/services/ai-engine/`. `AiClient` arayüzünün iki uygulaması var: Anthropic SDK (`claude-sonnet-5-5`, structured outputs + Zod, `fallbacks: "default"`, timeout, 1 retry) ve deterministik mock (`AI_MODE=mock`; anahtarsız deneme ve E2E). Gönderilmeden önce secret'lar maskelenir (`redact.ts`); request/response prompt'a etiketli **veri** olarak girer (prompt injection önlemi); çıktı şema + assertion şemasıyla yeniden doğrulanır; süreç başına dakikalık rate limit; loglar içerik içermez. Client tarafında AI durumu `App` seviyesinde tutulur (`useAiAssistant`), sekme değişiminde kaybolmaz.
 
 **Faz 6 – Collections / Environments / Runs**
+
+> **Uygulama notu (2026-11-08):** Depolama `node:sqlite` (`server/src/db`), sıralı migration'lar. Aşağıdaki liste ilk plandır; gerçekleşen uçlar: `GET|POST /api/collections`, `PATCH|DELETE /api/collections/:id`, `POST /api/saved-requests`, `GET|PUT|PATCH|DELETE /api/saved-requests/:id`, `GET|POST /api/environments`, `PUT|DELETE /api/environments/:id`, `POST /api/collections/:id/runs`, `GET /api/runs`, `GET|DELETE /api/runs/:id`, `GET /api/runs/:id/report?format=json|html`. Tüm istekler tek yoldan geçer (`executionService`: değişken çözümleme → SSRF korumalı engine → secret maskeleme). Secret değerler yalnızca yazılır, API'den dönmez. Klasörler ve `/api/test-cases` yapılmadı; karşılaştırma `shared/runs/compareRuns`.
 - `GET|POST /api/collections`, `GET|PATCH|DELETE /api/collections/:id`
 - `POST /api/collections/:id/folders`, `PATCH|DELETE /api/folders/:id`
 - `GET|POST /api/saved-requests`, `GET|PATCH|DELETE /api/saved-requests/:id`

@@ -210,6 +210,22 @@ Otomatik karşılıkları: `e2e/environments.spec.ts`, `server/tests/integration
 
 ---
 
+### 4.8 Çalıştırma ve raporlar (Faz 6.3)
+Otomatik karşılıkları: `e2e/runs.spec.ts`, `server/tests/integration/runs.test.ts`.
+
+| ID | Senaryo | Beklenen |
+|---|---|---|
+| RU-01 / 02 | Geçen, kalan, hatalı istek | "1 of 3 passed · 1 failed · 1 error"; satırlar PASS/FAIL/ERROR |
+| RU-03 / 04 | HTML / JSON indirme | Dosya iner, içerik doğru |
+| RU-05…07 | Düzelt, boz, karşılaştır | "1 fixed"; "1 regression" |
+| RU-08 | Kaydedilmemiş düzenleme | Kayıtlı hali çalışır |
+| RU-09 | Cancel | Durur, geçmişe eklenmez |
+| RU-10…12 | Ortamla / ortamsız; rapor | Çözülür; "Select an environment"; raporda secret yok |
+| RU-13 / 14 | Boş collection; sil | Buton pasif; geçmişten silinir |
+| RU-15…17 | Collection sil; F5; görünüm değiştir | Geçmiş kalır; editör korunur |
+
+---
+
 ## 5. Otomasyon kapsamı (MVP)
 
 **Unit – server**
