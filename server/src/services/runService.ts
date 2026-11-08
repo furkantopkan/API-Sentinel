@@ -1,4 +1,5 @@
 import {
+  createSecretMasker,
   evaluateAssertions,
   type Run,
   type RunRequestResult,
@@ -9,7 +10,8 @@ import { AppError } from '../errors/AppError';
 import type { RunRepository } from '../repositories/runRepository';
 import type { CollectionService, ServiceClock } from './collectionService';
 import type { EnvironmentService } from './environmentService';
-import type { ExecutionContext, ExecutionService } from './executionService';
+import { applyCaptures, type FlowState } from './captures';
+import { maskResponse, type ExecutionContext, type ExecutionService } from './executionService';
 
 /** History is capped so the database cannot grow without limit. */
 export const MAX_RUNS_PER_COLLECTION = 100;
@@ -31,10 +33,18 @@ const systemClock: ServiceClock = {
 /** One failed request must not stop the run, so failures become results. */
 async function runOne(
   saved: SavedRequest,
-  context: ExecutionContext,
+  baseContext: ExecutionContext,
+  flow: FlowState,
   execution: ExecutionService,
   signal: AbortSignal | undefined,
 ): Promise<RunRequestResult> {
+  // Values captured by earlier requests win over environment variables.
+  const flowMask = createSecretMasker(flow.secrets);
+  const context: ExecutionContext = {
+    ...baseContext,
+    lookup: (name) => flow.values.get(name) ?? baseContext.lookup(name),
+    mask: (text) => baseContext.mask(flowMask(text)),
+  };
   const base = {
     savedRequestId: saved.id,
     name: saved.name,
@@ -42,8 +52,13 @@ async function runOne(
     url: saved.request.url, // the {{variable}} form: never contains a secret value
   };
   try {
-    const response = await execution.execute(saved.request, context, signal);
-    const assertions = evaluateAssertions(saved.assertions, response);
+    let response = await execution.execute(saved.request, context, signal);
+    const captures = applyCaptures(saved.captures ?? [], response, flow);
+    // A token captured from this response must not show up in its own results.
+    if (captures.newSecrets.length > 0) {
+      response = maskResponse(response, createSecretMasker(captures.newSecrets));
+    }
+    const assertions = [...captures.results, ...evaluateAssertions(saved.assertions, response)];
     return {
       ...base,
       outcome: assertions.every((a) => a.outcome === 'pass') ? 'pass' : 'fail',
@@ -100,9 +115,10 @@ export function createRunService({
       const startedAt = clock.now();
       const started = performance.now();
       const results: RunRequestResult[] = [];
+      const flow: FlowState = { values: new Map(), secrets: [] };
       for (const summary of collection.requests) {
         const saved = collections.getRequest(summary.id);
-        results.push(await runOne(saved, context, execution, signal));
+        results.push(await runOne(saved, context, flow, execution, signal));
       }
 
       const count = (outcome: RunRequestResult['outcome']) =>

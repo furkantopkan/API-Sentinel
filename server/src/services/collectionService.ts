@@ -1,4 +1,9 @@
-import type { Collection, SavedRequest, SavedRequestInput } from '@api-sentinel/shared';
+import type {
+  Collection,
+  CollectionImport,
+  SavedRequest,
+  SavedRequestInput,
+} from '@api-sentinel/shared';
 import { AppError } from '../errors/AppError';
 import type { CollectionRepository } from '../repositories/collectionRepository';
 
@@ -62,6 +67,30 @@ export function createCollectionService(
 
     rename(id: string, name: string): Collection {
       if (!repo.renameCollection(id, name, clock.now())) throw notFound('Collection');
+      return requireCollection(id);
+    },
+
+    /** Creates a collection with its requests, in the given order, or nothing at all. */
+    importCollection(input: CollectionImport): Collection {
+      if (repo.listCollections().length >= MAX_COLLECTIONS) {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          `At most ${MAX_COLLECTIONS} collections are allowed.`,
+          400,
+        );
+      }
+      const id = clock.newId();
+      const now = clock.now();
+      repo.transaction(() => {
+        repo.insertCollection(id, input.name, now);
+        input.requests.forEach((request, index) => {
+          repo.insertSavedRequest(
+            clock.newId(),
+            { ...request, collectionId: id, position: index + 1 },
+            now,
+          );
+        });
+      });
       return requireCollection(id);
     },
 

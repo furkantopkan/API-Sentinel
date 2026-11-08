@@ -1,5 +1,8 @@
 import {
   analysisOutputSchema,
+  collectionDraftOutputSchema,
+  type BuildCollectionRequest,
+  type CollectionDraft,
   assertionSchema,
   testCasesOutputSchema,
   type AiMeta,
@@ -16,13 +19,16 @@ import { AppError } from '../../errors/AppError';
 import type { AiClient } from './aiClient';
 import {
   ANALYSIS_SYSTEM_PROMPT,
+  BUILD_COLLECTION_SYSTEM_PROMPT,
+  formatRecording,
   TEST_CASES_SYSTEM_PROMPT,
   formatDescription,
   formatRequest,
   formatResponse,
 } from './prompts';
 import type { RateLimiter } from './rateLimiter';
-import { redactRequest, redactResponse } from './redact';
+import { checkDraft } from './collectionDraft';
+import { redactBody, redactHeaders, redactRequest, redactResponse, redactUrl } from './redact';
 
 type TestCasesInput = z.output<typeof generateTestCasesRequestSchema>;
 type AnalysisInput = z.output<typeof analyzeResponseRequestSchema>;
@@ -37,6 +43,10 @@ export interface AiService {
     signal?: AbortSignal,
   ): Promise<AiResult<TestCasesOutput>>;
   analyzeResponse(input: AnalysisInput, signal?: AbortSignal): Promise<AiResult<AnalysisOutput>>;
+  buildCollection(
+    input: BuildCollectionRequest,
+    signal?: AbortSignal,
+  ): Promise<AiResult<CollectionDraft>>;
 }
 
 export interface AiResult<T> {
@@ -84,7 +94,10 @@ export function createAiService(
   }
 
   /** Runs one AI call with logging that contains no request or response content. */
-  async function run<T>(task: 'testCases' | 'analysis', call: (ai: AiClient) => Promise<T>) {
+  async function run<T>(
+    task: 'testCases' | 'analysis' | 'collection',
+    call: (ai: AiClient) => Promise<T>,
+  ) {
     const ai = requireClient();
     const started = performance.now();
     try {
@@ -150,6 +163,34 @@ export function createAiService(
           droppedAssertions,
           droppedItems: output.testCases.length - testCases.length,
         },
+      };
+    },
+
+    async buildCollection(input, signal) {
+      // Masked before the model sees it; the masked form is also what the draft is checked against.
+      const entries = input.entries.map((entry) => ({
+        ...entry,
+        url: redactUrl(entry.url),
+        requestHeaders: redactHeaders(entry.requestHeaders),
+        requestBody: entry.requestBody === '' ? '' : redactBody(entry.requestBody),
+        responseSample: entry.responseSample === '' ? '' : redactBody(entry.responseSample),
+      }));
+
+      const { ai, output } = await run('collection', (client) =>
+        client.complete({
+          task: 'collection',
+          system: BUILD_COLLECTION_SYSTEM_PROMPT,
+          prompt: formatRecording(input.goal, entries),
+          schema: collectionDraftOutputSchema,
+          signal,
+          recording: entries,
+        }),
+      );
+
+      const { draft, droppedSteps, droppedAssertions } = checkDraft(output, entries);
+      return {
+        result: draft,
+        meta: { model: ai.model, mock: ai.isMock, droppedAssertions, droppedItems: droppedSteps },
       };
     },
 

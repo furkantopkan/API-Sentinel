@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod';
+import type { RecordedEntry } from '@api-sentinel/shared';
 import type { z } from 'zod';
 import type { AiConfig } from '../../config/env';
 import { AppError } from '../../errors/AppError';
@@ -17,11 +18,13 @@ export interface AiClient {
 
 export interface AiCompletion<T> {
   /** Which feature is asking (used by the mock and for logging). */
-  task: 'testCases' | 'analysis';
+  task: 'testCases' | 'analysis' | 'collection';
   system: string;
   prompt: string;
   schema: z.ZodType<T>;
   signal?: AbortSignal;
+  /** Already-redacted recording; only the mock reads it, to answer from real entries. */
+  recording?: readonly RecordedEntry[];
 }
 
 /**

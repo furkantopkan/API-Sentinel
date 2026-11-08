@@ -1,4 +1,8 @@
-import { collectionInputSchema, savedRequestInputSchema } from '@api-sentinel/shared';
+import {
+  collectionImportSchema,
+  collectionInputSchema,
+  savedRequestInputSchema,
+} from '@api-sentinel/shared';
 import type { RequestHandler } from 'express';
 import type { CollectionService } from '../services/collectionService';
 import { idParam } from '../validators/idParam';
@@ -12,6 +16,10 @@ export function createCollectionsControllers(service: CollectionService) {
   const create: RequestHandler = (req, res) => {
     const { name } = parseBody(collectionInputSchema, req.body);
     res.status(201).json({ ok: true, collection: service.create(name) });
+  };
+  const importCollection: RequestHandler = (req, res) => {
+    const input = parseBody(collectionImportSchema, req.body);
+    res.status(201).json({ ok: true, collection: service.importCollection(input) });
   };
   const rename: RequestHandler = (req, res) => {
     const id = idParam(req);
@@ -48,6 +56,7 @@ export function createCollectionsControllers(service: CollectionService) {
   return {
     list,
     create,
+    importCollection,
     rename,
     remove,
     getRequest,

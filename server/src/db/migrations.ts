@@ -86,4 +86,12 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX test_runs_collection ON test_runs(collection_id, started_at);
     `,
   },
+  {
+    id: 4,
+    name: 'request order and value captures',
+    sql: `
+      ALTER TABLE saved_requests ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE saved_requests ADD COLUMN captures_json TEXT NOT NULL DEFAULT '[]';
+    `,
+  },
 ];

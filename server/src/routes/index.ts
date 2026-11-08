@@ -34,9 +34,11 @@ export function createApiRouter(config: AppConfig, services: RouterServices): Ro
   router.get('/ai/status', ai.status);
   router.post('/ai/test-cases', ai.testCases);
   router.post('/ai/analyze', ai.analyze);
+  router.post('/ai/build-collection', ai.buildCollection);
 
   router.get('/collections', collections.list);
   router.post('/collections', collections.create);
+  router.post('/collections/import', collections.importCollection);
   router.patch('/collections/:id', collections.rename);
   router.delete('/collections/:id', collections.remove);
   router.post('/saved-requests', collections.createRequest);

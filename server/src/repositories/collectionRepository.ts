@@ -24,10 +24,10 @@ export function createCollectionRepository(db: Database) {
       'SELECT id, name, created_at, updated_at FROM collections WHERE id = ?',
     ),
     listSummaries: db.prepare(
-      'SELECT id, collection_id, name, method, url FROM saved_requests ORDER BY name COLLATE NOCASE, created_at',
+      'SELECT id, collection_id, name, method, url FROM saved_requests ORDER BY sort_order, name COLLATE NOCASE, created_at',
     ),
     listSummariesOf: db.prepare(
-      'SELECT id, collection_id, name, method, url FROM saved_requests WHERE collection_id = ? ORDER BY name COLLATE NOCASE, created_at',
+      'SELECT id, collection_id, name, method, url FROM saved_requests WHERE collection_id = ? ORDER BY sort_order, name COLLATE NOCASE, created_at',
     ),
     insertCollection: db.prepare(
       'INSERT INTO collections (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)',
@@ -37,12 +37,15 @@ export function createCollectionRepository(db: Database) {
     getSavedRequest: db.prepare('SELECT * FROM saved_requests WHERE id = ?'),
     insertSavedRequest: db.prepare(
       `INSERT INTO saved_requests
-        (id, collection_id, name, method, url, request_json, assertions_json, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (id, collection_id, name, method, url, request_json, assertions_json,
+         sort_order, captures_json, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ),
     updateSavedRequest: db.prepare(
       `UPDATE saved_requests
-          SET collection_id = ?, name = ?, method = ?, url = ?, request_json = ?, assertions_json = ?, updated_at = ?
+          SET collection_id = ?, name = ?, method = ?, url = ?, request_json = ?, assertions_json = ?,
+              sort_order = COALESCE(?, sort_order), captures_json = COALESCE(?, captures_json),
+              updated_at = ?
         WHERE id = ?`,
     ),
     renameSavedRequest: db.prepare(
@@ -76,6 +79,8 @@ export function createCollectionRepository(db: Database) {
       name: row.name,
       request: JSON.parse(String(row.request_json)) as unknown,
       assertions: JSON.parse(String(row.assertions_json)) as unknown,
+      position: row.sort_order,
+      captures: JSON.parse(String(row.captures_json)) as unknown,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     });
@@ -127,6 +132,8 @@ export function createCollectionRepository(db: Database) {
         input.request.url,
         JSON.stringify(input.request),
         JSON.stringify(input.assertions),
+        input.position ?? 0,
+        JSON.stringify(input.captures ?? []),
         now,
         now,
       );
@@ -141,6 +148,8 @@ export function createCollectionRepository(db: Database) {
           input.request.url,
           JSON.stringify(input.request),
           JSON.stringify(input.assertions),
+          input.position ?? null,
+          input.captures ? JSON.stringify(input.captures) : null,
           now,
           id,
         ),
@@ -149,6 +158,19 @@ export function createCollectionRepository(db: Database) {
 
     renameSavedRequest(id: string, name: string, now: string): boolean {
       return changed(statements.renameSavedRequest.run(name, now, id));
+    },
+
+    /** All-or-nothing: a failure leaves no half-created collection behind. */
+    transaction<T>(work: () => T): T {
+      db.exec('BEGIN');
+      try {
+        const result = work();
+        db.exec('COMMIT');
+        return result;
+      } catch (error) {
+        db.exec('ROLLBACK');
+        throw error;
+      }
     },
 
     deleteSavedRequest(id: string): boolean {

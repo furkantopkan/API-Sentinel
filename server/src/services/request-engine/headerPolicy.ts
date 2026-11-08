@@ -7,7 +7,7 @@ import { authorizationHeaderFor } from './authApplier';
  * and are managed by the HTTP client. Letting users set them enables request
  * smuggling or routing tricks (e.g. a fake Host header).
  */
-const FORBIDDEN_HEADERS = new Set([
+export const FORBIDDEN_HEADERS = new Set([
   'host',
   'content-length',
   'transfer-encoding',

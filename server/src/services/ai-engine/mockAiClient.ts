@@ -1,4 +1,9 @@
-import type { AnalysisOutput, TestCasesOutput } from '@api-sentinel/shared';
+import type {
+  AnalysisOutput,
+  CollectionDraftOutput,
+  RecordedEntry,
+  TestCasesOutput,
+} from '@api-sentinel/shared';
 import type { AiClient, AiCompletion } from './aiClient';
 
 /**
@@ -93,12 +98,34 @@ const MOCK_ANALYSIS: AnalysisOutput = {
   ],
 };
 
+/** A plain draft from the recording: same order, base URL as a variable, status checks. */
+function mockDraft(entries: readonly RecordedEntry[]): CollectionDraftOutput {
+  const origin = new URL(entries[0]?.url ?? 'http://localhost').origin;
+  return {
+    collectionName: 'Mock AI collection',
+    steps: entries.slice(0, 5).map((entry) => ({
+      sourceIndex: entry.index,
+      name: `${entry.method} ${new URL(entry.url).pathname}`,
+      url: entry.url.replace(origin, '{{baseUrl}}'),
+      headers: [],
+      body: entry.requestBody,
+      assertions: [
+        { kind: 'status', target: '', operator: 'equals', expected: String(entry.status) },
+      ],
+      captures: [],
+    })),
+    variables: [{ key: 'baseUrl', value: origin, secret: false }],
+    notes: ['Mock AI: a fixed recipe, not a real analysis of your goal.'],
+  };
+}
+
 export function createMockAiClient(): AiClient {
   return {
     model: 'mock',
     isMock: true,
-    complete<T>({ task, schema }: AiCompletion<T>): Promise<T> {
-      const output = task === 'testCases' ? MOCK_TEST_CASES : MOCK_ANALYSIS;
+    complete<T>({ task, schema, recording }: AiCompletion<T>): Promise<T> {
+      let output: unknown = task === 'testCases' ? MOCK_TEST_CASES : MOCK_ANALYSIS;
+      if (task === 'collection') output = mockDraft(recording ?? []);
       return Promise.resolve(schema.parse(structuredClone(output)));
     },
   };

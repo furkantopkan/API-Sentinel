@@ -9,7 +9,11 @@ import {
   collectionResponseSchema,
   deletedResponseSchema,
   savedRequestResponseSchema,
+  buildCollectionResponseSchema,
   type AiStatus,
+  type BuildCollectionRequest,
+  type BuildCollectionResponse,
+  type CollectionImport,
   type CollectionListResponse,
   type CollectionResponse,
   environmentListResponseSchema,
@@ -193,6 +197,8 @@ export const collectionsApi = {
     sendJson('GET', '/collections', undefined, collectionListResponseSchema, signal),
   create: (name: string): Result<CollectionResponse> =>
     sendJson('POST', '/collections', { name }, collectionResponseSchema),
+  importCollection: (input: CollectionImport): Result<CollectionResponse> =>
+    sendJson('POST', '/collections/import', input, collectionResponseSchema),
   rename: (id: string, name: string): Result<CollectionResponse> =>
     sendJson('PATCH', `/collections/${encodeURIComponent(id)}`, { name }, collectionResponseSchema),
   remove: (id: string): Result<DeletedResponse> =>
@@ -262,4 +268,11 @@ export const runsApi = {
 
 export function reportUrl(id: string, format: 'html' | 'json'): string {
   return `${API_BASE_URL}/runs/${encodeURIComponent(id)}/report?format=${format}`;
+}
+
+export function buildCollection(
+  input: BuildCollectionRequest,
+  signal?: AbortSignal,
+): Result<BuildCollectionResponse> {
+  return sendJson('POST', '/ai/build-collection', input, buildCollectionResponseSchema, signal);
 }

@@ -39,6 +39,7 @@ function setup(overrides: Partial<ComponentProps<typeof CollectionsSidebar>> = {
     onRenameRequest: done(),
     onDeleteRequest: done(),
     onNewRequest: vi.fn(),
+    onBuildWithAi: vi.fn(),
     ...overrides,
   };
   render(<CollectionsSidebar {...props} />);

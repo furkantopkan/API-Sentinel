@@ -1,4 +1,8 @@
-import { analyzeResponseRequestSchema, generateTestCasesRequestSchema } from '@api-sentinel/shared';
+import {
+  analyzeResponseRequestSchema,
+  buildCollectionRequestSchema,
+  generateTestCasesRequestSchema,
+} from '@api-sentinel/shared';
 import type { Request, RequestHandler, Response } from 'express';
 import type { AiService } from '../services/ai-engine/aiService';
 import { parseBody } from '../validators/parseBody';
@@ -39,5 +43,16 @@ export function createAiControllers(ai: AiService) {
     }
   };
 
-  return { status, testCases, analyze };
+  const buildCollection: RequestHandler = async (req: Request, res: Response) => {
+    const input = parseBody(buildCollectionRequestSchema, req.body);
+    const signal = abortOnClose(res);
+    try {
+      res.json({ ok: true, ...(await ai.buildCollection(input, signal)) });
+    } catch (error) {
+      if (signal.aborted) return;
+      throw error;
+    }
+  };
+
+  return { status, testCases, analyze, buildCollection };
 }

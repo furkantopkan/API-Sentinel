@@ -23,6 +23,7 @@ interface CollectionsSidebarProps {
   onRenameRequest: (id: string, name: string) => Promise<string | null>;
   onDeleteRequest: (id: string, name: string) => Promise<string | null>;
   onNewRequest: () => void;
+  onBuildWithAi: () => void;
 }
 
 /** Small inline form used for "new collection" and "rename". */
@@ -98,6 +99,9 @@ export function CollectionsSidebar(props: CollectionsSidebarProps) {
 
       <Button onClick={props.onNewRequest} className="w-full">
         New request
+      </Button>
+      <Button variant="primary" onClick={props.onBuildWithAi} className="w-full">
+        Build with AI
       </Button>
 
       {creating && (

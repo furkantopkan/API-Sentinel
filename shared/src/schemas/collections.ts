@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { assertionListSchema } from '../assertions/schema';
 import { executeRequestSchema } from './execute';
+import { VARIABLE_NAME } from '../variables/resolveVariables';
 import { httpMethodSchema } from './http';
 
 /**
@@ -14,11 +15,32 @@ const id = z.uuid();
 
 export const collectionInputSchema = z.object({ name });
 
-export const savedRequestInputSchema = z.object({
-  collectionId: id,
+/**
+ * Takes a value from a JSON response and makes it available to later requests
+ * of the same run as {{variable}}. `secret` values (tokens) are masked.
+ */
+export const captureSchema = z.object({
+  variable: z.string().regex(VARIABLE_NAME),
+  path: z.string().max(2048),
+  secret: z.boolean(),
+});
+
+const requestFields = {
   name,
   request: executeRequestSchema,
   assertions: assertionListSchema,
+  /** Run order. Omitted on save: the stored value is kept. Equal values sort by name. */
+  position: z.number().int().min(0).max(100_000).optional(),
+  /** Omitted on save: the stored captures are kept (the editor does not change them). */
+  captures: z.array(captureSchema).max(20).optional(),
+};
+
+export const savedRequestInputSchema = z.object({ collectionId: id, ...requestFields });
+
+/** A whole collection created at once, in run order (e.g. from an AI draft). */
+export const collectionImportSchema = z.object({
+  name,
+  requests: z.array(z.object(requestFields)).min(1).max(100),
 });
 
 /** Response shapes. Dates are ISO strings. */
@@ -57,6 +79,8 @@ export const savedRequestResponseSchema = z.object({
 });
 export const deletedResponseSchema = z.object({ ok: z.literal(true), deleted: z.literal(true) });
 
+export type Capture = z.infer<typeof captureSchema>;
+export type CollectionImport = z.infer<typeof collectionImportSchema>;
 export type CollectionInput = z.infer<typeof collectionInputSchema>;
 export type SavedRequestInput = z.infer<typeof savedRequestInputSchema>;
 export type SavedRequestSummary = z.infer<typeof savedRequestSummarySchema>;

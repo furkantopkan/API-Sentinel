@@ -16,3 +16,5 @@ export * from './schemas/environments';
 export * from './variables/resolveVariables';
 export * from './schemas/runs';
 export * from './runs/compareRuns';
+export * from './schemas/builder';
+export * from './har/parseHar';

@@ -16,6 +16,7 @@ import {
   assertionsReducer,
   newAssertion,
 } from '../features/assertions/state/assertionsReducer';
+import { CollectionBuilder } from '../features/ai-builder/components/CollectionBuilder';
 import { CollectionsSidebar } from '../features/collections/components/CollectionsSidebar';
 import { SaveBar } from '../features/collections/components/SaveBar';
 import { useCollectionActions } from '../features/collections/hooks/useCollectionActions';
@@ -57,6 +58,7 @@ export function App() {
 
   // --- Test runs (Phase 6.3) ---
   const [view, setView] = useState<'requests' | 'runs'>('requests');
+  const [building, setBuilding] = useState(false);
   const runs = useRuns(environments.selected?.id);
 
   // --- Collections (Phase 6.1) ---
@@ -141,6 +143,17 @@ export function App() {
         </div>
       </header>
 
+      {building && (
+        <CollectionBuilder
+          environments={environments}
+          onClose={() => setBuilding(false)}
+          onCreated={() => {
+            setBuilding(false);
+            void refreshCollections();
+          }}
+        />
+      )}
+
       <div className="flex min-h-0 flex-1">
         <CollectionsSidebar
           state={collections.state}
@@ -158,6 +171,7 @@ export function App() {
           }}
           onRenameRequest={collectionActions.renameRequest}
           onDeleteRequest={collectionActions.removeRequest}
+          onBuildWithAi={() => setBuilding(true)}
           onNewRequest={() => {
             setView('requests');
             workspace.newRequest();

@@ -36,7 +36,7 @@ function resolveOrThrow(request: ExecuteRequest, context: ExecutionContext): Exe
 }
 
 /** The target may echo a secret back (URL, headers, body); it must not be shown or stored. */
-function maskResponse(response: ExecutedResponse, mask: Mask): ExecutedResponse {
+export function maskResponse(response: ExecutedResponse, mask: Mask): ExecutedResponse {
   const { body } = response;
   return {
     ...response,
