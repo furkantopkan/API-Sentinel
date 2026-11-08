@@ -12,3 +12,5 @@ export * from './assertions/values';
 export * from './assertions/evaluate';
 export * from './schemas/ai';
 export * from './schemas/collections';
+export * from './schemas/environments';
+export * from './variables/resolveVariables';

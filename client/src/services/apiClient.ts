@@ -12,13 +12,18 @@ import {
   type AiStatus,
   type CollectionListResponse,
   type CollectionResponse,
+  environmentListResponseSchema,
+  environmentResponseSchema,
   type DeletedResponse,
+  type EnvironmentInput,
+  type EnvironmentListResponse,
+  type EnvironmentResponse,
+  type ExecuteWithEnvironment,
   type SavedRequestInput,
   type SavedRequestResponse,
   type AnalysisResponse,
   type AnalyzeResponseRequest,
   type ApiErrorResponse,
-  type ExecuteRequest,
   type ExecuteResult,
   type GenerateTestCasesRequest,
   type HealthResponse,
@@ -68,7 +73,7 @@ export async function fetchHealth(signal?: AbortSignal): Promise<HealthResponse>
  * answers with something that is not part of the contract.
  */
 export async function executeRequest(
-  request: ExecuteRequest,
+  request: ExecuteWithEnvironment,
   signal?: AbortSignal,
 ): Promise<ExecuteResult> {
   let response: Response;
@@ -213,4 +218,17 @@ export const collectionsApi = {
       undefined,
       deletedResponseSchema,
     ),
+};
+
+// --- Environments (Phase 6.2) --------------------------------------------
+
+export const environmentsApi = {
+  list: (signal?: AbortSignal): Result<EnvironmentListResponse> =>
+    sendJson('GET', '/environments', undefined, environmentListResponseSchema, signal),
+  create: (input: EnvironmentInput): Result<EnvironmentResponse> =>
+    sendJson('POST', '/environments', input, environmentResponseSchema),
+  update: (id: string, input: EnvironmentInput): Result<EnvironmentResponse> =>
+    sendJson('PUT', `/environments/${encodeURIComponent(id)}`, input, environmentResponseSchema),
+  remove: (id: string): Result<DeletedResponse> =>
+    sendJson('DELETE', `/environments/${encodeURIComponent(id)}`, undefined, deletedResponseSchema),
 };

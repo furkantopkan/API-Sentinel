@@ -50,7 +50,13 @@ export const executeRequestSchema = z.object({
   options: requestOptionsSchema,
 });
 
+/** Execute body: `{{variables}}` are resolved on the server from this environment. */
+export const executeWithEnvironmentSchema = executeRequestSchema.extend({
+  environmentId: z.uuid().optional(),
+});
+
 export type ExecuteRequest = z.infer<typeof executeRequestSchema>;
+export type ExecuteWithEnvironment = z.infer<typeof executeWithEnvironmentSchema>;
 
 // ---------- Response ----------
 

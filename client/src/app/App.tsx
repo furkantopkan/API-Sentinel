@@ -20,6 +20,9 @@ import { SaveBar } from '../features/collections/components/SaveBar';
 import { useCollectionActions } from '../features/collections/hooks/useCollectionActions';
 import { useCollections } from '../features/collections/hooks/useCollections';
 import { useWorkspace } from '../features/collections/hooks/useWorkspace';
+import { EnvironmentSelector } from '../features/environments/components/EnvironmentSelector';
+import { useEnvironments } from '../features/environments/hooks/useEnvironments';
+import { editorVariablesFor } from '../features/environments/lib/variableLookups';
 import { RequestBuilder } from '../features/request-builder/components/RequestBuilder';
 import { fromExecuteRequest } from '../features/request-builder/lib/fromExecuteRequest';
 import { toExecuteRequest } from '../features/request-builder/lib/toExecuteRequest';
@@ -41,6 +44,13 @@ export function App() {
   const currentRequest = useMemo(() => toExecuteRequest(draft), [draft]);
   // Assertions are edited in the builder and their results shown in the viewer.
   const [assertions, dispatchAssertions] = useReducer(assertionsReducer, []);
+
+  // --- Environments (Phase 6.2) ---
+  const environments = useEnvironments();
+  const editorVariables = useMemo(
+    () => editorVariablesFor(environments.selected),
+    [environments.selected],
+  );
 
   // --- Collections (Phase 6.1) ---
   const collections = useCollections();
@@ -118,7 +128,10 @@ export function App() {
     <div className="flex h-screen flex-col bg-slate-50 text-slate-900">
       <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3">
         <h1 className="text-lg font-semibold">API Sentinel</h1>
-        <BackendStatusBadge health={health} />
+        <div className="flex items-center gap-4">
+          <EnvironmentSelector environments={environments} />
+          <BackendStatusBadge health={health} />
+        </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -138,6 +151,7 @@ export function App() {
             <RequestBuilder
               draft={draft}
               dispatch={dispatchDraft}
+              variables={editorVariables}
               toolbar={
                 <SaveBar
                   open={workspace.open}
@@ -149,7 +163,8 @@ export function App() {
               }
               onSend={(request) => {
                 setLastRequest(request);
-                void send(request);
+                // Placeholders are resolved on the server, which holds the secret values.
+                void send({ ...request, environmentId: environments.selected?.id });
               }}
               onCancel={cancel}
               isSending={state.status === 'loading'}

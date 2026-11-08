@@ -7,7 +7,7 @@ export const MIN_TIMEOUT_MS = 100;
 export const MAX_TIMEOUT_MS = 60_000;
 
 export interface DraftValidationError {
-  field: 'url' | 'body' | 'timeout';
+  field: 'url' | 'body' | 'timeout' | 'variables';
   message: string;
 }
 
@@ -18,7 +18,24 @@ export type DraftValidationResult =
  * Runs all client-side checks before a request may be sent.
  * The server repeats these checks (never trust the client alone).
  */
-export function validateDraft(draft: RequestDraft): DraftValidationResult {
+export function validateDraft(
+  draft: RequestDraft,
+  unknownVariables: readonly string[] = [],
+): DraftValidationResult {
+  // With an unresolved {{name}} the URL and body cannot be judged yet; report only that.
+  if (unknownVariables.length > 0) {
+    const names = unknownVariables.map((name) => `{{${name}}}`).join(', ');
+    return {
+      ok: false,
+      errors: [
+        {
+          field: 'variables',
+          message: `Not defined in the selected environment: ${names}. Choose an environment or define them.`,
+        },
+      ],
+    };
+  }
+
   const errors: DraftValidationError[] = [];
 
   const urlResult = buildFinalUrl(draft.url, draft.queryParams);

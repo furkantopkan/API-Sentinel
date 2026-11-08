@@ -10,7 +10,12 @@ import { createDispatchers, selectDispatcher } from './safeDispatcher';
 export type EngineLogger = (line: string) => void;
 
 export interface RequestEngine {
-  execute(request: ExecuteRequest, signal?: AbortSignal): Promise<ExecutedResponse>;
+  /** `mask` hides secret values in log lines (the host could contain one). */
+  execute(
+    request: ExecuteRequest,
+    signal?: AbortSignal,
+    mask?: (text: string) => string,
+  ): Promise<ExecutedResponse>;
   close(): Promise<void>;
 }
 
@@ -29,7 +34,11 @@ export function createRequestEngine(
 ): RequestEngine {
   const dispatchers = createDispatchers();
 
-  async function execute(request: ExecuteRequest, signal?: AbortSignal): Promise<ExecutedResponse> {
+  async function execute(
+    request: ExecuteRequest,
+    signal?: AbortSignal,
+    mask: (text: string) => string = (text) => text,
+  ): Promise<ExecutedResponse> {
     const timeoutMs = request.options.timeoutMs ?? config.defaultTimeoutMs;
     if (timeoutMs > config.maxTimeoutMs) {
       throw new AppError(
@@ -62,7 +71,7 @@ export function createRequestEngine(
     });
 
     // Log only method, host and outcome: never paths, query strings, headers or bodies.
-    const logPrefix = `[engine] ${request.method} ${url.host}`;
+    const logPrefix = mask(`[engine] ${request.method} ${url.host}`);
     try {
       const raw = await executeHttp(
         {

@@ -4,12 +4,14 @@ import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { openDatabase, type Database } from './db/database';
 import { createCollectionRepository } from './repositories/collectionRepository';
+import { createEnvironmentRepository } from './repositories/environmentRepository';
 import { createApiRouter } from './routes/index';
 import { createAnthropicAiClient, type AiClient } from './services/ai-engine/aiClient';
 import { createAiService } from './services/ai-engine/aiService';
 import { createMockAiClient } from './services/ai-engine/mockAiClient';
 import { createRateLimiter } from './services/ai-engine/rateLimiter';
 import { createCollectionService, type ServiceClock } from './services/collectionService';
+import { createEnvironmentService } from './services/environmentService';
 import {
   createRequestEngine,
   type EngineLogger,
@@ -56,6 +58,7 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
   );
   const db = deps.db ?? openDatabase(config.dbPath);
   const collections = createCollectionService(createCollectionRepository(db), deps.clock);
+  const environments = createEnvironmentService(createEnvironmentRepository(db), deps.clock);
   const app = express();
 
   // Do not advertise the framework in an `X-Powered-By` header.
@@ -63,7 +66,7 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
 
   app.use(express.json({ limit: config.requestBodyLimit }));
 
-  app.use('/api', createApiRouter(config, { engine, ai, collections }));
+  app.use('/api', createApiRouter(config, { engine, ai, collections, environments }));
 
   app.use(notFoundHandler);
   app.use(errorHandler);

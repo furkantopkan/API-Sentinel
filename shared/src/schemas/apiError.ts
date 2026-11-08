@@ -27,6 +27,8 @@ export const ERROR_CODES = [
   'AI_UNAVAILABLE',
   'AI_REFUSED',
   'AI_INVALID_OUTPUT',
+  // Phase 6.2 – environments
+  'UNKNOWN_VARIABLE',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);

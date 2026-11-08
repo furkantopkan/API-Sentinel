@@ -1,4 +1,9 @@
-import { buildFinalUrl, type ExecuteRequest } from '@api-sentinel/shared';
+import {
+  buildFinalUrl,
+  resolveRequest,
+  type ExecuteRequest,
+  type VariableLookup,
+} from '@api-sentinel/shared';
 import { useState, type Dispatch, type FormEvent, type ReactNode } from 'react';
 import { Tabs, type TabItem } from '../../../components/Tabs';
 import { toExecuteRequest } from '../lib/toExecuteRequest';
@@ -35,7 +40,11 @@ interface RequestBuilderProps {
   assertionsTab?: { count: number; content: ReactNode };
   /** Shown above the URL bar (e.g. the saved-request bar with Save / Save as). */
   toolbar?: ReactNode;
+  /** How {{variables}} are filled in for the preview and for validation. */
+  variables?: { display: VariableLookup; validate: VariableLookup };
 }
+
+const NO_VARIABLES = { display: () => undefined, validate: () => undefined };
 
 export function RequestBuilder({
   draft,
@@ -45,14 +54,17 @@ export function RequestBuilder({
   isSending,
   assertionsTab,
   toolbar,
+  variables = NO_VARIABLES,
 }: RequestBuilderProps) {
   const [activeTab, setActiveTab] = useState<RequestTabId>('params');
   // Errors are only shown after the first Send attempt, then they update live.
   const [hasTriedToSend, setHasTriedToSend] = useState(false);
 
   // Derived values: recomputed from the draft on every render, never stored.
-  const finalUrl = buildFinalUrl(draft.url, draft.queryParams);
-  const validation = validateDraft(draft);
+  const preview = resolveRequest(draft, variables.display).request;
+  const finalUrl = buildFinalUrl(preview.url, preview.queryParams);
+  const forValidation = resolveRequest(draft, variables.validate);
+  const validation = validateDraft(forValidation.request, forValidation.unknown);
   const visibleErrors = hasTriedToSend && !validation.ok ? validation.errors : [];
   const settingsChanged =
     draft.options.timeoutMs !== DEFAULT_TIMEOUT_MS || !draft.options.followRedirects;

@@ -1,4 +1,4 @@
-import type { ApiErrorBody, ExecuteRequest, ExecutedResponse } from '@api-sentinel/shared';
+import type { ApiErrorBody, ExecuteWithEnvironment, ExecutedResponse } from '@api-sentinel/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiClientError, executeRequest } from '../services/apiClient';
 
@@ -27,7 +27,7 @@ export function useSendRequest() {
   const controllerRef = useRef<AbortController | null>(null);
   const sendCountRef = useRef(0);
 
-  const send = useCallback(async (request: ExecuteRequest) => {
+  const send = useCallback(async (request: ExecuteWithEnvironment) => {
     controllerRef.current?.abort();
     const controller = new AbortController();
     controllerRef.current = controller;

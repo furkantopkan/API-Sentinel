@@ -40,4 +40,27 @@ export const MIGRATIONS: readonly Migration[] = [
       CREATE INDEX saved_requests_collection ON saved_requests(collection_id);
     `,
   },
+  {
+    id: 2,
+    name: 'environments and variables',
+    sql: `
+      CREATE TABLE environments (
+        id         TEXT PRIMARY KEY,
+        name       TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE TABLE environment_variables (
+        id             TEXT PRIMARY KEY,
+        environment_id TEXT NOT NULL REFERENCES environments(id) ON DELETE CASCADE,
+        key            TEXT NOT NULL,
+        value          TEXT NOT NULL,
+        is_secret      INTEGER NOT NULL,
+        enabled        INTEGER NOT NULL,
+        sort_order     INTEGER NOT NULL,
+        UNIQUE (environment_id, key)
+      );
+    `,
+  },
 ];
