@@ -183,6 +183,10 @@ describe('saved requests', () => {
       request: REQUEST,
       assertions: ASSERTIONS,
     });
+    // The summary columns behind the sidebar must stay intact too.
+    expect((await list())[0]?.requests).toEqual([
+      { id: saved.id, name: 'New name', method: 'POST', url: REQUEST.url },
+    ]);
   });
 
   it('rejects an empty name when renaming', async () => {
