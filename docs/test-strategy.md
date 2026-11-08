@@ -175,6 +175,24 @@ Mock target endpoint taslağı:
 
 ---
 
+### 4.6 Collections (Faz 6.1)
+Otomatik karşılıkları: `e2e/collections.spec.ts`, `server/tests/integration/collections.test.ts`.
+
+| ID | Senaryo | Beklenen |
+|---|---|---|
+| CO-01 / 02 | Boş panel; + New | Boş durum yazısı; collection oluşur |
+| CO-03…05 | Save as; düzenle; Save | Üst çubukta ad; "Unsaved changes"; işaret kaybolur |
+| CO-06 | Kaydetmeden New request | Onay; İptal hiçbir şeyi değiştirmez |
+| CO-07…09 | Aç; F5; server yeniden başlat | Alanlar aynen gelir, veriler kalır |
+| CO-10 / 11 | Save as kopya; başka collection | Asıl değişmez; seçilen collection'a kaydolur |
+| CO-12 | Collection adını değiştir | Liste alfabetik güncellenir |
+| CO-13 / 14 | İstek / collection sil | Onay; collection içindekilerle silinir |
+| CO-15 / 16 | Boş ad; değişiklikle sekme kapatma | OK pasif; tarayıcı uyarısı |
+| CO-17 | Kayıtlı isteği gönder | Önceki fazların davranışı aynen |
+| CO-18 | İsteği ✎ ile yeniden adlandır | Ad yerinde değişir, içerik ve kaydedilmemiş düzenlemeler etkilenmez |
+
+---
+
 ## 5. Otomasyon kapsamı (MVP)
 
 **Unit – server**

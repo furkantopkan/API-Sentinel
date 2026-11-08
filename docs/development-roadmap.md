@@ -132,7 +132,12 @@ Assertion modeli (shared şema), değerlendirme motoru (saf fonksiyonlar, **eval
 
 `ai-engine` servisi, Anthropic SDK, yapılandırılmış çıktı + Zod doğrulama, AI kapalıyken uygulamanın çalışmaya devam etmesi, "bu bir öneridir" uyarısı, rate limit. Manuel + otomasyon (AI istemcisi mock'lanarak).
 
-## Faz 6 – Collections, Environments, Raporlama
+## Faz 6 – Collections, Environments, Raporlama (devam ediyor)
+
+Kararlar (2026-11-07, kullanıcı): veritabanı **`node:sqlite`** (Prisma yerine, yeni paket yok); client'a **React Router / TanStack Query eklenmedi**; D-08: secret'lar **yerelde saklanır, her yerde maskelenir**. Alt modüller: 6.1 Collections, 6.2 Environments, 6.3 Çalıştırma ve raporlar.
+
+**6.1 Collections ✅ (2026-11-08):** SQLite + sıralı migration'lar, collection/saved-request API'si, sol panel, Save / Save as, kaydedilmemiş değişiklik uyarısı, yerinde ad değiştirme. Manuel testler CO-01…CO-17 kullanıcı tarafından çalıştırıldı, hepsi PASS; sonradan eklenen yerinde ad değiştirme E2E ile doğrulandı. Klasörler bilinçli olarak eklenmedi (FR-06 gerektirmiyor; ihtiyaç doğarsa migration ile eklenebilir). Mutasyon kontrolünde yakalanmayan bir hata (ad değişirken özet sütununun bozulması) test boşluğunu gösterdi; test güçlendirildi (`076d417`).
+
 Prisma + SQLite, migration, CRUD endpoint'leri, React Router, TanStack Query, `{{variable}}` çözümleme, secret maskeleme, test geçmişi, JSON/HTML rapor, çalıştırma karşılaştırma.
 
 ## Faz 7 – Portfolio hazırlığı

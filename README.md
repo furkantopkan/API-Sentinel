@@ -14,6 +14,7 @@ A web-based REST API testing tool for QA engineers: build HTTP requests, inspect
 - Response Analyzer: collapsible JSON tree with type badges, field details with copyable path (`data.items[0].id`), JSON summary, warning for integers that JavaScript cannot represent exactly, and an Info tab (encoding, decoded vs wire size, redirect chain)
 - Assertions: status code, response time, headers, body text and JSON path checks (exists, equals, null, type, contains, greater/less than) with live PASS / FAIL / ERROR results, expected vs actual, and one-click assertions from the JSON tree
 - AI (optional, Claude): generate editable test cases and analyse a response, with one-click suggested assertions and Markdown export. Secrets are masked before anything is sent; without an API key the AI tab is simply off
+- Collections: save requests with their assertions in a local SQLite database, reopen, rename and organise them from the sidebar, with an unsaved-changes guard
 - Clear error messages for timeouts, DNS/connection failures, too-large responses, blocked targets
 - Requests are sent **by the server**, never directly from the browser, and every target is checked against SSRF rules
 
@@ -79,6 +80,7 @@ cp .env.example .env        # Windows (cmd): copy .env.example .env
 | `REQUEST_BODY_LIMIT` | `1mb` | Max size of a request sent to our API |
 | `MAX_REDIRECTS` | `5` | Redirects followed before `TOO_MANY_REDIRECTS` |
 | `SSRF_ALLOWLIST` | empty | Comma-separated exact `host:port` pairs that may be private/local, e.g. `localhost:4010` |
+| `DB_PATH` | `data/api-sentinel.db` | Local SQLite file (git-ignored) |
 | `ANTHROPIC_API_KEY` | empty | Enables the AI features (server only, never logged) |
 | `AI_MODE` | `auto` | `auto` (AI on when a key is set), `off`, or `mock` (fixed example answers, no key or cost) |
 | `AI_MODEL` / `AI_EFFORT` | `claude-sonnet-5-5` / `medium` | Model and reasoning effort for AI calls |
