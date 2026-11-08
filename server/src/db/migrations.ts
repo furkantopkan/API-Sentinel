@@ -63,4 +63,27 @@ export const MIGRATIONS: readonly Migration[] = [
       );
     `,
   },
+  {
+    id: 3,
+    name: 'test runs',
+    sql: `
+      -- Names are copied so history stays readable after a collection is deleted.
+      -- results_json holds outcomes only: response bodies are never stored.
+      CREATE TABLE test_runs (
+        id               TEXT PRIMARY KEY,
+        collection_id    TEXT REFERENCES collections(id) ON DELETE SET NULL,
+        collection_name  TEXT NOT NULL,
+        environment_name TEXT,
+        started_at       TEXT NOT NULL,
+        duration_ms      INTEGER NOT NULL,
+        total            INTEGER NOT NULL,
+        passed           INTEGER NOT NULL,
+        failed           INTEGER NOT NULL,
+        errors           INTEGER NOT NULL,
+        results_json     TEXT NOT NULL
+      );
+
+      CREATE INDEX test_runs_collection ON test_runs(collection_id, started_at);
+    `,
+  },
 ];

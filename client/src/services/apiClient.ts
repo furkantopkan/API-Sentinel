@@ -14,7 +14,11 @@ import {
   type CollectionResponse,
   environmentListResponseSchema,
   environmentResponseSchema,
+  runListResponseSchema,
+  runResponseSchema,
   type DeletedResponse,
+  type RunListResponse,
+  type RunResponse,
   type EnvironmentInput,
   type EnvironmentListResponse,
   type EnvironmentResponse,
@@ -232,3 +236,30 @@ export const environmentsApi = {
   remove: (id: string): Result<DeletedResponse> =>
     sendJson('DELETE', `/environments/${encodeURIComponent(id)}`, undefined, deletedResponseSchema),
 };
+
+// --- Test runs (Phase 6.3) -----------------------------------------------
+
+export const runsApi = {
+  start: (
+    collectionId: string,
+    environmentId?: string,
+    signal?: AbortSignal,
+  ): Result<RunResponse> =>
+    sendJson(
+      'POST',
+      `/collections/${encodeURIComponent(collectionId)}/runs`,
+      { environmentId },
+      runResponseSchema,
+      signal,
+    ),
+  list: (signal?: AbortSignal): Result<RunListResponse> =>
+    sendJson('GET', '/runs', undefined, runListResponseSchema, signal),
+  get: (id: string): Result<RunResponse> =>
+    sendJson('GET', `/runs/${encodeURIComponent(id)}`, undefined, runResponseSchema),
+  remove: (id: string): Result<DeletedResponse> =>
+    sendJson('DELETE', `/runs/${encodeURIComponent(id)}`, undefined, deletedResponseSchema),
+};
+
+export function reportUrl(id: string, format: 'html' | 'json'): string {
+  return `${API_BASE_URL}/runs/${encodeURIComponent(id)}/report?format=${format}`;
+}

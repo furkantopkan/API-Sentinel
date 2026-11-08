@@ -34,6 +34,7 @@ function setup(overrides: Partial<ComponentProps<typeof CollectionsSidebar>> = {
     onCreate: done(),
     onRename: done(),
     onDelete: done(),
+    onRun: vi.fn(),
     onOpenRequest: done(),
     onRenameRequest: done(),
     onDeleteRequest: done(),

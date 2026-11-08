@@ -4,17 +4,20 @@ import { createAiControllers } from '../controllers/aiController';
 import { createCollectionsControllers } from '../controllers/collectionsController';
 import { createEnvironmentsControllers } from '../controllers/environmentsController';
 import { createExecuteController } from '../controllers/executeController';
+import { createRunsControllers } from '../controllers/runsController';
 import { createHealthController } from '../controllers/healthController';
 import type { AiService } from '../services/ai-engine/aiService';
 import type { CollectionService } from '../services/collectionService';
 import type { EnvironmentService } from '../services/environmentService';
-import type { RequestEngine } from '../services/request-engine/requestEngine';
+import type { ExecutionService } from '../services/executionService';
+import type { RunService } from '../services/runService';
 
 export interface RouterServices {
-  engine: RequestEngine;
+  execution: ExecutionService;
   ai: AiService;
   collections: CollectionService;
   environments: EnvironmentService;
+  runs: RunService;
 }
 
 /** All routes under `/api`. Maps URLs to controllers; contains no logic itself. */
@@ -23,9 +26,10 @@ export function createApiRouter(config: AppConfig, services: RouterServices): Ro
   const ai = createAiControllers(services.ai);
   const collections = createCollectionsControllers(services.collections);
   const environments = createEnvironmentsControllers(services.environments);
+  const runs = createRunsControllers(services.runs);
 
   router.get('/health', createHealthController(config.version));
-  router.post('/requests/execute', createExecuteController(services.engine, services.environments));
+  router.post('/requests/execute', createExecuteController(services.execution));
 
   router.get('/ai/status', ai.status);
   router.post('/ai/test-cases', ai.testCases);
@@ -45,6 +49,12 @@ export function createApiRouter(config: AppConfig, services: RouterServices): Ro
   router.post('/environments', environments.create);
   router.put('/environments/:id', environments.update);
   router.delete('/environments/:id', environments.remove);
+
+  router.post('/collections/:id/runs', runs.start);
+  router.get('/runs', runs.list);
+  router.get('/runs/:id', runs.get);
+  router.delete('/runs/:id', runs.remove);
+  router.get('/runs/:id/report', runs.report);
 
   return router;
 }

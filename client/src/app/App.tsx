@@ -7,6 +7,7 @@ import {
 } from '@api-sentinel/shared';
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { BackendStatusBadge } from '../components/BackendStatusBadge';
+import { Tabs } from '../components/Tabs';
 import { AiPanel } from '../features/ai-assistant/components/AiPanel';
 import { useAiAssistant } from '../features/ai-assistant/hooks/useAiAssistant';
 import { AssertionEditor } from '../features/assertions/components/AssertionEditor';
@@ -24,6 +25,8 @@ import { EnvironmentSelector } from '../features/environments/components/Environ
 import { useEnvironments } from '../features/environments/hooks/useEnvironments';
 import { editorVariablesFor } from '../features/environments/lib/variableLookups';
 import { RequestBuilder } from '../features/request-builder/components/RequestBuilder';
+import { TestRunsView } from '../features/runs/components/TestRunsView';
+import { useRuns } from '../features/runs/hooks/useRuns';
 import { fromExecuteRequest } from '../features/request-builder/lib/fromExecuteRequest';
 import { toExecuteRequest } from '../features/request-builder/lib/toExecuteRequest';
 import {
@@ -51,6 +54,10 @@ export function App() {
     () => editorVariablesFor(environments.selected),
     [environments.selected],
   );
+
+  // --- Test runs (Phase 6.3) ---
+  const [view, setView] = useState<'requests' | 'runs'>('requests');
+  const runs = useRuns(environments.selected?.id);
 
   // --- Collections (Phase 6.1) ---
   const collections = useCollections();
@@ -141,77 +148,100 @@ export function App() {
           onCreate={collectionActions.create}
           onRename={collectionActions.rename}
           onDelete={collectionActions.remove}
-          onOpenRequest={workspace.openRequest}
+          onOpenRequest={(id) => {
+            setView('requests');
+            return workspace.openRequest(id);
+          }}
+          onRun={(collection) => {
+            setView('runs');
+            void runs.start(collection);
+          }}
           onRenameRequest={collectionActions.renameRequest}
           onDeleteRequest={collectionActions.removeRequest}
-          onNewRequest={workspace.newRequest}
+          onNewRequest={() => {
+            setView('requests');
+            workspace.newRequest();
+          }}
         />
         <main className="flex min-w-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
-          <div className="rounded-lg border border-slate-200 bg-white p-4">
-            <RequestBuilder
-              draft={draft}
-              dispatch={dispatchDraft}
-              variables={editorVariables}
-              toolbar={
-                <SaveBar
-                  open={workspace.open}
-                  dirty={workspace.dirty}
-                  collections={collectionList}
-                  onSave={workspace.save}
-                  onSaveAs={workspace.saveAs}
-                />
-              }
-              onSend={(request) => {
-                setLastRequest(request);
-                // Placeholders are resolved on the server, which holds the secret values.
-                void send({ ...request, environmentId: environments.selected?.id });
-              }}
-              onCancel={cancel}
-              isSending={state.status === 'loading'}
-              assertionsTab={{
-                count: assertions.filter((a) => a.enabled).length,
-                content: (
-                  <AssertionEditor
-                    assertions={assertions}
-                    results={results}
-                    onAdd={() =>
-                      dispatchAssertions({
-                        type: 'add',
-                        assertion: newAssertion(crypto.randomUUID()),
-                      })
-                    }
-                    onUpdate={(id, patch) => dispatchAssertions({ type: 'update', id, patch })}
-                    onChangeKind={(id, kind) =>
-                      dispatchAssertions({ type: 'changeKind', id, kind })
-                    }
-                    onRemove={(id) => dispatchAssertions({ type: 'remove', id })}
+          <Tabs
+            tabs={[
+              { id: 'requests', label: 'Requests' },
+              { id: 'runs', label: 'Test runs' },
+            ]}
+            activeId={view}
+            onChange={setView}
+            ariaLabel="Views"
+          />
+          {view === 'runs' && <TestRunsView runs={runs} />}
+          {/* Hidden, not removed: the editor keeps its tabs and response while viewing runs. */}
+          <div className={view === 'requests' ? 'flex flex-1 flex-col gap-4' : 'hidden'}>
+            <div className="rounded-lg border border-slate-200 bg-white p-4">
+              <RequestBuilder
+                draft={draft}
+                dispatch={dispatchDraft}
+                variables={editorVariables}
+                toolbar={
+                  <SaveBar
+                    open={workspace.open}
+                    dirty={workspace.dirty}
+                    collections={collectionList}
+                    onSave={workspace.save}
+                    onSaveAs={workspace.saveAs}
                   />
-                ),
-              }}
-            />
-          </div>
-          <div className="flex-1 rounded-lg border border-slate-200 bg-white p-4">
-            <ResponseViewer
-              state={state}
-              assertionResults={results ?? []}
-              onAddAssertion={(path, value) =>
-                dispatchAssertions({
-                  type: 'add',
-                  assertion: assertionForField(crypto.randomUUID(), path, value),
-                })
-              }
-              aiTab={
-                response &&
-                lastRequest && (
-                  <AiPanel
-                    request={lastRequest}
-                    assistant={assistant}
-                    onAddAssertion={addSuggestion}
-                    isAdded={isAdded}
-                  />
-                )
-              }
-            />
+                }
+                onSend={(request) => {
+                  setLastRequest(request);
+                  // Placeholders are resolved on the server, which holds the secret values.
+                  void send({ ...request, environmentId: environments.selected?.id });
+                }}
+                onCancel={cancel}
+                isSending={state.status === 'loading'}
+                assertionsTab={{
+                  count: assertions.filter((a) => a.enabled).length,
+                  content: (
+                    <AssertionEditor
+                      assertions={assertions}
+                      results={results}
+                      onAdd={() =>
+                        dispatchAssertions({
+                          type: 'add',
+                          assertion: newAssertion(crypto.randomUUID()),
+                        })
+                      }
+                      onUpdate={(id, patch) => dispatchAssertions({ type: 'update', id, patch })}
+                      onChangeKind={(id, kind) =>
+                        dispatchAssertions({ type: 'changeKind', id, kind })
+                      }
+                      onRemove={(id) => dispatchAssertions({ type: 'remove', id })}
+                    />
+                  ),
+                }}
+              />
+            </div>
+            <div className="flex-1 rounded-lg border border-slate-200 bg-white p-4">
+              <ResponseViewer
+                state={state}
+                assertionResults={results ?? []}
+                onAddAssertion={(path, value) =>
+                  dispatchAssertions({
+                    type: 'add',
+                    assertion: assertionForField(crypto.randomUUID(), path, value),
+                  })
+                }
+                aiTab={
+                  response &&
+                  lastRequest && (
+                    <AiPanel
+                      request={lastRequest}
+                      assistant={assistant}
+                      onAddAssertion={addSuggestion}
+                      isAdded={isAdded}
+                    />
+                  )
+                }
+              />
+            </div>
           </div>
         </main>
       </div>

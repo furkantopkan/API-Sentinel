@@ -1,18 +1,8 @@
 import { collectionInputSchema, savedRequestInputSchema } from '@api-sentinel/shared';
-import type { Request, RequestHandler } from 'express';
-import { z } from 'zod';
-import { AppError } from '../errors/AppError';
+import type { RequestHandler } from 'express';
 import type { CollectionService } from '../services/collectionService';
+import { idParam } from '../validators/idParam';
 import { parseBody } from '../validators/parseBody';
-
-const idSchema = z.uuid();
-
-/** Route ids are user input too: a malformed id is a 404, never a database query. */
-function idParam(req: Request): string {
-  const result = idSchema.safeParse(req.params.id);
-  if (!result.success) throw new AppError('NOT_FOUND', 'Not found.', 404);
-  return result.data;
-}
 
 /** Thin HTTP layer: validate, call the service, send the result. */
 export function createCollectionsControllers(service: CollectionService) {

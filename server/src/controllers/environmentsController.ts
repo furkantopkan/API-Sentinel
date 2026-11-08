@@ -1,17 +1,8 @@
 import { environmentInputSchema } from '@api-sentinel/shared';
-import type { Request, RequestHandler } from 'express';
-import { z } from 'zod';
-import { AppError } from '../errors/AppError';
+import type { RequestHandler } from 'express';
 import type { EnvironmentService } from '../services/environmentService';
+import { idParam } from '../validators/idParam';
 import { parseBody } from '../validators/parseBody';
-
-const idSchema = z.uuid();
-
-function idParam(req: Request): string {
-  const result = idSchema.safeParse(req.params.id);
-  if (!result.success) throw new AppError('NOT_FOUND', 'Not found.', 404);
-  return result.data;
-}
 
 export function createEnvironmentsControllers(service: EnvironmentService) {
   const list: RequestHandler = (_req, res) => {

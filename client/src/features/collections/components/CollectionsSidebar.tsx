@@ -18,6 +18,7 @@ interface CollectionsSidebarProps {
   onCreate: (name: string) => Promise<string | null>;
   onRename: (id: string, name: string) => Promise<string | null>;
   onDelete: (collection: Collection) => Promise<string | null>;
+  onRun: (collection: Collection) => void;
   onOpenRequest: (id: string) => Promise<string | null>;
   onRenameRequest: (id: string, name: string) => Promise<string | null>;
   onDeleteRequest: (id: string, name: string) => Promise<string | null>;
@@ -158,6 +159,16 @@ export function CollectionsSidebar(props: CollectionsSidebarProps) {
                         {collection.requests.length}
                       </span>
                     </button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => props.onRun(collection)}
+                      disabled={collection.requests.length === 0}
+                      aria-label={`Run collection ${collection.name}`}
+                      title="Run the saved versions of all requests"
+                      className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      ▶
+                    </Button>
                     <Button
                       variant="ghost"
                       onClick={() => setRenamingId(collection.id)}
