@@ -146,5 +146,18 @@ Kararlar (2026-11-07, kullanıcı): veritabanı **`node:sqlite`** (Prisma yerine
 
 Prisma + SQLite, migration, CRUD endpoint'leri, React Router, TanStack Query, `{{variable}}` çözümleme, secret maskeleme, test geçmişi, JSON/HTML rapor, çalıştırma karşılaştırma.
 
-## Faz 7 – Portfolio hazırlığı
+## Faz 7 – AI Collection Builder (devam ediyor)
+
+Kullanıcı kararı (2026-11-08): portfolio hazırlığından önce yapılır. Kapsam: tarayıcıdan alınan HAR kaydı + yazılı hedef → AI taslağı → kullanıcı onayı → çalıştırılabilir collection. AI'ın kendisi istek atmaz ve ajan modu kapsam dışıdır.
+
+| Parça | Uygulama |
+|---|---|
+| Akış motoru | İstek sırası (`sort_order`) ve cevaptan değer yakalama (`captures`); `secret` yakalamalar maskelenir |
+| HAR okuyucu | `shared/har/parseHar`, tarayıcıda çalışır: yalnızca JSON API trafiği, tekilleştirme, çerez ve tarayıcı header'ları atılır |
+| AI kurucu | `POST /api/ai/build-collection`: maskelenmiş kayıt modele gider; `checkDraft` her adımı kayıttaki isteğe ve sunucuya bağlar, tanımsız değişkenli adımları atar |
+| Onay | Taslak ekranı; veri değiştiren istekler varsayılan kapalı; `POST /api/collections/import` tek işlemde kaydeder |
+
+**Durum:** Geliştirme tamam ve mock AI ile gerçek bir HAR üzerinde denendi. Bekleyen: gerçek Claude çağrısıyla test (API anahtarı gerekiyor), otomasyon testleri.
+
+## Faz 8 – Portfolio hazırlığı
 README, mimari diyagram, ekran görüntüleri, demo senaryosu, test raporu, kapsamlı E2E, GitHub düzeni, güvenlik gözden geçirmesi.
