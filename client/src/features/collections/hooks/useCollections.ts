@@ -1,4 +1,9 @@
-import type { ApiErrorResponse, Collection, CollectionListResponse } from '@api-sentinel/shared';
+import type {
+  ApiErrorBody,
+  ApiErrorResponse,
+  Collection,
+  CollectionListResponse,
+} from '@api-sentinel/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { ApiClientError, collectionsApi } from '../../../services/apiClient';
 
@@ -7,13 +12,28 @@ export type CollectionsState =
   | { status: 'ready'; collections: Collection[] }
   | { status: 'error'; message: string };
 
+/**
+ * The most useful message of an API error: for validation errors the server
+ * lists what is wrong in `details.issues`; the top-level message is generic.
+ */
+export function errorMessageOf(error: ApiErrorBody): string {
+  const issues = error.details?.issues;
+  if (Array.isArray(issues)) {
+    const first = issues[0] as { message?: unknown } | undefined;
+    if (typeof first?.message === 'string') return first.message;
+  }
+  return error.message;
+}
+
 /** Turns an API result into data or a user-facing error message. */
 export async function unwrap<T extends { ok: true }>(
   call: Promise<T | ApiErrorResponse>,
 ): Promise<{ ok: true; data: T } | { ok: false; message: string }> {
   try {
     const result = await call;
-    return result.ok ? { ok: true, data: result } : { ok: false, message: result.error.message };
+    return result.ok
+      ? { ok: true, data: result }
+      : { ok: false, message: errorMessageOf(result.error) };
   } catch (error) {
     return {
       ok: false,
