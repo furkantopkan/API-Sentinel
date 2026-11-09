@@ -31,6 +31,19 @@ function build() {
   });
 }
 
+/** The browser that opens when the user records a flow. */
+function installRecordingBrowser() {
+  console.log('Installing the recording browser...');
+  execFileSync(
+    process.execPath,
+    [join(ROOT, 'node_modules/playwright/cli.js'), 'install', 'chromium'],
+    {
+      cwd: ROOT,
+      stdio: 'inherit',
+    },
+  );
+}
+
 async function start() {
   if (await isUp()) {
     console.log(`Already running: ${URL_APP}`);
@@ -93,6 +106,7 @@ const command = process.argv[2];
 switch (command) {
   case 'install':
     build();
+    installRecordingBrowser();
     stop();
     await start();
     installStartup();

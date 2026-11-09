@@ -65,6 +65,39 @@ export const buildCollectionResponseSchema = z.object({
   meta: aiMetaSchema,
 });
 
+// Live recording: the backend opens a browser and the user performs the flow.
+export const startRecordingRequestSchema = z.object({
+  url: z
+    .string()
+    .trim()
+    .max(2048)
+    .pipe(z.url({ protocol: /^https?$/, error: 'Enter a valid http or https address.' })),
+});
+
+export const finishRecordingRequestSchema = z.object({}).strict();
+
+export const recordingStatusSchema = z.object({
+  /** False when the backend does not run on the user's own computer. */
+  available: z.boolean(),
+  active: z.boolean(),
+  browserOpen: z.boolean(),
+  captured: z.number().int().nonnegative(),
+});
+
+export const recordingStatusResponseSchema = z.object({
+  ok: z.literal(true),
+  status: recordingStatusSchema,
+});
+
+export const finishRecordingResponseSchema = z.object({
+  ok: z.literal(true),
+  entries: z.array(recordedEntrySchema).max(MAX_RECORDED_ENTRIES),
+  found: z.number().int().nonnegative(),
+});
+
+export type RecordingStatus = z.infer<typeof recordingStatusSchema>;
+export type RecordingStatusResponse = z.infer<typeof recordingStatusResponseSchema>;
+export type FinishRecordingResponse = z.infer<typeof finishRecordingResponseSchema>;
 export type RecordedEntry = z.infer<typeof recordedEntrySchema>;
 export type BuildCollectionRequest = z.infer<typeof buildCollectionRequestSchema>;
 export type CollectionDraftOutput = z.infer<typeof collectionDraftOutputSchema>;

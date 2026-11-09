@@ -4,15 +4,19 @@ import {
   type CollectionDraft,
   type RecordedEntry,
 } from '@api-sentinel/shared';
-import { useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useRef, useState, type ChangeEvent } from 'react';
 import { Button } from '../../../components/Button';
 import { buildCollection, collectionsApi } from '../../../services/apiClient';
 import { unwrap } from '../../collections/hooks/useCollections';
 import type { Environments } from '../../environments/hooks/useEnvironments';
+import { useFlowRecorder } from '../hooks/useFlowRecorder';
 import { draftToImport, isReadOnly, missingCaptures } from '../lib/draftToImport';
+import { FlowRecorderPanel } from './FlowRecorderPanel';
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const field = 'w-full rounded-md border border-slate-300 px-2 py-1 text-sm';
+/** Used when the user just shows the flow and writes nothing. */
+const DEFAULT_GOAL = 'Test the recorded flow step by step and verify each response.';
 
 interface Props {
   environments: Environments;
@@ -21,7 +25,8 @@ interface Props {
 }
 
 /**
- * HAR + a written goal → AI draft → the user reviews it → collection.
+ * A recorded flow (live, or from a HAR file) + an optional goal → AI draft →
+ * the user reviews it → collection.
  * The AI sends no requests here: it only proposes, and nothing is saved
  * until "Create collection".
  */
@@ -35,6 +40,24 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<'building' | 'creating' | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
+
+  const acceptRecording = useCallback((recording: { entries: RecordedEntry[]; found: number }) => {
+    setDraft(null);
+    if (recording.entries.length === 0) {
+      setEntries(null);
+      setError('No API requests were captured. Use the part of the site that loads data.');
+      return;
+    }
+    setEntries(recording.entries);
+    setFound(recording.found);
+  }, []);
+  const recorder = useFlowRecorder(acceptRecording);
+  const recording = recorder.phase === 'recording' || recorder.phase === 'finishing';
+
+  const close = () => {
+    if (recorder.phase === 'recording') void recorder.cancel();
+    onClose();
+  };
 
   const loadFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -70,7 +93,9 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
     controllerRef.current = controller;
     setBusy('building');
     setError(null);
-    const result = await unwrap(buildCollection({ goal, entries }, controller.signal));
+    const result = await unwrap(
+      buildCollection({ goal: goal.trim() || DEFAULT_GOAL, entries }, controller.signal),
+    );
     if (controller.signal.aborted) return;
     setBusy(null);
     if (!result.ok) {
@@ -141,47 +166,29 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
       >
         <header className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-800">Build a collection with AI</h2>
-          <Button variant="ghost" danger size="md" onClick={onClose} aria-label="Close">
+          <Button variant="ghost" danger size="md" onClick={close} aria-label="Close">
             ✕
           </Button>
         </header>
 
         {!draft && (
           <>
-            <ol className="list-decimal space-y-0.5 pl-5 text-xs text-slate-600">
-              <li>In Chrome press F12, open Network and enable “Preserve log”.</li>
-              <li>Do the flow you want to test on the site.</li>
-              <li>Right-click the request list and choose “Save all as HAR with content”.</li>
-            </ol>
-            <p className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">
-              A HAR file can contain session data. Cookies stay in your browser; other credentials
-              are masked before anything is sent to the AI service.
-            </p>
-            <label className="block text-xs font-medium text-slate-600">
-              HAR file
-              <input
-                type="file"
-                accept=".har,application/json"
-                onChange={(event) => void loadFile(event)}
-                aria-label="HAR file"
-                className="mt-1 block w-full text-xs"
-              />
-            </label>
-            {entries && (
+            <FlowRecorderPanel recorder={recorder} />
+            {entries && !recording && (
               <p className="text-xs text-slate-600">
                 {found} API request{found === 1 ? '' : 's'} found
                 {found > entries.length && `; the first ${entries.length} will be used`}.
               </p>
             )}
             <label className="block text-xs font-medium text-slate-600">
-              What do you want to test?
+              What do you want to test? (optional)
               <textarea
                 value={goal}
                 onChange={(event) => setGoal(event.target.value)}
                 aria-label="Test goal"
                 maxLength={2000}
                 rows={3}
-                placeholder="e.g. Search for a user, then check their repositories and followers."
+                placeholder="e.g. Search for a user, then check their repositories and followers. Leave empty to test the whole flow."
                 className={`${field} mt-1 font-normal`}
               />
             </label>
@@ -190,9 +197,9 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
                 variant="primary"
                 size="md"
                 onClick={() => void build()}
-                disabled={!entries || goal.trim() === '' || busy !== null}
+                disabled={!entries || recording || busy !== null}
               >
-                {busy === 'building' ? 'Building…' : 'Build draft'}
+                {busy === 'building' ? 'Building… usually under a minute' : 'Build draft'}
               </Button>
               {busy === 'building' && (
                 <Button variant="ghost" size="md" onClick={cancel}>
@@ -200,6 +207,30 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
                 </Button>
               )}
             </div>
+            <details className="text-xs text-slate-600">
+              <summary className="cursor-pointer">Advanced: use a HAR file instead</summary>
+              <div className="mt-2 space-y-2">
+                <ol className="list-decimal space-y-0.5 pl-5">
+                  <li>In Chrome press F12, open Network and enable “Preserve log”.</li>
+                  <li>Do the flow you want to test on the site.</li>
+                  <li>Right-click the request list and choose “Save all as HAR with content”.</li>
+                </ol>
+                <p className="rounded-md bg-amber-50 px-2 py-1 text-amber-800">
+                  A HAR file can contain session data. Cookies stay in your browser; other
+                  credentials are masked before anything is sent to the AI service.
+                </p>
+                <label className="block font-medium">
+                  HAR file
+                  <input
+                    type="file"
+                    accept=".har,application/json"
+                    onChange={(event) => void loadFile(event)}
+                    aria-label="HAR file"
+                    className="mt-1 block w-full"
+                  />
+                </label>
+              </div>
+            </details>
           </>
         )}
 
@@ -300,9 +331,9 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
           </>
         )}
 
-        {error && (
+        {(error ?? recorder.error) && (
           <p role="alert" className="rounded-md bg-red-50 px-2 py-1 text-sm text-red-800">
-            {error}
+            {error ?? recorder.error}
           </p>
         )}
       </div>

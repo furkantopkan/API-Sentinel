@@ -74,6 +74,8 @@ const envSchema = z
     DB_PATH: z.string().trim().min(1).default('data/api-sentinel.db'),
     // Also serve the built interface (the always-on local app).
     SERVE_CLIENT: z.enum(['true', 'false']).default('false'),
+    // Runs the recording browser without a window (automated checks only).
+    RECORDER_HEADLESS: z.enum(['true', 'false']).default('false'),
   })
   .refine((env) => env.REQUEST_TIMEOUT_DEFAULT_MS <= env.REQUEST_TIMEOUT_MAX_MS, {
     message: 'must not be greater than REQUEST_TIMEOUT_MAX_MS',
@@ -130,6 +132,8 @@ export interface AppConfig {
   readonly dbPath: string;
   /** Serve client/dist from this server (true only for the always-on app). */
   readonly serveClient?: boolean;
+  /** Record flows without a visible window (automated checks only). */
+  readonly recorderHeadless?: boolean;
 }
 
 export class ConfigError extends Error {
@@ -182,6 +186,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     },
     dbPath: parsed.DB_PATH === ':memory:' ? ':memory:' : resolve(ROOT_DIR, parsed.DB_PATH),
     serveClient: parsed.SERVE_CLIENT === 'true',
+    recorderHeadless: parsed.RECORDER_HEADLESS === 'true',
   };
 }
 

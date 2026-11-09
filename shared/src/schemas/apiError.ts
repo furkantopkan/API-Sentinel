@@ -29,6 +29,9 @@ export const ERROR_CODES = [
   'AI_INVALID_OUTPUT',
   // Phase 6.2 – environments
   'UNKNOWN_VARIABLE',
+  // Phase 7 – flow recording
+  'RECORDING_ACTIVE',
+  'RECORDER_UNAVAILABLE',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);

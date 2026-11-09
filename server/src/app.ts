@@ -17,6 +17,11 @@ import { createRateLimiter } from './services/ai-engine/rateLimiter';
 import { createCollectionService, type ServiceClock } from './services/collectionService';
 import { createEnvironmentService } from './services/environmentService';
 import { createExecutionService } from './services/executionService';
+import { createRecorderService } from './services/recorder/recorderService';
+import {
+  createPlaywrightRecordingBrowser,
+  type RecordingBrowser,
+} from './services/recorder/recordingBrowser';
 import { createRunService } from './services/runService';
 import {
   createRequestEngine,
@@ -34,7 +39,11 @@ export interface AppDependencies {
   /** Defaults to the database at config.dbPath; tests pass an in-memory one. */
   db?: Database;
   clock?: ServiceClock;
+  /** Tests pass a fake, so no real browser window is opened. */
+  recordingBrowser?: RecordingBrowser;
 }
+
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
 function aiClientFor(config: AppConfig): AiClient | null {
   switch (config.ai.mode) {
@@ -79,6 +88,11 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
     execution,
     clock: deps.clock,
   });
+  const recorder = createRecorderService(
+    deps.recordingBrowser ??
+      createPlaywrightRecordingBrowser({ headless: config.recorderHeadless ?? false }),
+    { enabled: LOOPBACK_HOSTS.has(config.host), allowlist: config.requestEngine.allowlist },
+  );
   const app = express();
 
   // Do not advertise the framework in an `X-Powered-By` header.
@@ -88,7 +102,10 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
 
   app.use(express.json({ limit: config.requestBodyLimit }));
 
-  app.use('/api', createApiRouter(config, { execution, ai, collections, environments, runs }));
+  app.use(
+    '/api',
+    createApiRouter(config, { execution, ai, collections, environments, runs, recorder }),
+  );
 
   if (config.serveClient) {
     app.use(express.static(resolve(import.meta.dirname, '../../client/dist')));

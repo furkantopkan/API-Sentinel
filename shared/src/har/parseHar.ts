@@ -39,6 +39,13 @@ const harSchema = z.object({
   }),
 });
 
+/** One network exchange, as in a HAR file. The live recorder produces the same shape. */
+export type HarEntry = z.infer<typeof harSchema>['log']['entries'][number];
+
+/** Error reporting and analytics: never part of a flow, and they use up the entry limit. */
+const TELEMETRY_URL =
+  /\/api\/\d+\/(envelope|store)\/|\/\/([^/]*\.)?(sentry\.io|google-analytics\.com|analytics\.google\.com|googletagmanager\.com|doubleclick\.net|hotjar\.(com|io)|clarity\.ms|segment\.(io|com)|mixpanel\.com|amplitude\.com|nr-data\.net|datadoghq\.(com|eu))\//i;
+
 /** Added by the browser or tied to its session; a saved request must not depend on them. */
 const DROPPED_HEADERS = new Set([
   'accept-encoding',
@@ -97,6 +104,7 @@ export function parseHar(json: unknown): ParseHarResult {
     if (
       !isMethod(method) ||
       !isHttp(request.url) ||
+      TELEMETRY_URL.test(request.url) ||
       request.url.length > 8192 ||
       response.status <= 0 ||
       !browserSaysApi ||

@@ -4,12 +4,15 @@ import { createAiControllers } from '../controllers/aiController';
 import { createCollectionsControllers } from '../controllers/collectionsController';
 import { createEnvironmentsControllers } from '../controllers/environmentsController';
 import { createExecuteController } from '../controllers/executeController';
+import { createRecordingsControllers } from '../controllers/recordingsController';
 import { createRunsControllers } from '../controllers/runsController';
 import { createHealthController } from '../controllers/healthController';
+import { localHostOnly } from '../middleware/localHostOnly';
 import type { AiService } from '../services/ai-engine/aiService';
 import type { CollectionService } from '../services/collectionService';
 import type { EnvironmentService } from '../services/environmentService';
 import type { ExecutionService } from '../services/executionService';
+import type { RecorderService } from '../services/recorder/recorderService';
 import type { RunService } from '../services/runService';
 
 export interface RouterServices {
@@ -18,6 +21,7 @@ export interface RouterServices {
   collections: CollectionService;
   environments: EnvironmentService;
   runs: RunService;
+  recorder: RecorderService;
 }
 
 /** All routes under `/api`. Maps URLs to controllers; contains no logic itself. */
@@ -27,6 +31,7 @@ export function createApiRouter(config: AppConfig, services: RouterServices): Ro
   const collections = createCollectionsControllers(services.collections);
   const environments = createEnvironmentsControllers(services.environments);
   const runs = createRunsControllers(services.runs);
+  const recordings = createRecordingsControllers(services.recorder);
 
   router.get('/health', createHealthController(config.version));
   router.post('/requests/execute', createExecuteController(services.execution));
@@ -35,6 +40,13 @@ export function createApiRouter(config: AppConfig, services: RouterServices): Ro
   router.post('/ai/test-cases', ai.testCases);
   router.post('/ai/analyze', ai.analyze);
   router.post('/ai/build-collection', ai.buildCollection);
+
+  // These open a browser on this computer, so they stay local even in development.
+  router.use('/recordings', localHostOnly);
+  router.get('/recordings/current', recordings.status);
+  router.post('/recordings', recordings.start);
+  router.post('/recordings/current/finish', recordings.finish);
+  router.delete('/recordings/current', recordings.cancel);
 
   router.get('/collections', collections.list);
   router.post('/collections', collections.create);

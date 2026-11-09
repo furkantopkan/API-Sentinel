@@ -10,7 +10,11 @@ import {
   deletedResponseSchema,
   savedRequestResponseSchema,
   buildCollectionResponseSchema,
+  finishRecordingResponseSchema,
+  recordingStatusResponseSchema,
   type AiStatus,
+  type FinishRecordingResponse,
+  type RecordingStatusResponse,
   type BuildCollectionRequest,
   type BuildCollectionResponse,
   type CollectionImport,
@@ -276,3 +280,15 @@ export function buildCollection(
 ): Result<BuildCollectionResponse> {
   return sendJson('POST', '/ai/build-collection', input, buildCollectionResponseSchema, signal);
 }
+
+/** Live flow recording: the backend opens a browser on this computer. */
+export const recordingsApi = {
+  status: (): Promise<RecordingStatusResponse | ApiErrorResponse> =>
+    sendJson('GET', '/recordings/current', undefined, recordingStatusResponseSchema),
+  start: (url: string): Promise<RecordingStatusResponse | ApiErrorResponse> =>
+    sendJson('POST', '/recordings', { url }, recordingStatusResponseSchema),
+  finish: (): Promise<FinishRecordingResponse | ApiErrorResponse> =>
+    sendJson('POST', '/recordings/current/finish', {}, finishRecordingResponseSchema),
+  cancel: (): Promise<RecordingStatusResponse | ApiErrorResponse> =>
+    sendJson('DELETE', '/recordings/current', undefined, recordingStatusResponseSchema),
+};
