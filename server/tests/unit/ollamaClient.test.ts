@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { AppError } from '../../src/errors/AppError';
 import { createOllamaClient } from '../../src/services/ai-engine/ollamaClient';
@@ -47,7 +47,7 @@ describe('createOllamaClient', () => {
       model: 'test-model',
       stream: false,
       think: false,
-      options: { num_ctx: 16384 },
+      options: { num_ctx: 16384, num_predict: 4096 },
       format: { type: 'object', required: ['answer'] },
       messages: [
         { role: 'system', content: 'S' },
@@ -85,9 +85,40 @@ describe('createOllamaClient', () => {
     await failsWith(ask(), 'AI_TIMEOUT');
   });
 
-  it('rejects an answer that was cut off', async () => {
-    const { ask } = client(() => chat('{"answer":"o', { done_reason: 'length' }));
+  // A runaway answer must end the wait early instead of running into the timeout.
+  it('tries once more when an answer is cut off', async () => {
+    const replies = [
+      () => chat('{"answer":"o', { done_reason: 'length', eval_count: 4096 }),
+      () => chat('{"answer":"ok"}', { done_reason: 'stop' }),
+    ];
+    const { ask, sent } = client(() => replies[sent.length - 1]!());
+    await expect(ask()).resolves.toEqual({ answer: 'ok' });
+    expect(sent).toHaveLength(2);
+  });
+
+  it('gives up after a second cut-off answer and suggests what to do', async () => {
+    const { ask, sent } = client(() => chat('{"answer":"o', { done_reason: 'length' }));
     await failsWith(ask(), 'AI_INVALID_OUTPUT');
+    await expect(ask()).rejects.toThrow('record a shorter flow');
+    expect(sent).toHaveLength(4);
+  });
+
+  it('does not log any part of a cut-off answer', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const { ask } = client(() =>
+      chat('{"answer":"secret-value', { done_reason: 'length', eval_count: 4096 }),
+    );
+    await ask().catch(() => undefined);
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(warn.mock.calls.flat().join(' ')).toContain('4096');
+    expect(warn.mock.calls.flat().join(' ')).not.toContain('secret-value');
+    warn.mockRestore();
+  });
+
+  it('does not retry an answer that finished normally but is not valid', async () => {
+    const { ask, sent } = client(() => chat('not json', { done_reason: 'stop' }));
+    await failsWith(ask(), 'AI_INVALID_OUTPUT');
+    expect(sent).toHaveLength(1);
   });
 
   it('rejects an answer that is not JSON', async () => {

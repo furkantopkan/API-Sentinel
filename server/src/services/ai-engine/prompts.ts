@@ -83,8 +83,11 @@ ${entry.responseSample === '' ? '(empty)' : entry.responseSample}
   return `<goal>\n${goal}\n</goal>\n\n<recording>\n${items.join('\n')}\n</recording>`;
 }
 
-/** About 10 000 tokens: with the instructions and the answer it fits the model's context. */
-export const MAX_RECORDING_CHARS = 30_000;
+/**
+ * Measured: tokens = about 875 + 0.44 x characters. This leaves room in the
+ * model's 16 384-token context for the longest answer it is allowed to write.
+ */
+export const MAX_RECORDING_CHARS = 24_000;
 const MIN_SAMPLE_CHARS = 300;
 const ENTRY_OVERHEAD_CHARS = 120;
 
