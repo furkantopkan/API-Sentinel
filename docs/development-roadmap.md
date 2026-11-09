@@ -148,16 +148,18 @@ Prisma + SQLite, migration, CRUD endpoint'leri, React Router, TanStack Query, `{
 
 ## Faz 7 – AI Collection Builder (devam ediyor)
 
-Kullanıcı kararı (2026-11-08): portfolio hazırlığından önce yapılır. Kapsam: tarayıcıdan alınan HAR kaydı + yazılı hedef → AI taslağı → kullanıcı onayı → çalıştırılabilir collection. AI'ın kendisi istek atmaz ve ajan modu kapsam dışıdır.
+Kullanıcı kararı (2026-11-08): portfolio hazırlığından önce yapılır. Kapsam: kullanıcının gösterdiği akış + isteğe bağlı hedef → AI taslağı → kullanıcı onayı → çalıştırılabilir collection. AI'ın kendisi istek atmaz ve ajan modu kapsam dışıdır. Kullanıcı kararı (2026-11-09): F12/HAR yerine uygulama içinden tek tıkla kayıt; HAR gelişmiş seçenek olarak kalır.
 
 | Parça | Uygulama |
 |---|---|
 | Akış motoru | İstek sırası (`sort_order`) ve cevaptan değer yakalama (`captures`); `secret` yakalamalar maskelenir |
 | HAR okuyucu | `shared/har/parseHar`, tarayıcıda çalışır: yalnızca JSON API trafiği, tekilleştirme, çerez ve tarayıcı header'ları atılır |
 | AI kurucu | `POST /api/ai/build-collection`: maskelenmiş kayıt modele gider; `checkDraft` her adımı kayıttaki isteğe ve sunucuya bağlar, tanımsız değişkenli adımları atar |
+| Akış kaydı | `POST /api/recordings`: Playwright ile ayrı, boş profilli tarayıcı; trafik bellekte tutulur ve HAR ile aynı filtreden geçer; başlangıç adresi SSRF kontrolünden geçer |
+| Yerel AI | Ollama (`qwen3:8b`), düşünme kapalı (ölçüm: 79 sn → 15 sn); uzun kayıtlar `fitRecording` ile modelin bağlamına sığdırılır, atılan istekler kullanıcıya bildirilir |
 | Onay | Taslak ekranı; veri değiştiren istekler varsayılan kapalı; `POST /api/collections/import` tek işlemde kaydeder |
 
-**Durum:** Geliştirme tamam ve mock AI ile gerçek bir HAR üzerinde denendi. Bekleyen: gerçek Claude çağrısıyla test (API anahtarı gerekiyor), otomasyon testleri.
+**Durum:** Geliştirme, gerçek Ollama ile uçtan uca deneme, kullanıcının manuel testleri (RE-01…04) ve otomasyon testleri tamam. Bekleyen: kullanıcının hız iyileştirmesini uzun bir akışla doğrulaması.
 
 ## Faz 8 – Portfolio hazırlığı
 README, mimari diyagram, ekran görüntüleri, demo senaryosu, test raporu, kapsamlı E2E, GitHub düzeni, güvenlik gözden geçirmesi.

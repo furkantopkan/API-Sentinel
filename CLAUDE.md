@@ -62,6 +62,7 @@ Kullanıcı bir soru sorduğunda **kodlamayı durdur**, önce konuyu örneklerle
 - AI anahtarı yalnızca backend'de.
 - Kullanıcı URL'lerine yapılan her istek SSRF guard'dan geçer (DNS sonrası IP kontrolü, redirect'lerde tekrar kontrol). Ayrıntı: `docs/architecture.md` §7.
 - İstek/response boyutu ve timeout limitleri uygulanır.
+- Akış kaydı tarayıcı açtığı için yalnızca backend loopback adresinde çalışıyorsa açıktır; kayıt uçları `localHostOnly` arkasındadır ve trafik diske yazılmaz.
 
 ## Test kuralları
 - Önce manuel test, kullanıcı doğruladıktan sonra otomasyon.
@@ -77,9 +78,11 @@ Kullanıcı bir soru sorduğunda **kodlamayı durdur**, önce konuyu örneklerle
 ## Komutlar (kökten)
 - `npm run dev`: server (3001) + client (5173) birlikte
 - `npm run mock`: mock target (4010; `.env` içinde `SSRF_ALLOWLIST=localhost:4010,localhost:4011`)
-- AI: `.env` içinde `AI_MODE=mock` (anahtarsız sabit cevaplar); E2E backend'i her zaman mock AI ile çalışır
+- Sürekli açık uygulama: `npm run app:install|start|stop|restart|status` (`http://localhost:3000`; client kodu değişince `app:install`, yalnızca server değişince `app:restart`)
+- AI: varsayılan ücretsiz yerel Ollama (`qwen3:8b`); `AI_MODE=mock` sabit cevaplar verir; E2E backend'i her zaman mock AI ve görünmez kayıt tarayıcısıyla (`RECORDER_HEADLESS=true`) çalışır
 - `npm test` · `npm run test:e2e` (Playwright; portlar 4998/3998/5998) · `npm run typecheck` · `npm run lint` · `npm run format:check` · `npm run build`
 - Commit öncesi: typecheck + lint + format:check + test geçmeli.
+- Windows PowerShell 5.1'de `Get-Content`/`Set-Content` ile kaynak dosya düzenleme: varsayılan kodlama Türkçe/özel karakterleri bozar; `Edit` veya UTF-8 Node betiği kullan.
 - Kendi denemelerimde farklı portlar kullan (backend `PORT=3999`, Vite `--port 5999` + `API_PROXY_TARGET`), bitince süreçleri kapat ve portun boşaldığını HTTP isteğiyle doğrula.
 
 ## Yapı notları

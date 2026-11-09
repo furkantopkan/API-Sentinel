@@ -224,6 +224,17 @@ Otomatik karşılıkları: `e2e/runs.spec.ts`, `server/tests/integration/runs.te
 | RU-13 / 14 | Boş collection; sil | Buton pasif; geçmişten silinir |
 | RU-15…17 | Collection sil; F5; görünüm değiştir | Geçmiş kalır; editör korunur |
 
+### 4.9 AI Collection Builder (Faz 7)
+
+| ID | Senaryo | Beklenen |
+|---|---|---|
+| RE-01 | Siteyi kaydet, Finish, hedefsiz taslak, collection, çalıştır | İstekler yakalanır; adımlar geçer |
+| RE-02 | Finish yerine pencereyi kapat | Kayıt kendiliğinden toplanır |
+| RE-03 | Kayıt sırasında Cancel | Pencere kapanır, liste oluşmaz |
+| RE-04 | `http://192.168.1.1` | Pencere açılmadan hata |
+
+Otomasyon: `parseHar`, `checkDraft`, `fitRecording`, `ollamaClient`, `recorderService` (sahte tarayıcıyla), `/api/recordings`, `/api/ai/build-collection`, `/api/collections/import`, `draftToImport`, `siteUrl` ve `e2e/builder.spec.ts` (AB-01…04, gerçek kayıt tarayıcısı + yerel mock site).
+
 ---
 
 ## 5. Otomasyon kapsamı (MVP)

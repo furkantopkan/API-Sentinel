@@ -318,6 +318,10 @@ Notlar:
 | Bağımlılık açıkları | `npm audit` düzenli çalıştırılır; az bağımlılık prensibi. |
 | Hata detaylarının sızması | `INTERNAL_ERROR` kullanıcıya genel mesaj döner; stack trace yalnızca sunucu logunda. |
 
+### 7.2.1 Akış kaydı (Faz 7)
+
+Kayıt, backend'in bilgisayarda tarayıcı açmasını gerektirir. Bu yüzden yalnızca backend loopback adresinde dinliyorsa açıktır, uçlar `localHostOnly` arkasındadır (DNS rebinding) ve durum değiştiren uçlar JSON gövde ister (başka site CORS ön kontrolü olmadan gönderemez). Başlangıç adresi SSRF kontrolünden geçer. Sonraki gezinmeyi kullanıcı kendi yapar; üretilen istekler çalıştırılırken yine SSRF guard'dan geçer. Trafik yalnızca bellekte tutulur, toplanmazsa 5 dakika sonra silinir; her kayıt boş profille başlar.
+
 ### 7.3 Loglama politikası
 - Loglanır: zaman, requestId, method, hedef **host** (path ve query hariç), sonuç kodu, süre.
 - Loglanmaz: header değerleri, body, query string, auth bilgileri.

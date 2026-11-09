@@ -1,8 +1,8 @@
 # API Sentinel
 
-A web-based REST API testing tool for QA engineers: build HTTP requests, inspect responses, and (in later versions) run assertions and generate test cases with AI.
+A web-based REST API testing tool for QA engineers: build HTTP requests, inspect responses, run assertions, and let a local AI turn a flow you demonstrate into a runnable test collection.
 
-> **Status:** Phases 1–6 complete: request builder and engine with SSRF protection, response analyzer, assertions, AI features, collections, environments and test reports. Next: Phase 7 (portfolio preparation).
+> **Status:** Phases 1–6 complete: request builder and engine with SSRF protection, response analyzer, assertions, AI features, collections, environments and test reports. Phase 7 (AI collection builder) is in final review; portfolio preparation is next.
 
 ## Features (MVP)
 
@@ -13,7 +13,8 @@ A web-based REST API testing tool for QA engineers: build HTTP requests, inspect
 - Response: status (colour-coded), time, size, redirects, formatted JSON / text, headers, copy to clipboard
 - Response Analyzer: collapsible JSON tree with type badges, field details with copyable path (`data.items[0].id`), JSON summary, warning for integers that JavaScript cannot represent exactly, and an Info tab (encoding, decoded vs wire size, redirect chain)
 - Assertions: status code, response time, headers, body text and JSON path checks (exists, equals, null, type, contains, greater/less than) with live PASS / FAIL / ERROR results, expected vs actual, and one-click assertions from the JSON tree
-- AI (optional, Claude): generate editable test cases and analyse a response, with one-click suggested assertions and Markdown export. Secrets are masked before anything is sent; without an API key the AI tab is simply off
+- AI (free and local through [Ollama](https://ollama.com)): generate editable test cases and analyse a response, with one-click suggested assertions and Markdown export. Secrets are masked before anything reaches the model
+- AI collection builder: enter a website, perform the flow once in the browser that opens, and get a reviewable draft with variables and assertions. Every step is traced back to a recorded request; nothing runs or is saved until you approve it. HAR files are supported as an advanced option
 - Collections: save requests with their assertions in a local SQLite database, reopen, rename and organise them from the sidebar, with an unsaved-changes guard
 - Environments: `{{variables}}` in URL, params, headers, auth and body, resolved on the server; secret values are write-only and masked in responses, errors and logs
 - Collection runs: run all saved requests with one click, keep a history of outcomes, download JSON or HTML reports and compare two runs to spot regressions
@@ -25,7 +26,7 @@ A web-based REST API testing tool for QA engineers: build HTTP requests, inspect
 | Layer | Technology |
 |---|---|
 | Client | React 19, TypeScript, Vite, Tailwind CSS |
-| Server | Node.js, Express 5, Zod, undici (outbound HTTP), Anthropic SDK (AI), SQLite via `node:sqlite` |
+| Server | Node.js, Express 5, Zod, undici (outbound HTTP), Playwright (flow recording), Ollama (local AI), SQLite via `node:sqlite` |
 | Shared | Zod schemas and types used by both sides (the API contract) |
 | Tests | Vitest (unit), Supertest (integration), Testing Library + jsdom (components), Playwright (E2E) |
 | Quality | ESLint (type-aware), Prettier |
@@ -55,6 +56,14 @@ Then open **http://127.0.0.1:5173**. The badge in the top-right corner should sh
 
 During development the client calls `/api/...` on its own origin and Vite forwards those requests to the server, so no CORS configuration is needed.
 
+### Always-on local app
+
+`npm run app:install` builds the interface, installs the recording browser and starts API Sentinel at **http://localhost:3000**, also at every Windows sign-in. Then `npm run app:status`, `app:start`, `app:stop`, `app:restart` and `app:uninstall` manage it. Logs are in `data/app.log`.
+
+### Local AI
+
+Install [Ollama](https://ollama.com), then run `ollama pull qwen3:8b`. No account, key or payment is needed and nothing leaves your computer.
+
 ### Trying it with the local mock API
 
 The project includes a fake API with predictable endpoints (`/json`, `/echo`, `/delay/:ms`, `/status/:code`, `/redirect/:n`, `/auth/bearer`, …). Private and local addresses are blocked by default, so the mock must be allow-listed first:
@@ -83,10 +92,10 @@ cp .env.example .env        # Windows (cmd): copy .env.example .env
 | `MAX_REDIRECTS` | `5` | Redirects followed before `TOO_MANY_REDIRECTS` |
 | `SSRF_ALLOWLIST` | empty | Comma-separated exact `host:port` pairs that may be private/local, e.g. `localhost:4010` |
 | `DB_PATH` | `data/api-sentinel.db` | Local SQLite file (git-ignored) |
-| `ANTHROPIC_API_KEY` | empty | Enables the AI features (server only, never logged) |
-| `AI_MODE` | `auto` | `auto` (AI on when a key is set), `off`, or `mock` (fixed example answers, no key or cost) |
-| `AI_MODEL` / `AI_EFFORT` | `claude-sonnet-5-5` / `medium` | Model and reasoning effort for AI calls |
-| `AI_TIMEOUT_MS` / `AI_RATE_LIMIT_PER_MINUTE` | `90000` / `10` | Limits for AI calls |
+| `AI_MODE` | `auto` | `auto` (use `AI_PROVIDER`), `off`, or `mock` (fixed example answers) |
+| `AI_PROVIDER` | `ollama` | `ollama` (free, local) or `anthropic` (paid, needs `ANTHROPIC_API_KEY`; a key alone never activates it) |
+| `AI_MODEL` / `AI_BASE_URL` | `qwen3:8b` / Ollama's default | Model and provider address |
+| `AI_TIMEOUT_MS` / `AI_RATE_LIMIT_PER_MINUTE` | `280000` / `10` | Limits for AI calls |
 
 Invalid values stop the server at startup with a message naming the variable. Never commit `.env`.
 
@@ -99,6 +108,7 @@ Run from the project root.
 | `npm run dev` | Start server and client together (with auto-reload) |
 | `npm run dev:server` / `npm run dev:client` | Start only one side |
 | `npm run mock` | Start the local mock API on port 4010 |
+| `npm run app:install` | Install and start the always-on app (see above) |
 | `npm test` | Run all unit, integration and component tests (no internet needed) |
 | `npm run test:e2e` | Playwright smoke tests in a real browser (first time: `npx playwright install chromium`) |
 | `npm run typecheck` | TypeScript type check for all packages |
