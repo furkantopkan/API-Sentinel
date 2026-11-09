@@ -73,9 +73,8 @@ export function AiPanel({ request, assistant, onAddAssertion, isAdded }: AiPanel
       <div className="space-y-1 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm">
         <p className="font-medium text-slate-700">AI features are not configured</p>
         <p className="text-xs text-slate-500">
-          Choose an AI provider in <code>.env</code> (Gemini, a local Ollama model or Anthropic) and
-          restart the server. To try the screens without AI, set <code>AI_MODE=mock</code>.
-          Everything else in API Sentinel works without AI.
+          Set <code>AI_MODE=auto</code> in <code>.env</code> and restart. AI runs locally and for
+          free with Ollama. Everything else in API Sentinel works without AI.
         </p>
       </div>
     );

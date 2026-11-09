@@ -14,12 +14,8 @@ import {
 import { createRateLimiter } from '../../src/services/ai-engine/rateLimiter';
 
 describe('AI configuration', () => {
-  it('is off without a key (auto mode) and never keeps a key it does not use', () => {
-    expect(loadConfig({}).ai).toMatchObject({
-      mode: 'off',
-      apiKey: '',
-      model: 'claude-sonnet-5-5',
-    });
+  it('defaults to the free local model and never keeps a key it does not use', () => {
+    expect(loadConfig({}).ai).toMatchObject({ mode: 'ollama', apiKey: '', model: 'qwen3:8b' });
     expect(loadConfig({ AI_MODE: 'mock', ANTHROPIC_API_KEY: 'sk-x' }).ai).toMatchObject({
       mode: 'mock',
       apiKey: '',
@@ -27,11 +23,32 @@ describe('AI configuration', () => {
     expect(loadConfig({ AI_MODE: 'off', ANTHROPIC_API_KEY: 'sk-x' }).ai.mode).toBe('off');
   });
 
-  it('uses Anthropic when a key is set in auto mode', () => {
-    expect(loadConfig({ ANTHROPIC_API_KEY: ' sk-x ' }).ai).toMatchObject({
+  // Having a key must not be enough to start spending money.
+  it('stays local even when a paid key is present', () => {
+    expect(loadConfig({ ANTHROPIC_API_KEY: 'sk-x' }).ai).toMatchObject({
+      mode: 'ollama',
+      apiKey: '',
+    });
+  });
+
+  it('uses Anthropic only when it is chosen explicitly and has a key', () => {
+    const chosen = { AI_PROVIDER: 'anthropic' };
+
+    expect(loadConfig({ ...chosen, ANTHROPIC_API_KEY: ' sk-x ' }).ai).toMatchObject({
       mode: 'anthropic',
       apiKey: 'sk-x',
+      model: 'claude-sonnet-5-5',
     });
+    expect(loadConfig(chosen).ai.mode).toBe('off');
+  });
+
+  it('gives the slower local model a longer default timeout', () => {
+    expect(loadConfig({}).ai.timeoutMs).toBe(280_000);
+    expect(loadConfig({ AI_TIMEOUT_MS: '5000' }).ai.timeoutMs).toBe(5000);
+  });
+
+  it('no longer accepts Gemini as a provider', () => {
+    expect(() => loadConfig({ AI_PROVIDER: 'gemini' })).toThrow(/AI_PROVIDER/);
   });
 
   it.each([

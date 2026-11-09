@@ -63,12 +63,12 @@ const envSchema = z
     // Phase 5 – AI. "auto": use Anthropic when a key is set, otherwise AI is off.
     AI_MODE: z.enum(['auto', 'off', 'mock']).default('auto'),
     ANTHROPIC_API_KEY: z.string().trim().default(''),
-    AI_PROVIDER: z.enum(['anthropic', 'gemini', 'ollama']).default('anthropic'),
-    GEMINI_API_KEY: z.string().trim().default(''),
+    // Free and local by default; a paid provider is used only if chosen explicitly.
+    AI_PROVIDER: z.enum(['ollama', 'anthropic']).default('ollama'),
     AI_MODEL: z.string().trim().default(''),
     AI_BASE_URL: z.union([z.literal(''), z.url()]).default(''),
     AI_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
-    AI_TIMEOUT_MS: positiveInt(90_000),
+    AI_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
     AI_RATE_LIMIT_PER_MINUTE: positiveInt(10),
     // Phase 6 – local SQLite file (relative to the project root), or ":memory:".
     DB_PATH: z.string().trim().min(1).default('data/api-sentinel.db'),
@@ -91,12 +91,17 @@ export interface RequestEngineConfig {
   readonly userAgent: string;
 }
 
-export type AiProvider = 'anthropic' | 'gemini' | 'ollama';
+export type AiProvider = 'ollama' | 'anthropic';
 
 const DEFAULT_MODELS: Record<AiProvider, string> = {
   anthropic: 'claude-sonnet-5-5',
-  gemini: 'gemini-flash-latest',
   ollama: 'qwen3:8b',
+};
+
+/** A local model is much slower. Stays under Node's 5-minute fetch limit for a first response. */
+const DEFAULT_TIMEOUTS_MS: Record<AiProvider, number> = {
+  anthropic: 90_000,
+  ollama: 280_000,
 };
 
 /** Settings of the AI features (Phase 5). */
@@ -151,7 +156,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const parsed = result.data;
   const providerKey = {
     anthropic: parsed.ANTHROPIC_API_KEY,
-    gemini: parsed.GEMINI_API_KEY,
     ollama: '',
   }[parsed.AI_PROVIDER];
   return {
@@ -173,7 +177,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       model: parsed.AI_MODEL || DEFAULT_MODELS[parsed.AI_PROVIDER],
       ...(parsed.AI_BASE_URL === '' ? {} : { baseUrl: parsed.AI_BASE_URL }),
       effort: parsed.AI_EFFORT,
-      timeoutMs: parsed.AI_TIMEOUT_MS,
+      timeoutMs: parsed.AI_TIMEOUT_MS ?? DEFAULT_TIMEOUTS_MS[parsed.AI_PROVIDER],
       ratePerMinute: parsed.AI_RATE_LIMIT_PER_MINUTE,
     },
     dbPath: parsed.DB_PATH === ':memory:' ? ':memory:' : resolve(ROOT_DIR, parsed.DB_PATH),

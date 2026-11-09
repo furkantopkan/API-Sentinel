@@ -12,7 +12,7 @@ import { createApiRouter } from './routes/index';
 import { createAnthropicAiClient, type AiClient } from './services/ai-engine/aiClient';
 import { createAiService } from './services/ai-engine/aiService';
 import { createMockAiClient } from './services/ai-engine/mockAiClient';
-import { createOpenAiCompatibleClient } from './services/ai-engine/openAiCompatibleClient';
+import { createOllamaClient } from './services/ai-engine/ollamaClient';
 import { createRateLimiter } from './services/ai-engine/rateLimiter';
 import { createCollectionService, type ServiceClock } from './services/collectionService';
 import { createEnvironmentService } from './services/environmentService';
@@ -40,19 +40,9 @@ function aiClientFor(config: AppConfig): AiClient | null {
   switch (config.ai.mode) {
     case 'anthropic':
       return createAnthropicAiClient(config.ai);
-    case 'gemini':
-      return createOpenAiCompatibleClient({
-        label: 'Gemini',
-        baseUrl: config.ai.baseUrl ?? 'https://generativelanguage.googleapis.com/v1beta/openai',
-        apiKey: config.ai.apiKey,
-        model: config.ai.model,
-        timeoutMs: config.ai.timeoutMs,
-      });
     case 'ollama':
-      return createOpenAiCompatibleClient({
-        label: 'Ollama',
-        baseUrl: config.ai.baseUrl ?? 'http://127.0.0.1:11434/v1',
-        apiKey: '',
+      return createOllamaClient({
+        baseUrl: config.ai.baseUrl ?? 'http://127.0.0.1:11434',
         model: config.ai.model,
         timeoutMs: config.ai.timeoutMs,
       });

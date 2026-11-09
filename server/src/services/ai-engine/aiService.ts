@@ -80,7 +80,7 @@ export function createAiService(
     if (client === null) {
       throw new AppError(
         'AI_NOT_CONFIGURED',
-        'AI features are off. Configure an AI provider in .env (AI_PROVIDER and its key, or AI_MODE=mock to try them) and restart the server.',
+        'AI features are off. Set AI_MODE=auto in .env (or AI_MODE=mock to try them) and restart the server.',
         503,
       );
     }
