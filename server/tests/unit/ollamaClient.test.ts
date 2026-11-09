@@ -1,0 +1,97 @@
+import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
+import { AppError } from '../../src/errors/AppError';
+import { createOllamaClient } from '../../src/services/ai-engine/ollamaClient';
+
+const schema = z.object({ answer: z.string() });
+
+function client(reply: () => Promise<Response>, timeoutMs = 1000) {
+  const sent: Record<string, unknown>[] = [];
+  const urls: string[] = [];
+  const fetchImpl = ((url: string, init: RequestInit) => {
+    urls.push(url);
+    sent.push(JSON.parse(init.body as string) as Record<string, unknown>);
+    return reply();
+  }) as typeof fetch;
+  const ai = createOllamaClient({
+    baseUrl: 'http://ollama.test/',
+    model: 'test-model',
+    timeoutMs,
+    fetchImpl,
+  });
+  const ask = () => ai.complete({ task: 'analysis', system: 'S', prompt: 'P', schema });
+  return { ask, sent, urls };
+}
+
+const chat = (content: string, extra: object = {}) =>
+  Promise.resolve(Response.json({ message: { content }, ...extra }));
+
+const failsWith = async (promise: Promise<unknown>, code: string) => {
+  const error: unknown = await promise.catch((caught: unknown) => caught);
+  expect(error).toBeInstanceOf(AppError);
+  expect((error as AppError).code).toBe(code);
+};
+
+describe('createOllamaClient', () => {
+  it('returns the validated answer', async () => {
+    const { ask, urls } = client(() => chat('{"answer":"ok"}'));
+    await expect(ask()).resolves.toEqual({ answer: 'ok' });
+    expect(urls).toEqual(['http://ollama.test/api/chat']);
+  });
+
+  // Reasoning made answers about five times slower on a real recording.
+  it('asks for a direct answer in the required format, with room for a recording', async () => {
+    const { ask, sent } = client(() => chat('{"answer":"ok"}'));
+    await ask();
+    expect(sent[0]).toMatchObject({
+      model: 'test-model',
+      stream: false,
+      think: false,
+      options: { num_ctx: 16384 },
+      format: { type: 'object', required: ['answer'] },
+      messages: [
+        { role: 'system', content: 'S' },
+        { role: 'user', content: 'P' },
+      ],
+    });
+    expect(sent[0]?.format).not.toHaveProperty('$schema');
+  });
+
+  it('explains how to install a missing model', async () => {
+    const { ask } = client(() => Promise.resolve(new Response('', { status: 404 })));
+    await expect(ask()).rejects.toThrow('ollama pull test-model');
+  });
+
+  it('reports other Ollama failures as unavailable', async () => {
+    const { ask } = client(() => Promise.resolve(new Response('', { status: 500 })));
+    await failsWith(ask(), 'AI_UNAVAILABLE');
+  });
+
+  it('reports that Ollama is not running', async () => {
+    const { ask } = client(() => Promise.reject(new TypeError('fetch failed')));
+    await failsWith(ask(), 'AI_UNAVAILABLE');
+  });
+
+  it('reports a timeout when the model takes too long', async () => {
+    const { ask } = client(
+      () =>
+        new Promise((_resolve, reject) => {
+          setTimeout(() => {
+            reject(new Error('aborted'));
+          }, 30);
+        }),
+      5,
+    );
+    await failsWith(ask(), 'AI_TIMEOUT');
+  });
+
+  it('rejects an answer that was cut off', async () => {
+    const { ask } = client(() => chat('{"answer":"o', { done_reason: 'length' }));
+    await failsWith(ask(), 'AI_INVALID_OUTPUT');
+  });
+
+  it('rejects an answer that is not JSON', async () => {
+    const { ask } = client(() => chat('not json'));
+    await failsWith(ask(), 'AI_INVALID_OUTPUT');
+  });
+});

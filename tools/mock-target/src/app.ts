@@ -37,6 +37,7 @@ export function createMockTargetApp(): Express {
     res.json({
       endpoints: [
         'GET /json',
+        'GET /recording-page',
         'GET /text',
         'GET /html',
         'GET /empty',
@@ -57,6 +58,11 @@ export function createMockTargetApp(): Express {
         'GET /bigint',
       ],
     });
+  });
+
+  // A page that calls the API by itself, for testing the flow recorder.
+  app.get('/recording-page', (_req, res) => {
+    res.type('html').send("<script>fetch('/json'); fetch('/nested');</script>");
   });
 
   app.get('/json', (_req, res) => {

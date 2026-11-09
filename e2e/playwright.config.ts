@@ -41,6 +41,7 @@ export default defineConfig({
         SSRF_ALLOWLIST: `localhost:${MOCK_PORT}`,
         AI_MODE: 'mock',
         DB_PATH: ':memory:',
+        RECORDER_HEADLESS: 'true',
       },
       reuseExistingServer: false,
       cwd: '..',
