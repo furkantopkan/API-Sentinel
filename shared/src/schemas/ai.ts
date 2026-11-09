@@ -128,7 +128,7 @@ export const aiMetaSchema = z.object({
 export const aiStatusResponseSchema = z.object({
   ok: z.literal(true),
   status: z.object({
-    mode: z.enum(['off', 'mock', 'anthropic']),
+    mode: z.enum(['off', 'mock', 'anthropic', 'gemini', 'ollama']),
     model: z.string().nullable(),
   }),
 });

@@ -73,9 +73,9 @@ export function AiPanel({ request, assistant, onAddAssertion, isAdded }: AiPanel
       <div className="space-y-1 rounded-md border border-slate-200 bg-slate-50 p-4 text-sm">
         <p className="font-medium text-slate-700">AI features are not configured</p>
         <p className="text-xs text-slate-500">
-          Add <code>ANTHROPIC_API_KEY</code> to <code>.env</code> and restart the server. To try the
-          screens without a key, set <code>AI_MODE=mock</code>. Everything else in API Sentinel
-          works without AI.
+          Choose an AI provider in <code>.env</code> (Gemini, a local Ollama model or Anthropic) and
+          restart the server. To try the screens without AI, set <code>AI_MODE=mock</code>.
+          Everything else in API Sentinel works without AI.
         </p>
       </div>
     );

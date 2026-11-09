@@ -25,7 +25,13 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "npm run test --workspaces --if-present",
-    "test:e2e": "playwright test -c e2e"
+    "test:e2e": "playwright test -c e2e",
+    "app:install": "node scripts/app.mjs install",
+    "app:uninstall": "node scripts/app.mjs uninstall",
+    "app:start": "node scripts/app.mjs start",
+    "app:stop": "node scripts/app.mjs stop",
+    "app:restart": "node scripts/app.mjs restart",
+    "app:status": "node scripts/app.mjs status"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

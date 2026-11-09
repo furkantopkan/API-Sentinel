@@ -63,12 +63,17 @@ const envSchema = z
     // Phase 5 – AI. "auto": use Anthropic when a key is set, otherwise AI is off.
     AI_MODE: z.enum(['auto', 'off', 'mock']).default('auto'),
     ANTHROPIC_API_KEY: z.string().trim().default(''),
-    AI_MODEL: z.string().trim().min(1).default('claude-sonnet-5-5'),
+    AI_PROVIDER: z.enum(['anthropic', 'gemini', 'ollama']).default('anthropic'),
+    GEMINI_API_KEY: z.string().trim().default(''),
+    AI_MODEL: z.string().trim().default(''),
+    AI_BASE_URL: z.union([z.literal(''), z.url()]).default(''),
     AI_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
     AI_TIMEOUT_MS: positiveInt(90_000),
     AI_RATE_LIMIT_PER_MINUTE: positiveInt(10),
     // Phase 6 – local SQLite file (relative to the project root), or ":memory:".
     DB_PATH: z.string().trim().min(1).default('data/api-sentinel.db'),
+    // Also serve the built interface (the always-on local app).
+    SERVE_CLIENT: z.enum(['true', 'false']).default('false'),
   })
   .refine((env) => env.REQUEST_TIMEOUT_DEFAULT_MS <= env.REQUEST_TIMEOUT_MAX_MS, {
     message: 'must not be greater than REQUEST_TIMEOUT_MAX_MS',
@@ -86,13 +91,23 @@ export interface RequestEngineConfig {
   readonly userAgent: string;
 }
 
+export type AiProvider = 'anthropic' | 'gemini' | 'ollama';
+
+const DEFAULT_MODELS: Record<AiProvider, string> = {
+  anthropic: 'claude-sonnet-5-5',
+  gemini: 'gemini-flash-latest',
+  ollama: 'qwen3:8b',
+};
+
 /** Settings of the AI features (Phase 5). */
 export interface AiConfig {
   /** Resolved mode: "auto" becomes "anthropic" (key set) or "off" (no key). */
-  readonly mode: 'off' | 'mock' | 'anthropic';
+  readonly mode: 'off' | 'mock' | AiProvider;
   /** Secret: never log it or put it in an error message. Empty unless mode is "anthropic". */
   readonly apiKey: string;
   readonly model: string;
+  /** Overrides the provider's default address (e.g. Ollama on another port). */
+  readonly baseUrl?: string;
   readonly effort: 'low' | 'medium' | 'high';
   readonly timeoutMs: number;
   readonly ratePerMinute: number;
@@ -108,6 +123,8 @@ export interface AppConfig {
   readonly ai: AiConfig;
   /** Absolute path of the SQLite file, or ":memory:" (tests). */
   readonly dbPath: string;
+  /** Serve client/dist from this server (true only for the always-on app). */
+  readonly serveClient?: boolean;
 }
 
 export class ConfigError extends Error {
@@ -132,6 +149,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   }
 
   const parsed = result.data;
+  const providerKey = {
+    anthropic: parsed.ANTHROPIC_API_KEY,
+    gemini: parsed.GEMINI_API_KEY,
+    ollama: '',
+  }[parsed.AI_PROVIDER];
   return {
     port: parsed.PORT,
     host: parsed.HOST,
@@ -146,18 +168,25 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       userAgent: `API-Sentinel/${packageJson.version}`,
     },
     ai: {
-      mode: resolveAiMode(parsed.AI_MODE, parsed.ANTHROPIC_API_KEY),
-      apiKey: parsed.AI_MODE === 'auto' ? parsed.ANTHROPIC_API_KEY : '',
-      model: parsed.AI_MODEL,
+      mode: resolveAiMode(parsed.AI_MODE, parsed.AI_PROVIDER, providerKey),
+      apiKey: parsed.AI_MODE === 'auto' ? providerKey : '',
+      model: parsed.AI_MODEL || DEFAULT_MODELS[parsed.AI_PROVIDER],
+      ...(parsed.AI_BASE_URL === '' ? {} : { baseUrl: parsed.AI_BASE_URL }),
       effort: parsed.AI_EFFORT,
       timeoutMs: parsed.AI_TIMEOUT_MS,
       ratePerMinute: parsed.AI_RATE_LIMIT_PER_MINUTE,
     },
     dbPath: parsed.DB_PATH === ':memory:' ? ':memory:' : resolve(ROOT_DIR, parsed.DB_PATH),
+    serveClient: parsed.SERVE_CLIENT === 'true',
   };
 }
 
-function resolveAiMode(mode: 'auto' | 'off' | 'mock', apiKey: string): AiConfig['mode'] {
-  if (mode === 'auto') return apiKey === '' ? 'off' : 'anthropic';
-  return mode;
+function resolveAiMode(
+  mode: 'auto' | 'off' | 'mock',
+  provider: AiProvider,
+  apiKey: string,
+): AiConfig['mode'] {
+  if (mode !== 'auto') return mode;
+  // Ollama runs on this machine and needs no key.
+  return provider === 'ollama' || apiKey !== '' ? provider : 'off';
 }

@@ -1,6 +1,8 @@
 import express, { type Express } from 'express';
+import { resolve } from 'node:path';
 import type { AppConfig } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
+import { localHostOnly } from './middleware/localHostOnly';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { openDatabase, type Database } from './db/database';
 import { createCollectionRepository } from './repositories/collectionRepository';
@@ -10,6 +12,7 @@ import { createApiRouter } from './routes/index';
 import { createAnthropicAiClient, type AiClient } from './services/ai-engine/aiClient';
 import { createAiService } from './services/ai-engine/aiService';
 import { createMockAiClient } from './services/ai-engine/mockAiClient';
+import { createOpenAiCompatibleClient } from './services/ai-engine/openAiCompatibleClient';
 import { createRateLimiter } from './services/ai-engine/rateLimiter';
 import { createCollectionService, type ServiceClock } from './services/collectionService';
 import { createEnvironmentService } from './services/environmentService';
@@ -37,6 +40,22 @@ function aiClientFor(config: AppConfig): AiClient | null {
   switch (config.ai.mode) {
     case 'anthropic':
       return createAnthropicAiClient(config.ai);
+    case 'gemini':
+      return createOpenAiCompatibleClient({
+        label: 'Gemini',
+        baseUrl: config.ai.baseUrl ?? 'https://generativelanguage.googleapis.com/v1beta/openai',
+        apiKey: config.ai.apiKey,
+        model: config.ai.model,
+        timeoutMs: config.ai.timeoutMs,
+      });
+    case 'ollama':
+      return createOpenAiCompatibleClient({
+        label: 'Ollama',
+        baseUrl: config.ai.baseUrl ?? 'http://127.0.0.1:11434/v1',
+        apiKey: '',
+        model: config.ai.model,
+        timeoutMs: config.ai.timeoutMs,
+      });
     case 'mock':
       return createMockAiClient();
     case 'off':
@@ -75,9 +94,15 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
   // Do not advertise the framework in an `X-Powered-By` header.
   app.disable('x-powered-by');
 
+  if (config.serveClient) app.use(localHostOnly);
+
   app.use(express.json({ limit: config.requestBodyLimit }));
 
   app.use('/api', createApiRouter(config, { execution, ai, collections, environments, runs }));
+
+  if (config.serveClient) {
+    app.use(express.static(resolve(import.meta.dirname, '../../client/dist')));
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);
