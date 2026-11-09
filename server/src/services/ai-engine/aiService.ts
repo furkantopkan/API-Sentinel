@@ -20,6 +20,7 @@ import type { AiClient } from './aiClient';
 import {
   ANALYSIS_SYSTEM_PROMPT,
   BUILD_COLLECTION_SYSTEM_PROMPT,
+  fitRecording,
   formatRecording,
   TEST_CASES_SYSTEM_PROMPT,
   formatDescription,
@@ -168,13 +169,15 @@ export function createAiService(
 
     async buildCollection(input, signal) {
       // Masked before the model sees it; the masked form is also what the draft is checked against.
-      const entries = input.entries.map((entry) => ({
-        ...entry,
-        url: redactUrl(entry.url),
-        requestHeaders: redactHeaders(entry.requestHeaders),
-        requestBody: entry.requestBody === '' ? '' : redactBody(entry.requestBody),
-        responseSample: entry.responseSample === '' ? '' : redactBody(entry.responseSample),
-      }));
+      const { entries, omitted } = fitRecording(
+        input.entries.map((entry) => ({
+          ...entry,
+          url: redactUrl(entry.url),
+          requestHeaders: redactHeaders(entry.requestHeaders),
+          requestBody: entry.requestBody === '' ? '' : redactBody(entry.requestBody),
+          responseSample: entry.responseSample === '' ? '' : redactBody(entry.responseSample),
+        })),
+      );
 
       const { ai, output } = await run('collection', (client) =>
         client.complete({
@@ -192,8 +195,9 @@ export function createAiService(
         entries,
         new Map(input.entries.map((entry) => [entry.index, entry.responseSample])),
       );
+      const notice = `This recording was long: its last ${omitted} request(s) were not sent to the AI.`;
       return {
-        result: draft,
+        result: { ...draft, notes: omitted > 0 ? [notice, ...draft.notes] : draft.notes },
         meta: { model: ai.model, mock: ai.isMock, droppedAssertions, droppedItems: droppedSteps },
       };
     },

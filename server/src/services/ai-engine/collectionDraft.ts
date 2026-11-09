@@ -44,6 +44,30 @@ function sameOrigin(url: string, expected: string): boolean {
   }
 }
 
+/** Variables a step refers to, in its URL, body or headers. */
+function variablesUsedBy(step: CollectionDraft['steps'][number]): Set<string> {
+  const names = new Set<string>();
+  const collect: VariableLookup = (name) => {
+    names.add(name);
+    return 'x';
+  };
+  for (const text of [step.url, step.body, ...step.headers.flatMap((h) => [h.key, h.value])]) {
+    resolveText(text, collect);
+  }
+  return names;
+}
+
+/**
+ * A capture that fails marks its step as failed, so one nobody uses can only
+ * do harm. Models add them often, whatever the instructions say.
+ */
+function withoutUnusedCaptures(steps: CollectionDraft['steps']): CollectionDraft['steps'] {
+  return steps.map((step, index) => {
+    const usedLater = new Set(steps.slice(index + 1).flatMap((s) => [...variablesUsedBy(s)]));
+    return { ...step, captures: step.captures.filter((c) => usedLater.has(c.variable)) };
+  });
+}
+
 export interface CheckedDraft {
   draft: CollectionDraft;
   droppedSteps: number;
@@ -127,7 +151,7 @@ export function checkDraft(
   return {
     draft: {
       collectionName: output.collectionName.trim().slice(0, 200) || 'AI collection',
-      steps,
+      steps: withoutUnusedCaptures(steps),
       variables: [...variables].map(([key, variable]) => ({ key, ...variable })),
       notes: output.notes.slice(0, 20),
     },

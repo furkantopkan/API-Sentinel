@@ -47,6 +47,9 @@ export function createOllamaClient(options: OllamaOptions): AiClient {
           body: JSON.stringify({
             model,
             stream: false,
+            // Measured on a real recording: 79 s with reasoning, 15 s without. The answer
+            // is a fixed JSON format that we validate anyway.
+            think: false,
             format: jsonSchemaFor(schema),
             options: { num_ctx: CONTEXT_TOKENS },
             messages: [
