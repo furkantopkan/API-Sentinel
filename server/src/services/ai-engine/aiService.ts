@@ -187,7 +187,11 @@ export function createAiService(
         }),
       );
 
-      const { draft, droppedSteps, droppedAssertions } = checkDraft(output, entries);
+      const { draft, droppedSteps, droppedAssertions } = checkDraft(
+        output,
+        entries,
+        new Map(input.entries.map((entry) => [entry.index, entry.responseSample])),
+      );
       return {
         result: draft,
         meta: { model: ai.model, mock: ai.isMock, droppedAssertions, droppedItems: droppedSteps },

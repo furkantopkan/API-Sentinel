@@ -27,6 +27,15 @@ function validCaptures(captures: CollectionDraftOutput['steps'][number]['capture
   );
 }
 
+/**
+ * When the recorded response is a JSON array, a path like "name" can never
+ * match; models often write it anyway. The recording shows what was meant.
+ */
+function pathForResponse(path: string, sample: string): string {
+  const rootIsArray = sample.trimStart().startsWith('[');
+  return rootIsArray && path !== '' && !path.startsWith('[') ? `[0].${path}` : path;
+}
+
 function sameOrigin(url: string, expected: string): boolean {
   try {
     return new URL(url).origin === new URL(expected).origin;
@@ -53,6 +62,8 @@ export interface CheckedDraft {
 export function checkDraft(
   output: CollectionDraftOutput,
   entries: readonly RecordedEntry[],
+  /** The response samples as recorded, before masking and reformatting. */
+  originalSamples: ReadonlyMap<number, string>,
 ): CheckedDraft {
   const entryByIndex = new Map(entries.map((entry) => [entry.index, entry]));
 
@@ -88,9 +99,27 @@ export function checkDraft(
     if (texts.some((text) => resolveText(text, lookup).unknown.length > 0)) continue;
     if (!sameOrigin(resolveText(step.url, lookup).text, entry.url)) continue;
 
-    const assertions = validAssertions(step.assertions);
+    const original = originalSamples.get(entry.index) ?? '';
+    const assertions = validAssertions(
+      step.assertions
+        // Text the response never contained would fail on every run.
+        .filter(
+          (a) =>
+            !(a.kind === 'body' && a.operator === 'contains' && !original.includes(a.expected)),
+        )
+        .map((assertion) =>
+          assertion.kind === 'jsonPath'
+            ? { ...assertion, target: pathForResponse(assertion.target, entry.responseSample) }
+            : assertion,
+        ),
+    );
     droppedAssertions += step.assertions.length - assertions.length;
-    const captures = validCaptures(step.captures);
+    const captures = validCaptures(
+      step.captures.map((capture) => ({
+        ...capture,
+        path: pathForResponse(capture.path, entry.responseSample),
+      })),
+    );
     captures.forEach((capture) => captured.add(capture.variable));
     steps.push({ ...step, method: entry.method, headers, assertions, captures });
   }

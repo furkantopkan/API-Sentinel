@@ -55,6 +55,9 @@ You receive a <goal> written by the user and a <recording> of the HTTP requests 
 - Write the URL with its query string. Replace the shared scheme and host with {{baseUrl}} and define baseUrl in variables with the recorded value.
 - When a later request uses a value returned by an earlier one (an id, a username, a token), add a capture to the earlier step (variable name and JSON path into its response) and write {{variable}} in the later step. A capture can only be used by later steps. Set secret to true for tokens and other credentials.
 - Values shown as [REDACTED] were removed for privacy. Never write [REDACTED]: use a {{variable}} instead and define it in variables with secret true and an empty value.
+- A value the user chose while recording (a search term, a username, an id typed into the page) must become a variable with the recorded value, so the flow can be reused with other data. For example, write {{username}} in the URLs instead of the recorded name.
+- Add a capture only if a later step uses it.
+- If a response is a JSON array, paths must start with an index: [0].name, never name.
 - Keep only the headers the API needs; do not copy browser headers.
 - body is the request body as text, empty when there is none.
 - Give each step a short name in plain words and 2-5 assertions based on its recorded response. Response samples may be cut off, so only reference fields you can see.
