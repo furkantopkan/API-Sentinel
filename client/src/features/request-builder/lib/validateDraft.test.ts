@@ -31,6 +31,23 @@ describe('validateDraft', () => {
     });
   });
 
+  it('accepts a form body when the Content-Type header declares a form', () => {
+    const header = {
+      id: 'h',
+      key: 'Content-Type',
+      value: 'application/x-www-form-urlencoded',
+      enabled: true,
+    };
+    expect(
+      validateDraft(draft({ url: 'https://x.io', body: 'a=1&b=2', headers: [header] })).ok,
+    ).toBe(true);
+    expect(
+      validateDraft(
+        draft({ url: 'https://x.io', body: 'a=1', headers: [{ ...header, enabled: false }] }),
+      ).ok,
+    ).toBe(false);
+  });
+
   it('reports a body error with its location', () => {
     expect(validateDraft(draft({ url: 'https://x.io', body: '{"a":1,}' }))).toEqual({
       ok: false,

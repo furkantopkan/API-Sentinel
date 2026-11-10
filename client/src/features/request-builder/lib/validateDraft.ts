@@ -1,4 +1,4 @@
-import { buildFinalUrl } from '@api-sentinel/shared';
+import { buildFinalUrl, isFormBody } from '@api-sentinel/shared';
 import type { RequestDraft } from '../types';
 import { validateJsonBody } from './validateJsonBody';
 
@@ -43,7 +43,10 @@ export function validateDraft(
     errors.push({ field: 'url', message: urlResult.error });
   }
 
-  const bodyResult = validateJsonBody(draft.body);
+  // A form body is sent as typed; only JSON can be checked here.
+  const bodyResult = isFormBody(draft.headers)
+    ? { ok: true as const }
+    : validateJsonBody(draft.body);
   if (!bodyResult.ok) {
     const where = bodyResult.line ? ` (line ${bodyResult.line}, column ${bodyResult.column})` : '';
     errors.push({ field: 'body', message: `Body is not valid JSON${where}.` });

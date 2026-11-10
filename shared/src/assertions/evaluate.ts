@@ -1,4 +1,5 @@
 import { parseJsonPath, resolveJsonPath } from '../json/jsonPath';
+import { readJsonBody } from '../json/readJsonBody';
 import type { ExecutedResponse } from '../schemas/execute';
 import {
   operatorNeedsExpected,
@@ -184,14 +185,7 @@ function evaluateBody(assertion: Assertion, response: ExecutedResponse): Verdict
 type ParsedBody = { ok: true; value: unknown } | { ok: false; reason: string };
 
 function parseBody(response: ExecutedResponse): ParsedBody {
-  if (response.body.kind !== 'json') {
-    return { ok: false, reason: `The body is not JSON (${response.body.kind}).` };
-  }
-  try {
-    return { ok: true, value: JSON.parse(response.body.text) as unknown };
-  } catch {
-    return { ok: false, reason: 'The body is not valid JSON.' };
-  }
+  return readJsonBody(response);
 }
 
 const PRECISION_NOTE =

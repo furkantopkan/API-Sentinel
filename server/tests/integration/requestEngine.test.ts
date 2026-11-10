@@ -405,3 +405,32 @@ describe('SSRF protection', () => {
     expect(log).not.toContain('/auth');
   });
 });
+
+describe('form bodies', () => {
+  it('sends a form body as typed when the Content-Type header declares a form', async () => {
+    const response = await engine.execute(
+      req({
+        method: 'POST',
+        url: `${base}/echo`,
+        headers: [
+          { key: 'Content-Type', value: 'application/x-www-form-urlencoded', enabled: true },
+        ],
+        body: 'product_id=7&note=a+b',
+      }),
+    );
+    const echo = JSON.parse(response.body.kind === 'json' ? response.body.text : '{}') as {
+      headers: Record<string, string>;
+      body: string;
+    };
+    expect(echo.headers['content-type']).toBe('application/x-www-form-urlencoded');
+    expect(echo.body).toBe('product_id=7&note=a+b');
+  });
+
+  it('still requires JSON without that header, and says how to send a form', async () => {
+    const sending = engine.execute(req({ method: 'POST', url: `${base}/echo`, body: 'a=1' }));
+    await expect(sending).rejects.toThrow('application/x-www-form-urlencoded');
+    expect(
+      await errorCode(engine.execute(req({ method: 'POST', url: `${base}/echo`, body: 'a=1' }))),
+    ).toBe('INVALID_JSON_BODY');
+  });
+});

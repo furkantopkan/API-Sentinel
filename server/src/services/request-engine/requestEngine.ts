@@ -1,4 +1,10 @@
-import { buildFinalUrl, type ExecuteRequest, type ExecutedResponse } from '@api-sentinel/shared';
+import {
+  FORM_CONTENT_TYPE,
+  buildFinalUrl,
+  isFormBody,
+  type ExecuteRequest,
+  type ExecutedResponse,
+} from '@api-sentinel/shared';
 import type { RequestEngineConfig } from '../../config/env';
 import { AppError } from '../../errors/AppError';
 import { mapRequestError } from './errorMapper';
@@ -56,12 +62,17 @@ export function createRequestEngine(
     const url = new URL(urlResult.url);
 
     // The client validates the body too; never rely on that alone.
+    // A form body (declared by its Content-Type header) is sent as typed.
     const hasBody = request.body.trim() !== '';
-    if (hasBody) {
+    if (hasBody && !isFormBody(request.headers)) {
       try {
         JSON.parse(request.body);
       } catch {
-        throw new AppError('INVALID_JSON_BODY', 'Request body is not valid JSON.', 400);
+        throw new AppError(
+          'INVALID_JSON_BODY',
+          `Request body is not valid JSON. For a form body, set the Content-Type header to ${FORM_CONTENT_TYPE}.`,
+          400,
+        );
       }
     }
 

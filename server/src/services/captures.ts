@@ -1,6 +1,7 @@
 import {
   describeValue,
   parseJsonPath,
+  readJsonBody,
   resolveJsonPath,
   type AssertionResult,
   type Capture,
@@ -13,14 +14,7 @@ export interface FlowState {
   secrets: string[];
 }
 
-function parsedBody(response: ExecutedResponse): { ok: true; value: unknown } | { ok: false } {
-  if (response.body.kind !== 'json') return { ok: false };
-  try {
-    return { ok: true, value: JSON.parse(response.body.text) as unknown };
-  } catch {
-    return { ok: false };
-  }
-}
+const parsedBody = (response: ExecutedResponse) => readJsonBody(response);
 
 /**
  * Reads the captures of one request from its response into `flow`. Each one

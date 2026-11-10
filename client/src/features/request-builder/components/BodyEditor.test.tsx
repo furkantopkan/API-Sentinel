@@ -8,9 +8,9 @@ import { BodyEditor } from './BodyEditor';
 
 afterEach(cleanup);
 
-function Harness({ initial = '', method = 'POST' as HttpMethod }) {
+function Harness({ initial = '', method = 'POST' as HttpMethod, form = false }) {
   const [body, setBody] = useState(initial);
-  return <BodyEditor body={body} method={method} onChange={setBody} />;
+  return <BodyEditor body={body} method={method} form={form} onChange={setBody} />;
 }
 
 const textarea = () => screen.getByLabelText<HTMLTextAreaElement>('Request body');
@@ -56,5 +56,14 @@ describe('BodyEditor', () => {
     render(<Harness method="POST" initial='{"a":1}' />);
 
     expect(screen.queryByText(/ignore the body/)).toBeNull();
+  });
+
+  it('treats the body as a form when the header says so: no JSON error, no Format', async () => {
+    const user = userEvent.setup();
+    render(<Harness form />);
+    await user.type(textarea(), 'product_id=7&note=a+b');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText('Form body (x-www-form-urlencoded)')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Format' })).toBeNull();
   });
 });

@@ -7,12 +7,16 @@ const METHODS_WITHOUT_BODY: ReadonlySet<HttpMethod> = new Set(['GET', 'DELETE'])
 interface BodyEditorProps {
   body: string;
   method: HttpMethod;
+  /** True when the Content-Type header declares a form: the body is sent as typed. */
+  form?: boolean;
   onChange: (body: string) => void;
 }
 
-export function BodyEditor({ body, method, onChange }: BodyEditorProps) {
+export function BodyEditor({ body, method, form = false, onChange }: BodyEditorProps) {
   // Cheap enough to run on every render; no need to store it in state.
-  const validation = validateJsonBody(body);
+  const validation = form
+    ? ({ ok: true, empty: body.trim() === '' } as const)
+    : validateJsonBody(body);
 
   const handleFormat = () => {
     const formatted = formatJsonBody(body);
@@ -22,10 +26,14 @@ export function BodyEditor({ body, method, onChange }: BodyEditorProps) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-slate-600">JSON body</span>
-        <Button onClick={handleFormat} disabled={!validation.ok || validation.empty}>
-          Format
-        </Button>
+        <span className="text-xs font-medium text-slate-600">
+          {form ? 'Form body (x-www-form-urlencoded)' : 'JSON body'}
+        </span>
+        {!form && (
+          <Button onClick={handleFormat} disabled={!validation.ok || validation.empty}>
+            Format
+          </Button>
+        )}
       </div>
 
       {METHODS_WITHOUT_BODY.has(method) && body.trim() !== '' && (
@@ -38,7 +46,7 @@ export function BodyEditor({ body, method, onChange }: BodyEditorProps) {
         aria-label="Request body"
         value={body}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={'{\n  "name": "Ada"\n}'}
+        placeholder={form ? 'name=Ada&role=qa' : '{\n  "name": "Ada"\n}'}
         spellCheck={false}
         rows={10}
         aria-invalid={!validation.ok}
@@ -53,6 +61,11 @@ export function BodyEditor({ body, method, onChange }: BodyEditorProps) {
           {validation.line !== undefined &&
             ` at line ${validation.line}, column ${validation.column}`}
           : {validation.message}
+        </p>
+      )}
+      {!form && (
+        <p className="text-xs text-slate-500">
+          To send a form instead, add the header Content-Type: application/x-www-form-urlencoded.
         </p>
       )}
     </div>
