@@ -562,3 +562,28 @@ describe('collection runs keep cookies between requests', () => {
     expect(JSON.stringify(cart.body)).toContain('Your cart is empty');
   });
 });
+
+describe('a Cookie header written by the user', () => {
+  it('is sent instead of the cookies the run collected', async () => {
+    const id = await createCollection([
+      { name: '1 Product', url: `${base}/shop/product/7` },
+      {
+        name: '2 Echo',
+        url: `${base}/echo`,
+        extra: { headers: [{ key: 'Cookie', value: 'mine=1', enabled: true }] },
+        assertions: [
+          {
+            id: 'c',
+            enabled: true,
+            kind: 'jsonPath',
+            target: 'headers.cookie',
+            operator: 'equals',
+            expected: '"mine=1"',
+          },
+        ],
+      },
+    ]);
+    const run = await startRun(id);
+    expect(run.results.map((r) => r.outcome)).toEqual(['pass', 'pass']);
+  });
+});
