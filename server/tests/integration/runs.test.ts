@@ -452,3 +452,113 @@ describe('reports', () => {
     expect(errorOf(response.body).code).toBe('VALIDATION_ERROR');
   });
 });
+
+// A shop that keeps its cart in a session cookie, like the real one the user tested.
+describe('collection runs keep cookies between requests', () => {
+  const contains = (id: string, expected: string) => ({
+    id,
+    enabled: true,
+    kind: 'body',
+    target: '',
+    operator: 'contains',
+    expected,
+  });
+  const form = {
+    method: 'POST',
+    headers: [{ key: 'Content-Type', value: 'application/x-www-form-urlencoded', enabled: true }],
+    body: 'product_id=7',
+  };
+
+  it('adds to the cart, sees it on the cart page and removes it again', async () => {
+    const countIsOne = {
+      id: 'c1',
+      enabled: true,
+      kind: 'jsonPath',
+      target: 'count',
+      operator: 'equals',
+      expected: '1',
+    };
+    const id = await createCollection([
+      {
+        name: '1 Product',
+        url: `${base}/shop/product/7`,
+        assertions: [contains('p', 'Mock Book 7')],
+      },
+      {
+        name: '2 Add',
+        url: `${base}/shop/cart/add`,
+        extra: form,
+        assertions: [STATUS_200, countIsOne],
+      },
+      { name: '3 Cart', url: `${base}/shop/cart`, assertions: [contains('c', 'Mock Book 7')] },
+      {
+        name: '4 Remove',
+        url: `${base}/shop/cart/remove?remove=7`,
+        extra: { method: 'POST' },
+        assertions: [contains('r', 'Mock Book 7 removed')],
+      },
+      {
+        name: '5 Empty',
+        url: `${base}/shop/cart`,
+        assertions: [contains('e', 'Your cart is empty')],
+      },
+    ]);
+
+    const run = await startRun(id);
+
+    expect(run.results.map((r) => [r.name, r.outcome])).toEqual([
+      ['1 Product', 'pass'],
+      ['2 Add', 'pass'],
+      ['3 Cart', 'pass'],
+      ['4 Remove', 'pass'],
+      ['5 Empty', 'pass'],
+    ]);
+  });
+
+  it('starts every run with an empty cookie jar', async () => {
+    const id = await createCollection([{ name: 'Add', url: `${base}/shop/cart/add`, extra: form }]);
+    await startRun(id);
+    const second = await startRun(
+      await createCollection([
+        {
+          name: 'Cart',
+          url: `${base}/shop/cart`,
+          assertions: [contains('e', 'Your cart is empty')],
+        },
+      ]),
+    );
+    expect(second.results[0]?.outcome).toBe('pass');
+  });
+
+  it('never shows a session cookie in the results', async () => {
+    const id = await createCollection([
+      {
+        name: 'Product',
+        url: `${base}/shop/product/7`,
+        assertions: [
+          {
+            id: 'h',
+            enabled: true,
+            kind: 'header',
+            target: 'set-cookie',
+            operator: 'exists',
+            expected: '',
+          },
+        ],
+      },
+    ]);
+    const run = await startRun(id);
+    const shown = JSON.stringify(run);
+    expect(run.results[0]?.assertions[0]?.outcome).toBe('pass');
+    expect(shown).toContain('shop_session=');
+    expect(shown).not.toMatch(/shop_session=[0-9a-f-]{36}/);
+  });
+
+  it('does not keep cookies between single requests', async () => {
+    const send = (extra: Record<string, unknown>, url: string) =>
+      request(app).post('/api/requests/execute').send(httpRequest(url, extra));
+    await send(form, `${base}/shop/cart/add`);
+    const cart = await send({}, `${base}/shop/cart`);
+    expect(JSON.stringify(cart.body)).toContain('Your cart is empty');
+  });
+});

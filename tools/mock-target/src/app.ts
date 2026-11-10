@@ -1,6 +1,7 @@
 import express, { type Express } from 'express';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { gzipSync } from 'node:zlib';
+import { addShopRoutes } from './shop';
 
 /**
  * A fake API with predictable behaviour. Used as the target for manual tests
@@ -56,6 +57,11 @@ export function createMockTargetApp(): Express {
         'GET /nested',
         'GET /large-json/:n',
         'GET /bigint',
+        'GET /shop/product/:id',
+        'POST /shop/cart/add',
+        'GET /shop/cart',
+        'POST /shop/cart/remove?remove=',
+        'GET /shop/flow',
       ],
     });
   });
@@ -202,5 +208,6 @@ export function createMockTargetApp(): Express {
     res.json({ headers: 'see response headers' });
   });
 
+  addShopRoutes(app);
   return app;
 }

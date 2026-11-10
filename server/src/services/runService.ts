@@ -11,6 +11,7 @@ import type { RunRepository } from '../repositories/runRepository';
 import type { CollectionService, ServiceClock } from './collectionService';
 import type { EnvironmentService } from './environmentService';
 import { applyCaptures, type FlowState } from './captures';
+import { createCookieJar } from './cookieJar';
 import { maskResponse, type ExecutionContext, type ExecutionService } from './executionService';
 
 /** History is capped so the database cannot grow without limit. */
@@ -54,9 +55,11 @@ async function runOne(
   try {
     let response = await execution.execute(saved.request, context, signal);
     const captures = applyCaptures(saved.captures ?? [], response, flow);
-    // A token captured from this response must not show up in its own results.
-    if (captures.newSecrets.length > 0) {
-      response = maskResponse(response, createSecretMasker(captures.newSecrets));
+    // A token captured from this response, or a session cookie it set, must not
+    // show up in the results (a header assertion on Set-Cookie would show it).
+    const hidden = [...captures.newSecrets, ...(baseContext.cookies?.values() ?? [])];
+    if (hidden.length > 0) {
+      response = maskResponse(response, createSecretMasker(hidden));
     }
     const assertions = [...captures.results, ...evaluateAssertions(saved.assertions, response)];
     return {
@@ -106,7 +109,8 @@ export function createRunService({
           400,
         );
       }
-      const context = execution.context(environmentId);
+      // Like a browser session: a cart or login set by one request is seen by the next.
+      const context = { ...execution.context(environmentId), cookies: createCookieJar() };
       const environmentName =
         environmentId === undefined
           ? null
