@@ -244,3 +244,21 @@ describe('keepActions', () => {
     expect(isUserAction(at(0, 'DELETE'))).toBe(true);
   });
 });
+
+describe('parseHar with more requests than the limit', () => {
+  it('keeps the last thing the user did', () => {
+    const reads = Array.from({ length: MAX_RECORDED_ENTRIES + 5 }, (_, i) =>
+      entry(`https://a.test/read/${String(i)}`),
+    );
+    const remove = entry('https://a.test/cart/remove', {
+      method: 'POST',
+      mime: 'text/html',
+      text: '<p>removed</p>',
+    });
+    const result = parseHar(har(...reads, remove));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.entries).toHaveLength(MAX_RECORDED_ENTRIES);
+    expect(result.found).toBe(MAX_RECORDED_ENTRIES + 6);
+    expect(result.entries.at(-1)?.url).toBe('https://a.test/cart/remove');
+  });
+});
