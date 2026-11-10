@@ -324,6 +324,8 @@ Kayıt, backend'in bilgisayarda tarayıcı açmasını gerektirir. Bu yüzden ya
 
 Kayıt API çağrılarını, JSON olsun olmasın sayfanın gönderdiği değişiklikleri (POST/PUT/PATCH/DELETE) ve ana pencerede açılan sayfaları (metne indirgenmiş olarak) tutar. `text/html` etiketli JSON, JSON olarak kalır. Multipart form, aynı alanlarla urlencoded forma çevrilir (dosya içeren form çevrilmez).
 
+**Kullanıcı eylemleri kaybolmaz (2026-11-10).** Açılan sayfalar ve gönderilen değişiklikler "kullanıcı eylemi"dir (`isUserAction`). Kayıt kısaltılırken önce aynı uç noktaya giden tekrarlı arka plan istekleri, sonra cevap örnekleri, sonra en son arka plan istekleri atılır; eylemlere en son dokunulur (40 istek sınırı da aynı kurala uyar). Model bir eylemi atlarsa veya hiç görmezse `checkDraft` onu kayıttan kurup sırasına ekler; maskeli değerler (şifre, token) boş gizli değişkene çevrilir. Model zaman aşımına uğrar, cevabı kesilir veya Ollama erişilemezse hata yerine kayıttan kurulmuş taslak döner. Değişiklik adımları taslakta varsayılan olarak seçilidir ve uyarıyla işaretlenir.
+
 ### 7.2.2 Collection çalıştırmasında cookie'ler
 `server/services/cookieJar.ts`: her çalıştırma boş bir kutuyla başlar ve yalnızca bellekte yaşar. Bir cookie yalnızca onu gönderen **tam host'a** geri gönderilir (alt alan adı yok, `Domain`/`Path` yok sayılır); `Secure` olanlar yalnızca https'te gider; `Max-Age`/`Expires` uygulanır; host başına en fazla 50 cookie. Kullanıcının yazdığı `Cookie` header'ı önceliklidir. Çalıştırma sonuçlarında cookie değerleri maskelenir. Tek tek gönderilen istekler cookie taşımaz. Yönlendirme ara adımlarındaki `Set-Cookie` saklanmaz (yalnızca son cevap).
 
