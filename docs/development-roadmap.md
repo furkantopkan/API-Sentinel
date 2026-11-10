@@ -153,10 +153,11 @@ Kullanıcı kararı (2026-11-08): portfolio hazırlığından önce yapılır. K
 | Parça | Uygulama |
 |---|---|
 | Akış motoru | İstek sırası (`sort_order`) ve cevaptan değer yakalama (`captures`); `secret` yakalamalar maskelenir |
-| HAR okuyucu | `shared/har/parseHar`, tarayıcıda çalışır: yalnızca JSON API trafiği, tekilleştirme, çerez ve tarayıcı header'ları atılır |
+| HAR okuyucu | `shared/har/parseHar`, tarayıcıda çalışır: API çağrıları (yanlış etiketli JSON dahil), değişiklik istekleri ve sitenin sayfaları; tekilleştirme, çerez ve tarayıcı header'ları atılır |
 | AI kurucu | `POST /api/ai/build-collection`: maskelenmiş kayıt modele gider; `checkDraft` her adımı kayıttaki isteğe ve sunucuya bağlar, tanımsız değişkenli adımları atar |
 | Akış kaydı | `POST /api/recordings`: Playwright ile ayrı, boş profilli tarayıcı; trafik bellekte tutulur ve HAR ile aynı filtreden geçer; başlangıç adresi SSRF kontrolünden geçer |
 | Yerel AI | Ollama (`qwen3:8b`), düşünme kapalı (ölçüm: 79 sn → 15 sn); uzun kayıtlar `fitRecording` ile modelin bağlamına sığdırılır, atılan istekler kullanıcıya bildirilir |
+| Klasik siteler | Form gövdesi (urlencoded), collection çalıştırmasında cookie taşıma, kayıttaki cevapta tutmayan doğrulamaların atılması (kitapyurdu sepet akışı, 2026-11-10) |
 | Onay | Taslak ekranı; veri değiştiren istekler varsayılan kapalı; `POST /api/collections/import` tek işlemde kaydeder |
 
 **Durum:** Geliştirme, gerçek Ollama ile uçtan uca deneme, kullanıcının manuel testleri (RE-01…04) ve otomasyon testleri tamam. Bekleyen: kullanıcının hız iyileştirmesini uzun bir akışla doğrulaması.

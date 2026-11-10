@@ -8,13 +8,13 @@ A web-based REST API testing tool for QA engineers: build HTTP requests, inspect
 
 - Methods GET, POST, PUT, PATCH, DELETE; query parameters and headers with on/off toggles; final URL preview
 - Auth: Bearer token and Basic auth
-- JSON body editor with validation (error line/column) and formatting
+- JSON body editor with validation (error line/column) and formatting; form bodies when Content-Type is application/x-www-form-urlencoded
 - Per-request timeout and "follow redirects" setting
 - Response: status (colour-coded), time, size, redirects, formatted JSON / text, headers, copy to clipboard
 - Response Analyzer: collapsible JSON tree with type badges, field details with copyable path (`data.items[0].id`), JSON summary, warning for integers that JavaScript cannot represent exactly, and an Info tab (encoding, decoded vs wire size, redirect chain)
 - Assertions: status code, response time, headers, body text and JSON path checks (exists, equals, null, type, contains, greater/less than) with live PASS / FAIL / ERROR results, expected vs actual, and one-click assertions from the JSON tree
 - AI (free and local through [Ollama](https://ollama.com)): generate editable test cases and analyse a response, with one-click suggested assertions and Markdown export. Secrets are masked before anything reaches the model
-- AI collection builder: enter a website, perform the flow once in the browser that opens, and get a reviewable draft with variables and assertions. Every step is traced back to a recorded request; nothing runs or is saved until you approve it. HAR files are supported as an advanced option
+- AI collection builder: enter a website, perform the flow once in the browser that opens, and get a reviewable draft with variables and assertions. Every step is traced back to a recorded request; nothing runs or is saved until you approve it. HAR files are supported as an advanced option. Works with classic sites too: form submissions, JSON labelled as HTML and the pages you open are recorded, and a collection run keeps cookies (a cart or login session) from one request to the next, in memory only
 - Collections: save requests with their assertions in a local SQLite database, reopen, rename and organise them from the sidebar, with an unsaved-changes guard
 - Environments: `{{variables}}` in URL, params, headers, auth and body, resolved on the server; secret values are write-only and masked in responses, errors and logs
 - Collection runs: run all saved requests with one click, keep a history of outcomes, download JSON or HTML reports and compare two runs to spot regressions

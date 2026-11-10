@@ -322,6 +322,11 @@ Notlar:
 
 Kayıt, backend'in bilgisayarda tarayıcı açmasını gerektirir. Bu yüzden yalnızca backend loopback adresinde dinliyorsa açıktır, uçlar `localHostOnly` arkasındadır (DNS rebinding) ve durum değiştiren uçlar JSON gövde ister (başka site CORS ön kontrolü olmadan gönderemez). Başlangıç adresi SSRF kontrolünden geçer. Sonraki gezinmeyi kullanıcı kendi yapar; üretilen istekler çalıştırılırken yine SSRF guard'dan geçer. Trafik yalnızca bellekte tutulur, toplanmazsa 5 dakika sonra silinir; her kayıt boş profille başlar.
 
+Kayıt API çağrılarını, JSON olsun olmasın sayfanın gönderdiği değişiklikleri (POST/PUT/PATCH/DELETE) ve ana pencerede açılan sayfaları (metne indirgenmiş olarak) tutar. `text/html` etiketli JSON, JSON olarak kalır. Multipart form, aynı alanlarla urlencoded forma çevrilir (dosya içeren form çevrilmez).
+
+### 7.2.2 Collection çalıştırmasında cookie'ler
+`server/services/cookieJar.ts`: her çalıştırma boş bir kutuyla başlar ve yalnızca bellekte yaşar. Bir cookie yalnızca onu gönderen **tam host'a** geri gönderilir (alt alan adı yok, `Domain`/`Path` yok sayılır); `Secure` olanlar yalnızca https'te gider; `Max-Age`/`Expires` uygulanır; host başına en fazla 50 cookie. Kullanıcının yazdığı `Cookie` header'ı önceliklidir. Çalıştırma sonuçlarında cookie değerleri maskelenir. Tek tek gönderilen istekler cookie taşımaz. Yönlendirme ara adımlarındaki `Set-Cookie` saklanmaz (yalnızca son cevap).
+
 ### 7.3 Loglama politikası
 - Loglanır: zaman, requestId, method, hedef **host** (path ve query hariç), sonuç kodu, süre.
 - Loglanmaz: header değerleri, body, query string, auth bilgileri.

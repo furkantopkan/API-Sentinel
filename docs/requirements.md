@@ -31,7 +31,7 @@ Proje aynı zamanda bir **öğrenme ve portfolio** projesidir; bu yüzden kod ka
 | M3 | URL girişi | Yalnızca `http` ve `https` |
 | M4 | Query parameter tablosu (ekle / sil / aktif-pasif) | |
 | M5 | Header tablosu (ekle / sil / aktif-pasif) | Bazı header'lar yasak (bkz. 4.3) |
-| M6 | JSON body (ham metin editörü + doğrulama) | form-data, x-www-form-urlencoded yok |
+| M6 | JSON body (ham metin editörü + doğrulama) | 2026-11-10 kararı: `Content-Type: application/x-www-form-urlencoded` header'ı varsa form gövdesi doğrulanmadan gönderilir. multipart/dosya yükleme yok |
 | M7 | Auth: No Auth, Bearer Token, Basic Auth | API key / OAuth yok |
 | M8 | Send → backend → hedef API | |
 | M9 | Response: status kodu + açıklama, süre, boyut, header'lar, body | |
@@ -46,7 +46,7 @@ Proje aynı zamanda bir **öğrenme ve portfolio** projesidir; bu yüzden kod ka
 - Assertion Engine (Sürüm 2).
 - AI özellikleri (Sürüm 3).
 - Kullanıcı hesabı, çoklu kullanıcı.
-- Cookie yönetimi (cookie jar), dosya yükleme, GraphQL, WebSocket.
+- Cookie yönetimi (cookie jar), dosya yükleme, GraphQL, WebSocket. (Cookie jar 2026-11-10'da collection çalıştırmaları için eklendi; bkz. B-13.)
 - Syntax highlighting'li gelişmiş JSON editörü (ihtiyaç doğarsa sonra).
 
 ---
@@ -107,7 +107,7 @@ NFR-05 temel akışların Playwright ile test edilmesini istiyor; AC-11 ise yaln
 | B-10 | Assertion JSON path sözdizimi | Sürüm 2'de karar: basit nokta notasyonu (`data.items[0].id`) önerilir; tam JSONPath gerekmez. |
 | B-11 | AI maliyet / hız limiti | Sürüm 3'te karar; backend tarafında basit rate limit ve AI kapalıyken çalışmaya devam. |
 | B-12 | Kopyalama, Ctrl+Enter ile gönderme gibi kısayollar | Kopyalama MVP'de; kısayollar opsiyonel. |
-| B-13 | Cookie davranışı | Cookie saklanmaz; `Set-Cookie` sadece header listesinde gösterilir. |
+| B-13 | Cookie davranışı | Tek istekte cookie saklanmaz; `Set-Cookie` sadece header listesinde gösterilir. **2026-11-10 kullanıcı kararı:** collection çalıştırması boyunca cookie'ler bellekte taşınır (sepet, oturum); yalnızca onları gönderen host'a geri gider, çalıştırma bitince silinir, sonuçlarda maskelenir. |
 
 ### 4.3 Eksik gereksinimler (E)
 - **E-01:** Hata cevaplarının ortak formatı tanımlı değil → `architecture.md` içinde `ApiError` sözleşmesi tanımlandı.

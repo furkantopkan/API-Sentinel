@@ -232,8 +232,9 @@ Otomatik karşılıkları: `e2e/runs.spec.ts`, `server/tests/integration/runs.te
 | RE-02 | Finish yerine pencereyi kapat | Kayıt kendiliğinden toplanır |
 | RE-03 | Kayıt sırasında Cancel | Pencere kapanır, liste oluşmaz |
 | RE-04 | `http://192.168.1.1` | Pencere açılmadan hata |
+| RE-05 | Bir mağazada ürün aç, sepete ekle, sepete git, sil; taslağı çalıştır | Sayfalar ve sepet istekleri taslakta; sepet sayfası eklenen ürünü gösterir (cookie taşındı) |
 
-Otomasyon: `parseHar`, `checkDraft`, `fitRecording`, `ollamaClient`, `recorderService` (sahte tarayıcıyla), `/api/recordings`, `/api/ai/build-collection`, `/api/collections/import`, `draftToImport`, `siteUrl` ve `e2e/builder.spec.ts` (AB-01…04, gerçek kayıt tarayıcısı + yerel mock site).
+Otomasyon: `parseHar`, `checkDraft`, `fitRecording`, `ollamaClient`, `recorderService` (sahte tarayıcıyla), `/api/recordings`, `/api/ai/build-collection`, `/api/collections/import`, `draftToImport`, `siteUrl`, `formBody`, `pageText`, `readJsonBody`, `cookieJar`, cookie'li collection çalıştırması (mock `/shop`) ve `e2e/builder.spec.ts` (AB-01…05, gerçek kayıt tarayıcısı + yerel mock site).
 
 ---
 
