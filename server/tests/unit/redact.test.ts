@@ -126,3 +126,16 @@ describe('redactRequest / redactResponse', () => {
     expect(response.body).toBe('');
   });
 });
+
+describe('redactBody with a form body', () => {
+  it('masks secret-looking fields and keeps the others exactly', () => {
+    expect(redactBody('email=ada%40x.test&password=P%40ss1&remember=1')).toBe(
+      `email=ada%40x.test&password=${REDACTED}&remember=1`,
+    );
+    expect(redactBody('csrf_token=T1&product_id=7')).toBe(`csrf_token=${REDACTED}&product_id=7`);
+  });
+
+  it('judges an encoded field name by what it means', () => {
+    expect(redactBody('user%5Bpassword%5D=P1')).toBe(`user%5Bpassword%5D=${REDACTED}`);
+  });
+});

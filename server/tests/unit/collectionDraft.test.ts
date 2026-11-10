@@ -168,6 +168,71 @@ describe('checkDraft: assertions match what the response can satisfy', () => {
     expect(draft.steps[0]?.assertions[0]?.target).toBe('name');
   });
 
+  // Seen on the real shop: [0].count for {"success":"…","count":1}.
+  it('removes an index the model put in front of a path into an object', () => {
+    const cart = [recorded(0, 'https://a.test/cart', '{"success":"added","count":1}')];
+    const assertions = [jsonPath('[0].count'), jsonPath('[0]success'), jsonPath('[0].missing')];
+    const { draft } = check(output([step(0, 'https://a.test/cart', { assertions })]), cart);
+    expect(draft.steps[0]?.assertions.map((a) => a.target)).toEqual([
+      'count',
+      'success',
+      '[0].missing',
+    ]);
+  });
+
+  it('removes it as well when the object sample was cut off', () => {
+    const cut = [recorded(0, 'https://a.test/cart', '{"count":1,"items":[{"na')];
+    const assertions = [jsonPath('[0].count')];
+    const { draft } = check(output([step(0, 'https://a.test/cart', { assertions })]), cut);
+    expect(draft.steps[0]?.assertions[0]?.target).toBe('count');
+  });
+
+  // A check that fails on the recorded answer would fail on every run.
+  it('drops assertions the recorded response does not satisfy', () => {
+    const sample = '{"success":"<a href=\\"/b/7\\">Book</a> added","count":1}';
+    const cart = [recorded(0, 'https://a.test/cart', sample)];
+    const equals = (target: string, expected: string): SuggestedAssertion => ({
+      kind: 'jsonPath',
+      target,
+      operator: 'equals',
+      expected,
+    });
+    const status = (expected: string): SuggestedAssertion => ({
+      kind: 'status',
+      target: '',
+      operator: 'equals',
+      expected,
+    });
+    const assertions = [
+      equals('success', '"Book added"'),
+      equals('count', '1'),
+      jsonPath('title'),
+      status('201'),
+      status('200'),
+      equals('count', '{{expected}}'),
+      { kind: 'responseTime', target: '', operator: 'lessThan', expected: '500' } as const,
+    ];
+    const { draft, droppedAssertions } = check(
+      output([step(0, 'https://a.test/cart', { assertions })]),
+      cart,
+      new Map([[0, sample]]),
+    );
+    expect(draft.steps[0]?.assertions.map((a) => `${a.kind} ${a.target} ${a.expected}`)).toEqual([
+      'jsonPath count 1',
+      'status  200',
+      'jsonPath count {{expected}}',
+      'responseTime  500',
+    ]);
+    expect(droppedAssertions).toBe(3);
+  });
+
+  it('keeps a path that is right as written', () => {
+    const nested = [recorded(0, 'https://a.test/x', '{"data":{"banners":[{"id":1}]}}')];
+    const assertions = [jsonPath('data.banners[0].id')];
+    const { draft } = check(output([step(0, 'https://a.test/x', { assertions })]), nested);
+    expect(draft.steps[0]?.assertions[0]?.target).toBe('data.banners[0].id');
+  });
+
   it('applies the same correction to captures', () => {
     const { draft } = check(
       output([
@@ -246,5 +311,40 @@ describe('fitRecording: a long recording must fit the model', () => {
     expect(fitted.entries.map((e) => e.index)).toEqual(
       Array.from({ length: fitted.entries.length }, (_, i) => i),
     );
+  });
+});
+
+// Without its Content-Type a form body would be sent as JSON and rejected.
+describe('checkDraft: form bodies', () => {
+  const form: RecordedEntry = {
+    ...recorded(0, 'https://a.test/cart/add', '{"count":1}'),
+    method: 'POST',
+    requestHeaders: [['Content-Type', 'application/x-www-form-urlencoded']],
+    requestBody: 'product_id=7',
+  };
+
+  it('adds the recorded Content-Type when the model left it out', () => {
+    const { draft } = check(
+      output([step(0, '{{baseUrl}}/cart/add', { body: 'product_id=7' })], [BASE]),
+      [form],
+    );
+    expect(draft.steps[0]?.headers).toEqual([
+      { key: 'Content-Type', value: 'application/x-www-form-urlencoded' },
+    ]);
+  });
+
+  it('keeps the header the model wrote, and adds nothing to a step without a body', () => {
+    const own = [{ key: 'content-type', value: 'application/json' }];
+    const { draft } = check(
+      output(
+        [
+          step(0, '{{baseUrl}}/cart/add', { body: '{"id":7}', headers: own }),
+          step(0, '{{baseUrl}}/cart/add'),
+        ],
+        [BASE],
+      ),
+      [form],
+    );
+    expect(draft.steps.map((s) => s.headers)).toEqual([own, []]);
   });
 });

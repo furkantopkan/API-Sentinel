@@ -45,7 +45,7 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
     setDraft(null);
     if (recording.entries.length === 0) {
       setEntries(null);
-      setError('No API requests were captured. Use the part of the site that loads data.');
+      setError('No requests were captured. Use the part of the site you want to test.');
       return;
     }
     setEntries(recording.entries);
@@ -80,7 +80,7 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
     if (!parsed.ok) {
       setError(parsed.error);
     } else if (parsed.entries.length === 0) {
-      setError('No API requests (JSON responses) were found in this recording.');
+      setError('No usable requests (API calls, changes or pages) were found in this recording.');
     } else {
       setEntries(parsed.entries);
       setFound(parsed.found);
@@ -176,7 +176,7 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
             <FlowRecorderPanel recorder={recorder} />
             {entries && !recording && (
               <p className="text-xs text-slate-600">
-                {found} API request{found === 1 ? '' : 's'} found
+                {found} request{found === 1 ? '' : 's'} found
                 {found > entries.length && `; the first ${entries.length} will be used`}.
               </p>
             )}

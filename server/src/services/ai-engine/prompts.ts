@@ -59,9 +59,11 @@ You receive a <goal> written by the user and a <recording> of the HTTP requests 
 - Add a capture only if a later step uses it.
 - If a response is a JSON array, paths must start with an index: [0].name, never name.
 - Keep only the headers the API needs; do not copy browser headers.
-- body is the request body as text, empty when there is none.
+- body is the request body as text, empty when there is none. Copy a form body (name=value&name2=value2) as recorded and keep its Content-Type header.
+- The recording has API calls, changes the page sent (for example add to cart, remove), and pages the user opened (text/html, shown as the page's text). Keep the pages and changes that belong to the goal, in the order the user made them: a later page often shows the result of an earlier change.
 - Give each step a short name in plain words and 2-5 assertions based on its recorded response. Response samples may be cut off, so only reference fields you can see.
-- Every step needs a status assertion and at least two jsonPath assertions on fields visible in its response, for example { kind: "jsonPath", target: "login", operator: "exists", expected: "" } or { kind: "jsonPath", target: "[0].id", operator: "isType", expected: "number" }. Prefer exists and isType, which keep working when the data changes. For JSON responses never use kind "body".
+- Every step needs a status assertion. For a JSON response (also one labelled text/html) add at least two jsonPath assertions on fields visible in it, for example { kind: "jsonPath", target: "login", operator: "exists", expected: "" } or { kind: "jsonPath", target: "[0].id", operator: "isType", expected: "number" }. Prefer exists and isType, which keep working when the data changes. For JSON responses never use kind "body".
+- For an HTML page add one or two { kind: "body", operator: "contains" } assertions with a short text copied exactly from one line of its sample, such as the product name or the page heading.
 - JSON paths only name fields: there is no .length.
 - Use notes for anything the user must know: assumptions, missing steps, parts of the goal the recording does not cover.
 ${ASSERTION_RULES}

@@ -18,3 +18,6 @@ export * from './schemas/runs';
 export * from './runs/compareRuns';
 export * from './schemas/builder';
 export * from './har/parseHar';
+export * from './har/pageText';
+export * from './body/formBody';
+export * from './json/readJsonBody';

@@ -1,8 +1,11 @@
 import {
   VARIABLE_NAME,
   assertionSchema,
+  evaluateAssertions,
   parseJsonPath,
+  resolveJsonPath,
   resolveText,
+  type ExecutedResponse,
   type Capture,
   type CollectionDraft,
   type CollectionDraftOutput,
@@ -27,13 +30,35 @@ function validCaptures(captures: CollectionDraftOutput['steps'][number]['capture
   );
 }
 
+function foundIn(document: unknown, path: string): boolean {
+  const parsed = parseJsonPath(path);
+  return parsed.ok && resolveJsonPath(document, parsed.segments).found;
+}
+
 /**
- * When the recorded response is a JSON array, a path like "name" can never
- * match; models often write it anyway. The recording shows what was meant.
+ * Models mix up the shape of a response: "name" for an array ([0].name is
+ * meant) or "[0].count" for an object (count is meant). The recording shows
+ * what was meant. When the whole sample is there, the path is checked against
+ * it; a sample that was cut off only tells whether the root is an array.
  */
 function pathForResponse(path: string, sample: string): string {
-  const rootIsArray = sample.trimStart().startsWith('[');
-  return rootIsArray && path !== '' && !path.startsWith('[') ? `[0].${path}` : path;
+  if (path === '') return path;
+  const trimmed = sample.trimStart();
+  const rootIsArray = trimmed.startsWith('[');
+  const withIndex = path.startsWith('[') ? path : `[0].${path}`;
+  const withoutIndex = path.replace(/^\[\d+\]\.?/, '');
+
+  let document: unknown;
+  try {
+    document = JSON.parse(sample) as unknown;
+  } catch {
+    if (rootIsArray) return withIndex;
+    return trimmed.startsWith('{') && withoutIndex !== '' ? withoutIndex : path;
+  }
+  for (const candidate of [path, rootIsArray ? withIndex : withoutIndex]) {
+    if (candidate !== '' && foundIn(document, candidate)) return candidate;
+  }
+  return path;
 }
 
 function sameOrigin(url: string, expected: string): boolean {
@@ -66,6 +91,57 @@ function withoutUnusedCaptures(steps: CollectionDraft['steps']): CollectionDraft
     const usedLater = new Set(steps.slice(index + 1).flatMap((s) => [...variablesUsedBy(s)]));
     return { ...step, captures: step.captures.filter((c) => usedLater.has(c.variable)) };
   });
+}
+
+/**
+ * Models drop Content-Type with the browser headers, but without it a form
+ * body would be sent as JSON and fail. The recording says what it was.
+ */
+function withRecordedContentType(
+  headers: CollectionDraft['steps'][number]['headers'],
+  body: string,
+  entry: RecordedEntry,
+): CollectionDraft['steps'][number]['headers'] {
+  if (body.trim() === '' || headers.some((h) => h.key.toLowerCase() === 'content-type')) {
+    return headers;
+  }
+  const recorded = entry.requestHeaders.find(([name]) => name.toLowerCase() === 'content-type');
+  return recorded ? [...headers, { key: 'Content-Type', value: recorded[1] }] : headers;
+}
+
+/**
+ * An assertion that fails on the very response it was written from would fail
+ * on every run, so it is dropped. Only checked when the recorded JSON is
+ * complete; response time and headers were not recorded, so those are kept,
+ * as is anything that uses a {{variable}}.
+ */
+function holdsOnRecording(
+  assertion: SuggestedAssertion,
+  entry: RecordedEntry,
+  original: string,
+): boolean {
+  if (assertion.kind !== 'jsonPath' && assertion.kind !== 'status') return true;
+  if (`${assertion.target}${assertion.expected}`.includes('{{')) return true;
+  try {
+    JSON.parse(original);
+  } catch {
+    return assertion.kind === 'jsonPath' || assertion.expected.trim() === String(entry.status);
+  }
+  const recorded: ExecutedResponse = {
+    status: entry.status,
+    statusText: '',
+    headers: [['content-type', entry.responseContentType]],
+    body: { kind: 'json', text: original },
+    sizeBytes: original.length,
+    durationMs: 0,
+    finalUrl: entry.url,
+    redirects: [],
+  };
+  // Already validated by validAssertions; parsed again only to get the exact type.
+  const parsed = assertionSchema.safeParse({ ...assertion, id: 'check', enabled: true });
+  if (!parsed.success) return false;
+  const [result] = evaluateAssertions([parsed.data], recorded);
+  return result?.outcome === 'pass';
 }
 
 export interface CheckedDraft {
@@ -115,8 +191,12 @@ export function checkDraft(
     const entry = entryByIndex.get(step.sourceIndex);
     if (!entry) continue;
 
-    const headers = step.headers.filter(
-      (header) => header.key.trim() !== '' && !FORBIDDEN_HEADERS.has(header.key.toLowerCase()),
+    const headers = withRecordedContentType(
+      step.headers.filter(
+        (header) => header.key.trim() !== '' && !FORBIDDEN_HEADERS.has(header.key.toLowerCase()),
+      ),
+      step.body,
+      entry,
     );
     const texts = [step.url, step.body, ...headers.flatMap((h) => [h.key, h.value])];
     if (texts.some((text) => text.includes(REDACTED))) continue;
@@ -136,7 +216,7 @@ export function checkDraft(
             ? { ...assertion, target: pathForResponse(assertion.target, entry.responseSample) }
             : assertion,
         ),
-    );
+    ).filter((assertion) => holdsOnRecording(assertion, entry, original));
     droppedAssertions += step.assertions.length - assertions.length;
     const captures = validCaptures(
       step.captures.map((capture) => ({

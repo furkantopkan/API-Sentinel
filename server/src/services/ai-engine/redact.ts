@@ -81,11 +81,32 @@ export function redactBody(body: string): string {
       return value;
     });
   } catch {
-    return redactText(body);
+    return isForm(body) ? redactForm(body) : redactText(body);
   }
   // Re-serialising would round integers beyond 2^53 and mislead the model about
   // the data; keep such documents as text instead.
   return exact ? JSON.stringify(redactJsonValue(parsed), null, 2) : redactText(body);
+}
+
+/** name=value&name2=value2, as a login or cart form sends it. */
+const isForm = (body: string): boolean => /^[^\s=&]+=[^\s]*$/.test(body.trim());
+
+/** Rebuilt by hand: URLSearchParams would encode the marker, and the draft check looks for it as is. */
+function redactForm(body: string): string {
+  return body
+    .trim()
+    .split('&')
+    .map((pair) => {
+      const name = pair.split('=', 1)[0] ?? '';
+      let key = name;
+      try {
+        key = decodeURIComponent(name.replace(/\+/g, ' '));
+      } catch {
+        // Not valid percent-encoding: judge the name as written.
+      }
+      return SECRET_NAME.test(key) ? `${name}=${REDACTED}` : pair;
+    })
+    .join('&');
 }
 
 function redactText(text: string): string {

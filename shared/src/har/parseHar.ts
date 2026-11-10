@@ -6,11 +6,17 @@ import {
   type RecordedEntry,
 } from '../schemas/builder';
 import { HTTP_METHODS, type HttpMethod } from '../schemas/http';
+import { FORM_CONTENT_TYPE, multipartToForm } from '../body/formBody';
+import { looksLikeJson, responseSampleText } from './pageText';
 
 /**
- * Reads a HAR file (the network log browsers can export) and keeps only the
- * API traffic: no images, scripts or HTML, no duplicates. Runs in the browser,
- * so the full recording, which may be large and sensitive, never leaves it.
+ * Reads a HAR file (the network log browsers can export) and keeps what a
+ * test flow can use, without duplicates:
+ * - API calls the page made (JSON answers, also when mislabelled as text);
+ * - changes the page sent (POST, PUT, PATCH, DELETE), whatever they answer;
+ * - the pages the user opened on the site, as plain text.
+ * Images, scripts, styles and other sites' pages are left out. Runs in the
+ * browser, so the full recording, which may be large and sensitive, never leaves it.
  */
 
 const nameValue = z.object({ name: z.string(), value: z.string() });
@@ -44,7 +50,7 @@ export type HarEntry = z.infer<typeof harSchema>['log']['entries'][number];
 
 /** Error reporting and analytics: never part of a flow, and they use up the entry limit. */
 const TELEMETRY_URL =
-  /\/api\/\d+\/(envelope|store)\/|\/\/([^/]*\.)?(sentry\.io|google-analytics\.com|analytics\.google\.com|googletagmanager\.com|doubleclick\.net|hotjar\.(com|io)|clarity\.ms|segment\.(io|com)|mixpanel\.com|amplitude\.com|nr-data\.net|datadoghq\.(com|eu))\//i;
+  /\/api\/\d+\/(envelope|store)\/|\/cdn-cgi\/|\/\/([^/]*\.)?(sentry\.io|google-analytics\.com|analytics\.google\.com|googletagmanager\.com|doubleclick\.net|hotjar\.(com|io)|clarity\.ms|segment\.(io|com)|mixpanel\.com|amplitude\.com|nr-data\.net|datadoghq\.(com|eu))\//i;
 
 /** Added by the browser or tied to its session; a saved request must not depend on them. */
 const DROPPED_HEADERS = new Set([
@@ -76,13 +82,53 @@ function keepHeader(name: string): boolean {
 const isMethod = (method: string): method is HttpMethod =>
   (HTTP_METHODS as readonly string[]).includes(method);
 
-function isHttp(url: string): boolean {
+function hostOf(url: string): string | null {
   try {
-    const { protocol } = new URL(url);
-    return protocol === 'http:' || protocol === 'https:';
+    const { protocol, host } = new URL(url);
+    return protocol === 'http:' || protocol === 'https:' ? host : null;
   } catch {
-    return false;
+    return null;
   }
+}
+
+type Kind = 'api' | 'write' | 'page';
+
+/** Which of the three useful kinds an exchange is, or null to leave it out. */
+function kindOf(
+  method: string,
+  resourceType: string | undefined,
+  mime: string,
+  text: string,
+  status: number,
+): Kind | null {
+  if (resourceType === 'document') {
+    // Only pages that loaded; a redirect shows up again as the page it led to.
+    return method === 'GET' && status >= 200 && status < 300 && /html/i.test(mime) ? 'page' : null;
+  }
+  // Chrome labels entries; other browsers do not, so the content decides too.
+  if (resourceType !== undefined && resourceType !== 'xhr' && resourceType !== 'fetch') {
+    return null;
+  }
+  if (/json/i.test(mime) || looksLikeJson(text)) return 'api';
+  return method !== 'GET' && status < 400 ? 'write' : null;
+}
+
+/** Multipart forms become urlencoded forms, which the request builder can send. */
+function requestBodyAndHeaders(
+  text: string,
+  headers: [string, string][],
+): { body: string; headers: [string, string][] } {
+  const contentType = headers.find(([name]) => name.toLowerCase() === 'content-type')?.[1] ?? '';
+  const form = /multipart\/form-data/i.test(contentType)
+    ? multipartToForm(text, contentType)
+    : null;
+  if (form === null) return { body: text, headers };
+  return {
+    body: form,
+    headers: headers.map(([name, value]): [string, string] =>
+      name.toLowerCase() === 'content-type' ? [name, FORM_CONTENT_TYPE] : [name, value],
+    ),
+  };
 }
 
 export function parseHar(json: unknown): ParseHarResult {
@@ -91,48 +137,55 @@ export function parseHar(json: unknown): ParseHarResult {
 
   const seen = new Set<string>();
   const entries: RecordedEntry[] = [];
+  // The site is the one of the first page: pages of other sites (ads, widgets) are not part of the flow.
+  let siteHost: string | null = null;
 
   for (const entry of parsed.data.log.entries) {
     const { request, response, _resourceType: resourceType } = entry;
     const mime = response.content.mimeType ?? '';
     const method = request.method.toUpperCase();
-    // Chrome labels entries; other browsers do not, so the content type decides too.
-    const browserSaysApi =
-      resourceType === undefined || resourceType === 'xhr' || resourceType === 'fetch';
-    const noContentWrite = method !== 'GET' && mime === '' && response.status < 400;
+    const host = hostOf(request.url);
+    const text = response.content.encoding === 'base64' ? '' : (response.content.text ?? '');
 
     if (
       !isMethod(method) ||
-      !isHttp(request.url) ||
+      host === null ||
       TELEMETRY_URL.test(request.url) ||
       request.url.length > 8192 ||
-      response.status <= 0 ||
-      !browserSaysApi ||
-      !(mime.toLowerCase().includes('json') || noContentWrite)
+      response.status <= 0
     ) {
       continue;
+    }
+    const kind = kindOf(method, resourceType, mime, text, response.status);
+    if (kind === null) continue;
+    if (kind === 'page') {
+      siteHost ??= host;
+      if (host !== siteHost) continue;
     }
 
     const key = `${method} ${request.url}`;
     if (seen.has(key)) continue;
     seen.add(key);
 
-    const text = response.content.encoding === 'base64' ? '' : (response.content.text ?? '');
-    entries.push({
-      index: entries.length,
-      method,
-      url: request.url,
-      status: Math.trunc(response.status),
-      requestHeaders: request.headers
+    const recorded = requestBodyAndHeaders(
+      request.postData?.text ?? '',
+      request.headers
         .filter((header) => keepHeader(header.name))
         .slice(0, 50)
         .map((header): [string, string] => [
           header.name.slice(0, 1024),
           header.value.slice(0, 8192),
         ]),
-      requestBody: (request.postData?.text ?? '').slice(0, MAX_RECORDED_BODY),
+    );
+    entries.push({
+      index: entries.length,
+      method,
+      url: request.url,
+      status: Math.trunc(response.status),
+      requestHeaders: recorded.headers,
+      requestBody: recorded.body.slice(0, MAX_RECORDED_BODY),
       responseContentType: mime.slice(0, 200),
-      responseSample: text.slice(0, MAX_RESPONSE_SAMPLE),
+      responseSample: responseSampleText(mime, text).slice(0, MAX_RESPONSE_SAMPLE),
     });
   }
 

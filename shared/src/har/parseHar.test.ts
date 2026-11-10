@@ -49,15 +49,29 @@ describe('parseHar', () => {
     });
   });
 
-  it('keeps JSON API traffic and numbers it from zero', () => {
+  it('keeps JSON API traffic and pages, numbered from zero, and leaves out scripts', () => {
     const entries = parsedEntries(
-      entry('https://a.test/page', { mime: 'text/html', type: 'document' }),
+      entry('https://a.test/page', {
+        mime: 'text/html',
+        type: 'document',
+        text: '<html><head><title>Shop</title><script>var x = 1;</script></head><body><h1>Books</h1></body></html>',
+      }),
       entry('https://a.test/app.js', { mime: 'text/javascript', type: 'script' }),
       entry('https://a.test/users', { method: 'post', body: '{"n":1}' }),
     );
     expect(entries).toEqual([
       {
         index: 0,
+        method: 'GET',
+        url: 'https://a.test/page',
+        status: 200,
+        requestHeaders: [],
+        requestBody: '',
+        responseContentType: 'text/html',
+        responseSample: 'Shop\nBooks',
+      },
+      {
+        index: 1,
         method: 'POST',
         url: 'https://a.test/users',
         status: 200,
@@ -67,6 +81,66 @@ describe('parseHar', () => {
         responseSample: '{"a":1}',
       },
     ]);
+  });
+
+  // Seen on a real shop: "add to cart" answered JSON labelled as text/html.
+  it('keeps JSON that the server labelled as something else', () => {
+    const [first] = parsedEntries(
+      entry('https://a.test/cart/add', {
+        method: 'POST',
+        mime: 'text/html; charset=utf-8',
+        text: '{"msg":"<a href=\\"/b\\">Book</a> added","count":1}',
+      }),
+    );
+    // The markup inside it must stay: it is JSON, not a page.
+    expect(first?.responseSample).toBe('{"msg":"<a href=\\"/b\\">Book</a> added","count":1}');
+  });
+
+  it('keeps a change whatever it answers, but not a read that is not JSON', () => {
+    const entries = parsedEntries(
+      entry('https://a.test/cart/remove', { method: 'POST', mime: 'text/html', text: '<p>ok</p>' }),
+      entry('https://a.test/widget', { mime: 'text/html', text: '<p>ad</p>' }),
+      entry('https://a.test/cart/fail', {
+        method: 'POST',
+        mime: 'text/html',
+        status: 500,
+        text: '<p>error</p>',
+      }),
+    );
+    expect(entries.map((e) => e.url)).toEqual(['https://a.test/cart/remove']);
+    expect(entries[0]?.responseSample).toBe('ok');
+  });
+
+  it('keeps only loaded pages of the site the recording started on', () => {
+    const page = (url: string, status = 200) =>
+      entry(url, { mime: 'text/html', type: 'document', status, text: '<p>x</p>' });
+    const entries = parsedEntries(
+      page('https://shop.test/'),
+      page('https://ads.test/frame'),
+      page('https://shop.test/old', 302),
+      page('https://shop.test/cart'),
+    );
+    expect(entries.map((e) => e.url)).toEqual(['https://shop.test/', 'https://shop.test/cart']);
+  });
+
+  it('turns a multipart form into a urlencoded form the request builder can send', () => {
+    const body =
+      '--XY\r\nContent-Disposition: form-data; name="product_id"\r\n\r\n674543\r\n--XY\r\nContent-Disposition: form-data; name="note"\r\n\r\na b&c\r\n--XY--\r\n';
+    const [first] = parsedEntries(
+      entry('https://a.test/cart/add', {
+        method: 'POST',
+        body,
+        headers: [['Content-Type', 'multipart/form-data; boundary=XY']],
+      }),
+    );
+    expect(first?.requestBody).toBe('product_id=674543&note=a+b%26c');
+    expect(first?.requestHeaders).toEqual([['Content-Type', 'application/x-www-form-urlencoded']]);
+  });
+
+  it('leaves out analytics beacons on the site itself', () => {
+    expect(
+      parsedEntries(entry('https://a.test/cdn-cgi/rum?', { method: 'POST', mime: 'text/plain' })),
+    ).toEqual([]);
   });
 
   it('keeps a write that answers with no content, but not such a read', () => {

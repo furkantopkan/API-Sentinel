@@ -1,4 +1,9 @@
-import { MAX_RECORDED_BODY, MAX_RESPONSE_SAMPLE, type HarEntry } from '@api-sentinel/shared';
+import {
+  MAX_RECORDED_BODY,
+  MAX_RESPONSE_SAMPLE,
+  responseSampleText,
+  type HarEntry,
+} from '@api-sentinel/shared';
 import type { Response } from 'playwright';
 import { AppError } from '../../errors/AppError';
 
@@ -18,15 +23,21 @@ export interface RecordingBrowser {
   open(url: string, onClosed: () => void): Promise<RecordingWindow>;
 }
 
-/** Same filter as a HAR import: JSON responses, plus writes that answer with no content. */
-async function toHarEntry(response: Response): Promise<HarEntry | null> {
+/** Only text is useful to the AI; images, fonts and downloads are never read. */
+const TEXT_MIME = /json|html|text\/|xml|javascript/i;
+
+/**
+ * Keeps the exchange in HAR form; parseHar later applies the same rules as for
+ * an imported HAR file. The body of a page is reduced to its text first, so
+ * the sample shows the page's words rather than the first scripts in it.
+ */
+async function toHarEntry(response: Response): Promise<HarEntry> {
   const request = response.request();
   const mime = response.headers()['content-type'] ?? '';
-  const isJson = mime.toLowerCase().includes('json');
-  if (!isJson && (request.method() === 'GET' || mime !== '')) return null;
-
   const headers = await request.allHeaders();
-  const text = isJson ? await response.text() : '';
+  // A body can be gone already: the page navigated away (e.g. a "remove" that reloads the page).
+  const body = TEXT_MIME.test(mime) ? await response.text().catch(() => '') : '';
+  const text = responseSampleText(mime, body);
   return {
     _resourceType: request.resourceType(),
     request: {
@@ -74,7 +85,9 @@ export function createPlaywrightRecordingBrowser(options: { headless: boolean })
 
       context.on('response', (response) => {
         const type = response.request().resourceType();
-        if ((type !== 'xhr' && type !== 'fetch') || reads.length >= MAX_CAPTURED) return;
+        // Pages count only in the main window: frames are mostly ads and widgets.
+        const page = type === 'document' && response.frame().parentFrame() === null;
+        if ((type !== 'xhr' && type !== 'fetch' && !page) || reads.length >= MAX_CAPTURED) return;
         // Reserving the slot now keeps the arrival order, however long each body takes to read.
         const slot = results.push(null) - 1;
         reads.push(
