@@ -2,6 +2,7 @@ import {
   VARIABLE_NAME,
   assertionSchema,
   evaluateAssertions,
+  isUserAction,
   parseJsonPath,
   resolveJsonPath,
   resolveText,
@@ -110,6 +111,47 @@ function withRecordedContentType(
 }
 
 /**
+ * The complete part of a JSON document that was cut off: everything up to the
+ * last finished value, with the open objects and arrays closed again.
+ * Undefined when the text is not the start of a JSON object or array.
+ */
+export function visiblePartOf(text: string): unknown {
+  if (!/^\s*[[{]/.test(text)) return undefined;
+  const closers: string[] = [];
+  let inString = false;
+  let escaped = false;
+  let cut = -1;
+  let closersAtCut: string[] = [];
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (char === '\\') escaped = true;
+      else if (char === '"') inString = false;
+      continue;
+    }
+    if (char === '"') inString = true;
+    else if (char === '{') closers.push('}');
+    else if (char === '[') closers.push(']');
+    else if (char === '}' || char === ']') {
+      closers.pop();
+      cut = i + 1;
+      closersAtCut = [...closers];
+    } else if (char === ',') {
+      // Everything before a comma is a finished value.
+      cut = i;
+      closersAtCut = [...closers];
+    }
+  }
+  if (cut < 0) return undefined;
+  try {
+    return JSON.parse(text.slice(0, cut) + closersAtCut.reverse().join('')) as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * An assertion that fails on the very response it was written from would fail
  * on every run, so it is dropped. Only checked when the recorded JSON is
  * complete; response time and headers were not recorded, so those are kept,
@@ -122,16 +164,21 @@ function holdsOnRecording(
 ): boolean {
   if (assertion.kind !== 'jsonPath' && assertion.kind !== 'status') return true;
   if (`${assertion.target}${assertion.expected}`.includes('{{')) return true;
+  let text = original;
   try {
     JSON.parse(original);
   } catch {
-    return assertion.kind === 'jsonPath' || assertion.expected.trim() === String(entry.status);
+    if (assertion.kind === 'status') return assertion.expected.trim() === String(entry.status);
+    // A sample cut off at the size limit: the part that is visible is checked.
+    const visible = visiblePartOf(original);
+    if (visible === undefined) return true;
+    text = JSON.stringify(visible);
   }
   const recorded: ExecutedResponse = {
     status: entry.status,
     statusText: '',
     headers: [['content-type', entry.responseContentType]],
-    body: { kind: 'json', text: original },
+    body: { kind: 'json', text },
     sizeBytes: original.length,
     durationMs: 0,
     finalUrl: entry.url,
@@ -148,6 +195,122 @@ export interface CheckedDraft {
   draft: CollectionDraft;
   droppedSteps: number;
   droppedAssertions: number;
+  /** User actions the AI left out (or never saw), added from the recording. */
+  addedSteps: number;
+}
+
+type DraftStep = CollectionDraft['steps'][number];
+
+function shortName(entry: RecordedEntry): string {
+  const url = new URL(entry.url);
+  // searchParams.toString would encode the marker, so the raw URL text is used.
+  const where = entry.url.slice(url.origin.length).split(REDACTED).join('…');
+  const label = where.length > 70 ? `${where.slice(0, 69)}…` : where;
+  return isUserAction(entry) && entry.method === 'GET'
+    ? `Open ${label}`
+    : `${entry.method} ${label}`;
+}
+
+/**
+ * A step built straight from the recording, for a page the user opened or a
+ * change they made that the AI left out. Checks only what is certain: the
+ * status, and for a page its first line of text (usually the title).
+ */
+function stepFromRecording(
+  entry: RecordedEntry,
+  original: string,
+  variables: Map<string, { value: string; secret: boolean }>,
+): DraftStep | null {
+  const secret = (name: string) => secretVariable(name, variables);
+
+  let origin: string;
+  try {
+    origin = new URL(entry.url).origin;
+  } catch {
+    return null;
+  }
+  let base = [...variables].find(([, v]) => !v.secret && v.value === origin)?.[0];
+  if (base === undefined && !variables.has('baseUrl')) {
+    variables.set('baseUrl', { value: origin, secret: false });
+    base = 'baseUrl';
+  }
+  const url = withSecretVariables(
+    base === undefined ? entry.url : `{{${base}}}${entry.url.slice(origin.length)}`,
+    secret,
+  );
+  const body = withSecretVariables(entry.requestBody, secret);
+  const headers = withRecordedContentType([], entry.requestBody, entry).concat(
+    entry.requestHeaders
+      .filter(
+        ([name]) =>
+          name.toLowerCase() !== 'content-type' && !FORBIDDEN_HEADERS.has(name.toLowerCase()),
+      )
+      .filter(([, value]) => value === REDACTED)
+      .map(([name]) => ({ key: name, value: `{{${secret(name)}}}` })),
+  );
+  if ([url, body].some((text) => text.includes(REDACTED))) return null;
+
+  const assertions: SuggestedAssertion[] = [
+    { kind: 'status', target: '', operator: 'equals', expected: String(entry.status) },
+  ];
+  const firstLine = original.split('\n')[0]?.trim() ?? '';
+  if (entry.method === 'GET' && firstLine !== '' && firstLine.length <= 120) {
+    assertions.push({ kind: 'body', target: '', operator: 'contains', expected: firstLine });
+  }
+  return {
+    sourceIndex: entry.index,
+    name: shortName(entry),
+    method: entry.method,
+    url,
+    headers,
+    body,
+    assertions,
+    captures: [],
+  };
+}
+
+/** A blank secret variable the user fills in; the model never sees the value. */
+function secretVariable(
+  name: string,
+  variables: Map<string, { value: string; secret: boolean }>,
+): string {
+  let key = name.replace(/[^A-Za-z0-9_]/g, '_').replace(/^(?=\d)/, '_') || 'secret';
+  if (!VARIABLE_NAME.test(key)) key = 'secret';
+  const existing = variables.get(key);
+  if (existing && !existing.secret) key = `${key}_secret`;
+  variables.set(key, { value: '', secret: true });
+  return key;
+}
+
+/** Masked values become {{variables}}: a recorded login stays in the flow, without its password. */
+function withSecretVariables(text: string, secret: (name: string) => string): string {
+  const marker = REDACTED.replace(/[[\]]/g, '\\$&');
+  return text
+    .replace(
+      new RegExp(`([?&]|^)([^=&?\\s]+)=${marker}`, 'g'),
+      (_m, lead: string, name: string) => {
+        let decoded = name;
+        try {
+          decoded = decodeURIComponent(name);
+        } catch {
+          // keep the name as written
+        }
+        return `${lead}${name}={{${secret(decoded)}}}`;
+      },
+    )
+    .replace(
+      new RegExp(`"([^"]+)"(\\s*:\\s*)"${marker}"`, 'g'),
+      (_m, key: string, colon: string) => `"${key}"${colon}"{{${secret(key)}}}"`,
+    );
+}
+
+/** Puts each added step after the last step that comes earlier in the recording. */
+function insertInRecordedOrder(steps: DraftStep[], added: DraftStep): void {
+  let position = 0;
+  steps.forEach((step, index) => {
+    if (step.sourceIndex < added.sourceIndex) position = index + 1;
+  });
+  steps.splice(position, 0, added);
 }
 
 /**
@@ -164,6 +327,8 @@ export function checkDraft(
   entries: readonly RecordedEntry[],
   /** The response samples as recorded, before masking and reformatting. */
   originalSamples: ReadonlyMap<number, string>,
+  /** The whole (masked) recording, also what was not sent to the AI. */
+  recording: readonly RecordedEntry[] = entries,
 ): CheckedDraft {
   const entryByIndex = new Map(entries.map((entry) => [entry.index, entry]));
 
@@ -228,6 +393,15 @@ export function checkDraft(
     steps.push({ ...step, method: entry.method, headers, assertions, captures });
   }
 
+  // What the user did must be in the flow, whatever the model chose.
+  const covered = new Set(steps.map((step) => step.sourceIndex));
+  const modelSteps = steps.length;
+  for (const entry of recording) {
+    if (covered.has(entry.index) || !isUserAction(entry)) continue;
+    const added = stepFromRecording(entry, originalSamples.get(entry.index) ?? '', variables);
+    if (added) insertInRecordedOrder(steps, added);
+  }
+
   return {
     draft: {
       collectionName: output.collectionName.trim().slice(0, 200) || 'AI collection',
@@ -235,7 +409,8 @@ export function checkDraft(
       variables: [...variables].map(([key, variable]) => ({ key, ...variable })),
       notes: output.notes.slice(0, 20),
     },
-    droppedSteps: output.steps.length - steps.length,
+    droppedSteps: output.steps.length - modelSteps,
     droppedAssertions,
+    addedSteps: steps.length - modelSteps,
   };
 }

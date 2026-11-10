@@ -85,9 +85,12 @@ test('AB-04: a HAR file still works as the advanced option', async ({ page }) =>
 
   await dialog.getByRole('button', { name: 'Build draft' }).click();
 
-  // A write can change real data, so it must be chosen deliberately.
-  await expect(dialog.getByText('Changes data on the server. Off by default.')).toBeVisible();
-  await expect(dialog.getByLabel('Include step 1')).not.toBeChecked();
+  // A write is part of what the user did: included, but clearly marked.
+  await expect(
+    dialog.getByText('Changes data on the server each time the collection runs.'),
+  ).toBeVisible();
+  await expect(dialog.getByLabel('Include step 1')).toBeChecked();
+  await dialog.getByLabel('Include step 1').uncheck();
   await expect(dialog.getByRole('button', { name: 'Create collection (0)' })).toBeDisabled();
 });
 
@@ -103,7 +106,7 @@ test('AB-05: a shop flow keeps the form, the pages and the cart session', async 
   await dialog.getByRole('button', { name: 'Build draft' }).click();
   const steps = dialog.getByRole('list', { name: 'Draft steps' });
   await expect(steps).toContainText('{{baseUrl}}/shop/cart/add');
-  await dialog.getByLabel('Include step 2').check();
+  await expect(dialog.getByLabel('Include step 2')).toBeChecked();
 
   const name = `Shop flow ${Date.now()}`;
   await dialog.getByLabel('Collection name').fill(name);

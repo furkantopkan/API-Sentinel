@@ -4,7 +4,7 @@ import type {
   SuggestedAssertion,
 } from '@api-sentinel/shared';
 import { describe, expect, it } from 'vitest';
-import { checkDraft } from '../../src/services/ai-engine/collectionDraft';
+import { checkDraft, visiblePartOf } from '../../src/services/ai-engine/collectionDraft';
 import { MAX_RECORDING_CHARS, fitRecording } from '../../src/services/ai-engine/prompts';
 
 function recorded(index: number, url: string, responseSample = '{"id":1}'): RecordedEntry {
@@ -285,29 +285,83 @@ describe('fitRecording: a long recording must fit the model', () => {
   const size = (entries: RecordedEntry[]) =>
     entries.reduce((sum, e) => sum + e.responseSample.length + e.url.length + 120, 0);
 
+  const page = (index: number) => ({
+    ...sized(index, 3000),
+    method: 'GET' as const,
+    responseContentType: 'text/html',
+    responseSample: `Page ${String(index)}
+${'x'.repeat(2990)}`,
+  });
+  const change = (index: number) => ({ ...sized(index, 3000), method: 'POST' as const });
+
   it('does not touch a recording that fits', () => {
     const entries = [sized(0, 3000), sized(1, 10)];
-    expect(fitRecording(entries)).toEqual({ entries, omitted: 0 });
+    expect(fitRecording(entries)).toEqual({ entries, omitted: [] });
   });
 
-  it('shortens large responses and leaves small ones whole', () => {
-    const entries = [sized(0, 50), ...Array.from({ length: 39 }, (_, i) => sized(i + 1, 3000))];
+  it('shortens large responses first and leaves small ones whole', () => {
+    const entries = [sized(0, 50), ...Array.from({ length: 30 }, (_, i) => sized(i + 1, 3000))];
     const fitted = fitRecording(entries);
-    expect(fitted.omitted).toBe(0);
+    expect(fitted.omitted).toEqual([]);
     expect(fitted.entries[0]?.responseSample).toHaveLength(50);
     expect(fitted.entries[1]?.responseSample.length).toBeLessThan(3000);
     expect(size(fitted.entries)).toBeLessThanOrEqual(MAX_RECORDING_CHARS);
   });
 
-  it('leaves out the last requests when even short responses do not fit', () => {
-    const headers: [string, string][] = [['X-Long', 'v'.repeat(4000)]];
-    const entries = Array.from({ length: 12 }, (_, i) => ({
+  // Seen on a real shop: "remove from cart", the last thing the user did, was cut.
+  it('gives up background reads, never the pages and changes of the user', () => {
+    const headers: [string, string][] = [['X-Long', 'v'.repeat(1500)]];
+    const background = Array.from({ length: 12 }, (_, i) => ({
       ...sized(i, 3000),
       requestHeaders: headers,
     }));
+    const entries = [...background, page(12), change(13), page(14), change(15)];
     const fitted = fitRecording(entries);
-    expect(fitted.omitted).toBeGreaterThan(0);
-    expect(fitted.entries.length + fitted.omitted).toBe(12);
+    const kept = fitted.entries.map((e) => e.index);
+    expect(kept).toEqual(expect.arrayContaining([12, 13, 14, 15]));
+    expect(fitted.omitted.length).toBeGreaterThan(0);
+    expect(fitted.omitted.every((e) => e.index < 12)).toBe(true);
+    expect(kept.length + fitted.omitted.length).toBe(16);
+    expect(size(fitted.entries)).toBeLessThanOrEqual(MAX_RECORDING_CHARS);
+  });
+
+  it('gives up repeats of an endpoint before other background reads', () => {
+    const headers: [string, string][] = [['X-Long', 'v'.repeat(2500)]];
+    const banner = (index: number) => ({
+      ...sized(index, 3000),
+      url: `https://a.test/banners?id=${String(index)}`,
+      requestHeaders: headers,
+    });
+    const entries = [
+      banner(0),
+      ...Array.from({ length: 6 }, (_, i) => banner(i + 1)),
+      { ...sized(7, 3000), requestHeaders: headers },
+    ];
+    const fitted = fitRecording(entries);
+    expect(fitted.entries.map((e) => e.index)).toEqual(expect.arrayContaining([0, 7]));
+  });
+
+  // 14 banner calls made the model repeat itself until its limit on a real shop.
+  it('always leaves out repeated background reads of one endpoint, but never repeated actions', () => {
+    const banner = (index: number) =>
+      recorded(index, `https://a.test/banners?slot=${String(index)}`, '{}');
+    const post = (index: number) => ({
+      ...recorded(index, 'https://a.test/cart/add', '{}'),
+      method: 'POST' as const,
+    });
+    const fitted = fitRecording([banner(0), banner(1), banner(2), post(3), post(4)]);
+    expect(fitted.entries.map((e) => e.index)).toEqual([0, 3, 4]);
+    expect(fitted.omitted.map((e) => e.index)).toEqual([1, 2]);
+  });
+
+  it('as a last resort leaves out the latest actions, keeping the order', () => {
+    const headers: [string, string][] = [['X-Long', 'v'.repeat(4000)]];
+    const entries = Array.from({ length: 12 }, (_, i) => ({
+      ...change(i),
+      requestHeaders: headers,
+    }));
+    const fitted = fitRecording(entries);
+    expect(fitted.omitted.length).toBeGreaterThan(0);
     expect(fitted.entries.map((e) => e.index)).toEqual(
       Array.from({ length: fitted.entries.length }, (_, i) => i),
     );
@@ -346,5 +400,112 @@ describe('checkDraft: form bodies', () => {
       [form],
     );
     expect(draft.steps.map((s) => s.headers)).toEqual([own, []]);
+  });
+});
+
+// "Remove from cart" was missing from a real draft: what the user did must always be there.
+describe('checkDraft: every page and change of the user is in the flow', () => {
+  const pageEntry = (index: number, path: string, text: string): RecordedEntry => ({
+    ...recorded(index, `https://a.test${path}`, text),
+    responseContentType: 'text/html; charset=utf-8',
+  });
+  const removeEntry: RecordedEntry = {
+    ...recorded(3, 'https://a.test/cart/remove?id=7', ''),
+    method: 'POST',
+    responseContentType: 'text/html',
+  };
+  const recording = [
+    pageEntry(0, '/product/7', 'Mock Book 7\nAdd to cart'),
+    recorded(1, 'https://a.test/banners'),
+    pageEntry(2, '/cart', 'My cart\nMock Book 7'),
+    removeEntry,
+  ];
+  const samples = new Map(recording.map((e) => [e.index, e.responseSample]));
+
+  it('adds the ones the AI left out, in recorded order, with what is certain', () => {
+    const { draft, addedSteps } = checkDraft(
+      output([step(2, '{{baseUrl}}/cart')], [BASE]),
+      recording,
+      samples,
+    );
+    expect(addedSteps).toBe(2);
+    expect(draft.steps.map((s) => [s.sourceIndex, s.method, s.url])).toEqual([
+      [0, 'GET', '{{baseUrl}}/product/7'],
+      [2, 'GET', '{{baseUrl}}/cart'],
+      [3, 'POST', '{{baseUrl}}/cart/remove?id=7'],
+    ]);
+    expect(draft.steps[0]?.name).toBe('Open /product/7');
+    expect(draft.steps[0]?.assertions).toEqual([
+      { kind: 'status', target: '', operator: 'equals', expected: '200' },
+      { kind: 'body', target: '', operator: 'contains', expected: 'Mock Book 7' },
+    ]);
+    expect(draft.steps[2]?.assertions).toEqual([
+      { kind: 'status', target: '', operator: 'equals', expected: '200' },
+    ]);
+  });
+
+  it('also adds the ones the AI never saw, and leaves background reads out', () => {
+    const { draft } = checkDraft(output([], []), recording.slice(0, 2), samples, recording);
+    expect(draft.steps.map((s) => s.sourceIndex)).toEqual([0, 2, 3]);
+    expect(draft.variables).toEqual([{ key: 'baseUrl', value: 'https://a.test', secret: false }]);
+  });
+
+  it('turns masked values of a recorded login into blank secret variables', () => {
+    const login: RecordedEntry = {
+      ...recorded(0, 'https://a.test/login?token=[REDACTED]', '{"ok":true}'),
+      method: 'POST',
+      requestHeaders: [
+        ['Content-Type', 'application/x-www-form-urlencoded'],
+        ['Authorization', '[REDACTED]'],
+      ],
+      requestBody: 'email=ada%40x.test&password=[REDACTED]',
+    };
+    const json: RecordedEntry = {
+      ...recorded(1, 'https://a.test/api/session', '{}'),
+      method: 'POST',
+      requestBody: '{\n  "user": "ada",\n  "password": "[REDACTED]"\n}',
+    };
+    const { draft } = checkDraft(output([], [BASE]), [login, json], new Map());
+    expect(draft.steps[0]).toMatchObject({
+      url: '{{baseUrl}}/login?token={{token}}',
+      body: 'email=ada%40x.test&password={{password}}',
+      headers: [
+        { key: 'Content-Type', value: 'application/x-www-form-urlencoded' },
+        { key: 'Authorization', value: '{{Authorization}}' },
+      ],
+    });
+    expect(draft.steps[1]?.body).toBe('{\n  "user": "ada",\n  "password": "{{password}}"\n}');
+    expect(draft.variables).toEqual(
+      expect.arrayContaining([
+        { key: 'token', value: '', secret: true },
+        { key: 'password', value: '', secret: true },
+        { key: 'Authorization', value: '', secret: true },
+      ]),
+    );
+    expect(JSON.stringify(draft)).not.toContain('[REDACTED]');
+  });
+});
+
+describe('visiblePartOf: a JSON sample cut off at the size limit', () => {
+  it.each([
+    ['{"a":1,"b":{"c":[1,2', { a: 1, b: { c: [1] } }],
+    ['{"data":{"banners":[{"title":"x, y"},{"tit', { data: { banners: [{ title: 'x, y' }] } }],
+    ['[{"id":1},{"id":2}', [{ id: 1 }, { id: 2 }]],
+    ['{"text":"a \\" quote, still text', undefined],
+    ['not json', undefined],
+  ])('reads the finished part of %s', (text, expected) => {
+    expect(visiblePartOf(text)).toEqual(expected);
+  });
+
+  it('drops an assertion on a field that is not in the visible part', () => {
+    const sample = `{"data":{"banners":[{"title":"Sale"}${',{"title":"x"}'.repeat(400)}`;
+    const cut = [recorded(0, 'https://a.test/b', sample.slice(0, 3000))];
+    const assertions = [jsonPath('title'), jsonPath('data.banners[0].title')];
+    const { draft } = check(
+      output([step(0, 'https://a.test/b', { assertions })]),
+      cut,
+      new Map([[0, sample.slice(0, 3000)]]),
+    );
+    expect(draft.steps[0]?.assertions.map((a) => a.target)).toEqual(['data.banners[0].title']);
   });
 });

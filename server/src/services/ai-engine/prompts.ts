@@ -1,5 +1,6 @@
 import {
   ASSERTION_OPERATORS,
+  isUserAction,
   type AiRequestContext,
   type AiResponseContext,
   type RecordedEntry,
@@ -50,7 +51,7 @@ ${SHARED_RULES}`;
 
 export const BUILD_COLLECTION_SYSTEM_PROMPT = `You are a senior QA engineer who turns a recording of real browser traffic into an automated API test flow.
 You receive a <goal> written by the user and a <recording> of the HTTP requests captured while they used the application. Build the collection that tests the goal:
-- Use at most 12 steps. Choose only the recorded requests that serve the goal. Leave out analytics, tracking, polling and duplicates. Put them in the order the flow needs; the recording order is a hint.
+- Use at most 20 steps. Every page the user opened (text/html) and every change the page sent (POST, PUT, PATCH, DELETE) must be a step, in the recorded order: these are what the user did. Add background API reads only when they serve the goal or a later step needs a value from them. Leave out analytics, tracking, polling and duplicates.
 - Each step's sourceIndex must be the index of a recorded request. Never invent an endpoint, host or parameter that is not in the recording.
 - Write the URL with its query string. Replace the shared scheme and host with {{baseUrl}} and define baseUrl in variables with the recorded value.
 - When a later request uses a value returned by an earlier one (an id, a username, a token), add a capture to the earlier step (variable name and JSON path into its response) and write {{variable}} in the later step. A capture can only be used by later steps. Set secret to true for tokens and other credentials.
@@ -89,8 +90,9 @@ ${entry.responseSample === '' ? '(empty)' : entry.responseSample}
  * Measured: tokens = about 875 + 0.44 x characters. This leaves room in the
  * model's 16 384-token context for the longest answer it is allowed to write.
  */
-export const MAX_RECORDING_CHARS = 24_000;
+export const MAX_RECORDING_CHARS = 20_000;
 const MIN_SAMPLE_CHARS = 300;
+const LAST_RESORT_SAMPLE_CHARS = 100;
 const ENTRY_OVERHEAD_CHARS = 120;
 
 function fixedChars(entry: RecordedEntry): number {
@@ -98,38 +100,91 @@ function fixedChars(entry: RecordedEntry): number {
   return ENTRY_OVERHEAD_CHARS + entry.url.length + headers + entry.requestBody.length;
 }
 
-/**
- * A model silently forgets the start of a prompt that exceeds its context, so
- * a long recording must be reduced here, where we can do it visibly. Small
- * responses stay whole and the rest share what is left; if that is not
- * enough, the last requests are left out and reported.
- */
-export function fitRecording(entries: readonly RecordedEntry[]): {
-  entries: RecordedEntry[];
-  omitted: number;
-} {
+/** Small responses stay whole and the rest share what is left, but never below `minSample`. */
+function shareSamples(entries: readonly RecordedEntry[], minSample: number) {
   let room = MAX_RECORDING_CHARS - entries.reduce((sum, entry) => sum + fixedChars(entry), 0);
   let waiting = entries.length;
   const allowed = new Map<number, number>();
   for (const entry of [...entries].sort(
     (a, b) => a.responseSample.length - b.responseSample.length,
   )) {
-    const share = Math.max(MIN_SAMPLE_CHARS, Math.floor(room / waiting));
+    const share = Math.max(minSample, Math.floor(room / waiting));
     const size = Math.min(entry.responseSample.length, share);
     allowed.set(entry.index, size);
     room -= size;
     waiting -= 1;
   }
+  const fitted = entries.map((entry) => ({
+    ...entry,
+    responseSample: entry.responseSample.slice(0, allowed.get(entry.index)),
+  }));
+  const total = fitted.reduce((sum, e) => sum + fixedChars(e) + e.responseSample.length, 0);
+  return { fitted, fits: total <= MAX_RECORDING_CHARS };
+}
 
-  let total = 0;
-  const kept: RecordedEntry[] = [];
+const endpointOf = (entry: RecordedEntry) => `${entry.method} ${entry.url.split('?')[0] ?? ''}`;
+
+/**
+ * The order in which background reads are given up: repeats of an endpoint
+ * already in the recording first, then the latest ones. The user's actions
+ * (pages, changes) are not in this list.
+ */
+function backgroundDropOrder(entries: readonly RecordedEntry[]): number[] {
+  const seen = new Set<string>();
+  const repeats: number[] = [];
+  const others: number[] = [];
   for (const entry of entries) {
-    const responseSample = entry.responseSample.slice(0, allowed.get(entry.index));
-    total += fixedChars(entry) + responseSample.length;
-    if (total > MAX_RECORDING_CHARS) break;
-    kept.push({ ...entry, responseSample });
+    if (isUserAction(entry)) continue;
+    const endpoint = endpointOf(entry);
+    (seen.has(endpoint) ? repeats : others).push(entry.index);
+    seen.add(endpoint);
   }
-  return { entries: kept, omitted: entries.length - kept.length };
+  return [...repeats.reverse(), ...others.reverse()];
+}
+
+/**
+ * A model silently forgets the start of a prompt that exceeds its context, so
+ * a long recording must be reduced here, where we can do it visibly:
+ * 0. repeated background reads of the same endpoint are always left out;
+ * 1. response samples get shorter;
+ * 2. background reads are left out, the latest first;
+ * 3. only then, samples shrink further and the latest actions are left out.
+ * Actions the AI did not see are still added to the draft by checkDraft.
+ */
+export function fitRecording(entries: readonly RecordedEntry[]): {
+  entries: RecordedEntry[];
+  omitted: RecordedEntry[];
+} {
+  // Many near-identical background calls (one banner per slot, polling) made
+  // the model repeat itself until it hit its limit; one of each is enough.
+  const seen = new Set<string>();
+  let kept = entries.filter((entry) => {
+    if (isUserAction(entry)) return true;
+    const endpoint = endpointOf(entry);
+    if (seen.has(endpoint)) return false;
+    seen.add(endpoint);
+    return true;
+  });
+  const result = () => {
+    const keptIndexes = new Set(kept.map((e) => e.index));
+    return { omitted: entries.filter((e) => !keptIndexes.has(e.index)) };
+  };
+
+  let attempt = shareSamples(kept, MIN_SAMPLE_CHARS);
+  for (const index of backgroundDropOrder(entries)) {
+    if (attempt.fits) break;
+    kept = kept.filter((entry) => entry.index !== index);
+    attempt = shareSamples(kept, MIN_SAMPLE_CHARS);
+  }
+  if (attempt.fits) return { entries: attempt.fitted, ...result() };
+
+  // Only actions are left and they still do not fit.
+  attempt = shareSamples(kept, LAST_RESORT_SAMPLE_CHARS);
+  while (!attempt.fits && kept.length > 1) {
+    kept = kept.slice(0, -1);
+    attempt = shareSamples(kept, LAST_RESORT_SAMPLE_CHARS);
+  }
+  return { entries: attempt.fitted, ...result() };
 }
 
 function formatHeaders(headers: readonly [string, string][]): string {

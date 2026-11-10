@@ -47,7 +47,7 @@ describe('createOllamaClient', () => {
       model: 'test-model',
       stream: false,
       think: false,
-      options: { num_ctx: 16384, num_predict: 4096 },
+      options: { num_ctx: 16384, num_predict: 6144 },
       format: { type: 'object', required: ['answer'] },
       messages: [
         { role: 'system', content: 'S' },
@@ -101,6 +101,31 @@ describe('createOllamaClient', () => {
     await failsWith(ask(), 'AI_INVALID_OUTPUT');
     await expect(ask()).rejects.toThrow('record a shorter flow');
     expect(sent).toHaveLength(4);
+  });
+
+  it('does not try again when the caller has a fallback', async () => {
+    const sent: unknown[] = [];
+    const ai = createOllamaClient({
+      baseUrl: 'http://ollama.test',
+      model: 'm',
+      timeoutMs: 1000,
+      fetchImpl: ((_url: string, init: RequestInit) => {
+        sent.push(init.body);
+        return chat('{"answer":"o', { done_reason: 'length' });
+      }) as typeof fetch,
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const asking = ai.complete({
+      task: 'collection',
+      system: 'S',
+      prompt: 'P',
+      schema,
+      retryCutOff: false,
+    });
+    await failsWith(asking, 'AI_INVALID_OUTPUT');
+    expect(sent).toHaveLength(1);
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 
   it('does not log any part of a cut-off answer', async () => {

@@ -104,9 +104,8 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
     }
     setDraft({ result: result.data.result, meta: result.data.meta });
     setName(result.data.result.collectionName);
-    setSelected(
-      new Set(result.data.result.steps.flatMap((step, index) => (isReadOnly(step) ? [index] : []))),
-    );
+    // Everything the user did in the recording is wanted: changes are marked, not left out.
+    setSelected(new Set(result.data.result.steps.map((_step, index) => index)));
   };
 
   const cancel = () => {
@@ -265,13 +264,13 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
                         {step.method} {step.url}
                       </code>
                       <span className="text-slate-500">
-                        {step.assertions.length} assertions
+                        {step.assertions.length} assertion{step.assertions.length === 1 ? '' : 's'}
                         {step.captures.length > 0 &&
                           ` · passes on: ${step.captures.map((c) => c.variable).join(', ')}`}
                       </span>
                       {!isReadOnly(step) && (
                         <span className="block text-amber-700">
-                          Changes data on the server. Off by default.
+                          Changes data on the server each time the collection runs.
                         </span>
                       )}
                     </span>

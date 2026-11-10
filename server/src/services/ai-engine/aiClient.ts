@@ -25,6 +25,8 @@ export interface AiCompletion<T> {
   signal?: AbortSignal;
   /** Already-redacted recording; only the mock reads it, to answer from real entries. */
   recording?: readonly RecordedEntry[];
+  /** Try again once when the answer is cut off (default). Off when the caller has a fallback. */
+  retryCutOff?: boolean;
 }
 
 /**

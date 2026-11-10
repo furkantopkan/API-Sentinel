@@ -1,0 +1,31 @@
+import type { RecordedEntry } from '@api-sentinel/shared';
+import { describe, expect, it } from 'vitest';
+import { draftNotices } from '../../src/services/ai-engine/aiService';
+
+const read = (index: number): RecordedEntry => ({
+  index,
+  method: 'GET',
+  url: `https://a.test/r${String(index)}?x=1`,
+  status: 200,
+  requestHeaders: [],
+  requestBody: '',
+  responseContentType: 'application/json',
+  responseSample: '{}',
+});
+
+describe('draftNotices', () => {
+  it('says nothing when nothing was left out or added', () => {
+    expect(draftNotices([], 0)).toEqual([]);
+  });
+
+  it('names the requests left out, five at most, and counts the added steps', () => {
+    const notices = draftNotices(
+      Array.from({ length: 7 }, (_, i) => read(i)),
+      2,
+    );
+    expect(notices[0]).toBe(
+      'To keep the AI fast and within its limit, 7 background request(s) the page made by itself were not sent to it: GET /r0, GET /r1, GET /r2, GET /r3, GET /r4 and 2 more.',
+    );
+    expect(notices[1]).toMatch(/^2 step\(s\) for pages you opened or changes you made were added/);
+  });
+});

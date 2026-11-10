@@ -11,6 +11,7 @@ import request from 'supertest';
 import { describe, expect, it } from 'vitest';
 import { createApp } from '../../src/app';
 import type { AppConfig } from '../../src/config/env';
+import { AppError } from '../../src/errors/AppError';
 import type { AiClient, AiCompletion } from '../../src/services/ai-engine/aiClient';
 import type { RecordingBrowser } from '../../src/services/recorder/recordingBrowser';
 
@@ -64,13 +65,16 @@ function fakeBrowser() {
   return { browser, opened };
 }
 
-function appWith(options: { host?: string; answer?: CollectionDraftOutput } = {}) {
+function appWith(options: { host?: string; answer?: CollectionDraftOutput; fail?: AppError } = {}) {
   const prompts: string[] = [];
+  const requests: AiCompletion<unknown>[] = [];
   const aiClient: AiClient = {
     model: 'fake-model',
     isMock: false,
     complete<T>(req: AiCompletion<T>): Promise<T> {
       prompts.push(`${req.system}\n${req.prompt}`);
+      requests.push(req);
+      if (options.fail) return Promise.reject(options.fail);
       return Promise.resolve(req.schema.parse(options.answer));
     },
   };
@@ -81,7 +85,7 @@ function appWith(options: { host?: string; answer?: CollectionDraftOutput } = {}
     engineLogger: () => undefined,
     recordingBrowser: browser,
   });
-  return { app, prompts, opened };
+  return { app, prompts, opened, requests };
 }
 
 describe('/api/recordings', () => {
@@ -228,7 +232,48 @@ describe('POST /api/ai/build-collection', () => {
       .send({ goal: 'Check', entries: long })
       .expect(200);
     const { notes } = (response.body as { result: { notes: string[] } }).result;
-    expect(notes[0]).toMatch(/last \d+ request\(s\) were not sent to the AI/);
+    expect(notes[0]).toMatch(
+      /\d+ background request\(s\) the page made by itself were not sent to it: GET \//,
+    );
+  });
+
+  // The user should get a usable flow even when the local model fails.
+  it.each(['AI_TIMEOUT', 'AI_INVALID_OUTPUT', 'AI_UNAVAILABLE'] as const)(
+    'builds the draft from the recording when the AI fails with %s',
+    async (code) => {
+      const { app, requests } = appWith({ fail: new AppError(code, 'It failed.', 502) });
+      const page: RecordedEntry = {
+        ...entry,
+        index: 1,
+        url: 'https://a.test/cart',
+        responseContentType: 'text/html',
+        responseSample: 'My cart',
+      };
+      const change: RecordedEntry = {
+        ...entry,
+        index: 2,
+        method: 'POST',
+        url: 'https://a.test/cart/add',
+      };
+      const response = await request(app)
+        .post('/api/ai/build-collection')
+        .send({ goal: 'Check', entries: [entry, page, change] })
+        .expect(200);
+      const { result } = response.body as { result: { steps: { url: string }[]; notes: string[] } };
+      expect(result.steps.map((s) => s.url)).toEqual(['{{baseUrl}}/cart', '{{baseUrl}}/cart/add']);
+      expect(result.notes[0]).toMatch(
+        /^The AI could not finish \(It failed\.\) This draft was built straight from your recording/,
+      );
+      expect(requests[0]?.retryCutOff).toBe(false);
+    },
+  );
+
+  it('still reports other errors, such as a rate limit', async () => {
+    const { app } = appWith({ fail: new AppError('RATE_LIMITED', 'Slow down.', 429) });
+    await request(app)
+      .post('/api/ai/build-collection')
+      .send({ goal: 'Check', entries: [entry] })
+      .expect(429);
   });
 
   it('needs a goal and at least one request', async () => {

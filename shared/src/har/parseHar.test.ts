@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_RECORDED_ENTRIES, MAX_RESPONSE_SAMPLE } from '../schemas/builder';
-import { parseHar } from './parseHar';
+import { isUserAction, keepActions, parseHar } from './parseHar';
 
 interface Options {
   method?: string;
@@ -208,5 +208,39 @@ describe('parseHar', () => {
     expect(result.found).toBe(MAX_RECORDED_ENTRIES + 3);
     expect(result.entries).toHaveLength(MAX_RECORDED_ENTRIES);
     expect(result.entries[0]?.responseSample).toHaveLength(MAX_RESPONSE_SAMPLE);
+  });
+});
+
+describe('keepActions', () => {
+  const at = (index: number, method: string, mime = 'application/json') => ({
+    index,
+    method: method as 'GET',
+    url: `https://a.test/${String(index)}`,
+    status: 200,
+    requestHeaders: [],
+    requestBody: '',
+    responseContentType: mime,
+    responseSample: mime === 'text/html' ? 'Page' : '{}',
+  });
+
+  it('keeps every page and change and fills the rest with the earliest background reads', () => {
+    const entries = [
+      at(0, 'GET'),
+      at(1, 'GET'),
+      at(2, 'GET', 'text/html'),
+      at(3, 'GET'),
+      at(4, 'POST'),
+    ];
+    expect(keepActions(entries, 3).map((e) => e.url)).toEqual([
+      'https://a.test/0',
+      'https://a.test/2',
+      'https://a.test/4',
+    ]);
+    expect(keepActions(entries, 3).map((e) => e.index)).toEqual([0, 1, 2]);
+  });
+
+  it('treats JSON labelled as HTML as a background read, not a page', () => {
+    expect(isUserAction({ ...at(0, 'GET', 'text/html'), responseSample: '{"a":1}' })).toBe(false);
+    expect(isUserAction(at(0, 'DELETE'))).toBe(true);
   });
 });

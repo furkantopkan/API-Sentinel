@@ -19,9 +19,10 @@ const CONTEXT_TOKENS = 16_384;
 
 /**
  * Without a limit a model that starts repeating itself writes until the timeout
- * (seen: 10 455 tokens in 4.5 minutes). The longest valid answer measured was 2 180.
+ * (seen: 10 455 tokens in 4.5 minutes). The longest valid answer measured was
+ * 2 180 tokens for 12 steps; this leaves room for 20 steps.
  */
-const MAX_ANSWER_TOKENS = 4096;
+const MAX_ANSWER_TOKENS = 6144;
 
 const chatResponseSchema = z.object({
   message: z.object({ content: z.string() }),
@@ -47,7 +48,13 @@ export function createOllamaClient(options: OllamaOptions): AiClient {
   return {
     model,
     isMock: false,
-    async complete<T>({ system, prompt, schema, signal }: AiCompletion<T>): Promise<T> {
+    async complete<T>({
+      system,
+      prompt,
+      schema,
+      signal,
+      retryCutOff = true,
+    }: AiCompletion<T>): Promise<T> {
       // Shared by both attempts, so a retry cannot extend the time limit.
       const timeout = AbortSignal.timeout(timeoutMs);
 
@@ -111,8 +118,12 @@ export function createOllamaClient(options: OllamaOptions): AiClient {
 
       // Runaway answers are occasional, so a second attempt usually finishes normally.
       let answer = await chat();
-      if (wasCutOff(answer)) answer = await chat();
-      if (wasCutOff(answer)) {
+      let cutOff = wasCutOff(answer);
+      if (cutOff && retryCutOff) {
+        answer = await chat();
+        cutOff = wasCutOff(answer);
+      }
+      if (cutOff) {
         throw new AppError(
           'AI_INVALID_OUTPUT',
           'The AI could not finish its answer. Try again, or record a shorter flow.',

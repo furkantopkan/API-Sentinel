@@ -131,6 +131,36 @@ function requestBodyAndHeaders(
   };
 }
 
+/**
+ * What the user did, as opposed to what the page fetched by itself: a page
+ * they opened, or a change the page sent (add to cart, remove, save...).
+ * These must never be lost when a recording is shortened.
+ */
+export function isUserAction(
+  entry: Pick<RecordedEntry, 'method' | 'responseContentType' | 'responseSample'>,
+): boolean {
+  if (entry.method !== 'GET') return true;
+  return /html/i.test(entry.responseContentType) && !looksLikeJson(entry.responseSample);
+}
+
+/**
+ * Keeps at most `max` entries without losing the user's actions: background
+ * reads are left out first, the latest ones first. Order is kept and the
+ * entries are numbered again.
+ */
+export function keepActions(entries: readonly RecordedEntry[], max: number): RecordedEntry[] {
+  if (entries.length <= max) return [...entries];
+  const actions = entries.filter(isUserAction).length;
+  let backgroundRoom = Math.max(0, max - actions);
+  let actionRoom = max - backgroundRoom;
+  return entries
+    .filter((entry) => {
+      if (isUserAction(entry)) return actionRoom-- > 0;
+      return backgroundRoom-- > 0;
+    })
+    .map((entry, index) => ({ ...entry, index }));
+}
+
 export function parseHar(json: unknown): ParseHarResult {
   const parsed = harSchema.safeParse(json);
   if (!parsed.success) return { ok: false, error: 'This file is not a valid HAR recording.' };
@@ -189,5 +219,5 @@ export function parseHar(json: unknown): ParseHarResult {
     });
   }
 
-  return { ok: true, entries: entries.slice(0, MAX_RECORDED_ENTRIES), found: entries.length };
+  return { ok: true, entries: keepActions(entries, MAX_RECORDED_ENTRIES), found: entries.length };
 }

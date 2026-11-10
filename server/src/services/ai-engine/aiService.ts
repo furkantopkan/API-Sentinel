@@ -2,6 +2,9 @@ import {
   analysisOutputSchema,
   collectionDraftOutputSchema,
   type BuildCollectionRequest,
+  type CollectionDraftOutput,
+  type RecordedEntry,
+  isUserAction,
   type CollectionDraft,
   assertionSchema,
   testCasesOutputSchema,
@@ -69,6 +72,28 @@ export function filterAssertions(
   );
   const kept = valid.slice(0, max);
   return { kept, dropped: suggestions.length - kept.length };
+}
+
+/** When the model fails, the recording alone still gives a usable draft instead of an error. */
+const FALLBACK_CODES = new Set(['AI_TIMEOUT', 'AI_INVALID_OUTPUT', 'AI_UNAVAILABLE']);
+
+/** Tells the user, by name, what the AI did not see and what was added for it. */
+export function draftNotices(omitted: readonly RecordedEntry[], addedSteps: number): string[] {
+  const notices: string[] = [];
+  const background = omitted.filter((entry) => !isUserAction(entry));
+  if (background.length > 0) {
+    const names = background.slice(0, 5).map((e) => `${e.method} ${new URL(e.url).pathname}`);
+    const more = background.length > 5 ? ` and ${background.length - 5} more` : '';
+    notices.push(
+      `To keep the AI fast and within its limit, ${background.length} background request(s) the page made by itself were not sent to it: ${names.join(', ')}${more}.`,
+    );
+  }
+  if (addedSteps > 0) {
+    notices.push(
+      `${addedSteps} step(s) for pages you opened or changes you made were added straight from the recording, with a status check; review their assertions.`,
+    );
+  }
+  return notices;
 }
 
 export function createAiService(
@@ -169,35 +194,54 @@ export function createAiService(
 
     async buildCollection(input, signal) {
       // Masked before the model sees it; the masked form is also what the draft is checked against.
-      const { entries, omitted } = fitRecording(
-        input.entries.map((entry) => ({
-          ...entry,
-          url: redactUrl(entry.url),
-          requestHeaders: redactHeaders(entry.requestHeaders),
-          requestBody: entry.requestBody === '' ? '' : redactBody(entry.requestBody),
-          responseSample: entry.responseSample === '' ? '' : redactBody(entry.responseSample),
-        })),
-      );
+      const masked = input.entries.map((entry) => ({
+        ...entry,
+        url: redactUrl(entry.url),
+        requestHeaders: redactHeaders(entry.requestHeaders),
+        requestBody: entry.requestBody === '' ? '' : redactBody(entry.requestBody),
+        responseSample: entry.responseSample === '' ? '' : redactBody(entry.responseSample),
+      }));
+      const { entries, omitted } = fitRecording(masked);
 
-      const { ai, output } = await run('collection', (client) =>
-        client.complete({
-          task: 'collection',
-          system: BUILD_COLLECTION_SYSTEM_PROMPT,
-          prompt: formatRecording(input.goal, entries),
-          schema: collectionDraftOutputSchema,
-          signal,
-          recording: entries,
-        }),
-      );
+      let ai: AiClient;
+      let output: CollectionDraftOutput;
+      let fallback: string | null = null;
+      try {
+        ({ ai, output } = await run('collection', (aiClient) =>
+          aiClient.complete({
+            task: 'collection',
+            system: BUILD_COLLECTION_SYSTEM_PROMPT,
+            prompt: formatRecording(input.goal, entries),
+            schema: collectionDraftOutputSchema,
+            signal,
+            recording: entries,
+            // A second attempt doubles the wait; the recording itself is the better fallback.
+            retryCutOff: false,
+          }),
+        ));
+      } catch (error) {
+        const usable =
+          client !== null &&
+          !signal?.aborted &&
+          error instanceof AppError &&
+          FALLBACK_CODES.has(error.code);
+        if (!usable) throw error;
+        ai = client;
+        output = { collectionName: 'Recorded flow', steps: [], variables: [], notes: [] };
+        fallback = `The AI could not finish (${error.message}) This draft was built straight from your recording: every page you opened and every change you made, with status checks. Review it and add assertions as needed.`;
+      }
 
-      const { draft, droppedSteps, droppedAssertions } = checkDraft(
+      const { draft, droppedSteps, droppedAssertions, addedSteps } = checkDraft(
         output,
         entries,
         new Map(input.entries.map((entry) => [entry.index, entry.responseSample])),
+        masked,
       );
-      const notice = `This recording was long: its last ${omitted} request(s) were not sent to the AI.`;
       return {
-        result: { ...draft, notes: omitted > 0 ? [notice, ...draft.notes] : draft.notes },
+        result: {
+          ...draft,
+          notes: fallback ? [fallback] : [...draftNotices(omitted, addedSteps), ...draft.notes],
+        },
         meta: { model: ai.model, mock: ai.isMock, droppedAssertions, droppedItems: droppedSteps },
       };
     },
