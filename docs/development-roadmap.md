@@ -158,6 +158,7 @@ Kullanıcı kararı (2026-11-08): portfolio hazırlığından önce yapılır. K
 | Akış kaydı | `POST /api/recordings`: Playwright ile ayrı, boş profilli tarayıcı; trafik bellekte tutulur ve HAR ile aynı filtreden geçer; başlangıç adresi SSRF kontrolünden geçer |
 | Yerel AI | Ollama (`qwen3:8b`), düşünme kapalı (ölçüm: 79 sn → 15 sn); uzun kayıtlar `fitRecording` ile modelin bağlamına sığdırılır, atılan istekler kullanıcıya bildirilir |
 | Klasik siteler | Form gövdesi (urlencoded), collection çalıştırmasında cookie taşıma, kayıttaki cevapta tutmayan doğrulamaların atılması (kitapyurdu sepet akışı, 2026-11-10) |
+| Tıklama takibi | Kayıt penceresi tıklamaları bildirir; sitenin kendi istekleri taslağa girmez (2026-11-12) |
 | Eksiksiz akış | Eylem öncelikli kısaltma, atlanan eylemlerin kayıttan eklenmesi, AI başarısız olursa kayıttan taslak, en fazla 20 adım (2026-11-10) |
 | Onay | Taslak ekranı; veri değiştiren istekler işaretli ve uyarılı (2026-11-10 kullanıcı kararı: varsayılan açık); `POST /api/collections/import` tek işlemde kaydeder |
 
