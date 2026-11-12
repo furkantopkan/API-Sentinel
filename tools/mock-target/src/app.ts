@@ -67,8 +67,14 @@ export function createMockTargetApp(): Express {
   });
 
   // A page that calls the API by itself, for testing the flow recorder.
+  // /nested is loaded by the page itself; /json only after a click on the button
+  // (the page clicks it for automated tests, which cannot reach the recording window).
   app.get('/recording-page', (_req, res) => {
-    res.type('html').send("<script>fetch('/json'); fetch('/nested');</script>");
+    res
+      .type('html')
+      .send(
+        "<button onclick=\"fetch('/json')\">Load</button><script>fetch('/nested'); setTimeout(() => document.querySelector('button').click(), 500);</script>",
+      );
   });
 
   app.get('/json', (_req, res) => {

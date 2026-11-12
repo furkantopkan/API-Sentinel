@@ -5,7 +5,12 @@ import type {
 } from '@api-sentinel/shared';
 import { describe, expect, it } from 'vitest';
 import { checkDraft, visiblePartOf } from '../../src/services/ai-engine/collectionDraft';
-import { MAX_RECORDING_CHARS, fitRecording } from '../../src/services/ai-engine/prompts';
+import {
+  MAX_RECORDING_CHARS,
+  fitRecording,
+  endpointOf,
+  formatRecording,
+} from '../../src/services/ai-engine/prompts';
 
 function recorded(index: number, url: string, responseSample = '{"id":1}'): RecordedEntry {
   return {
@@ -507,5 +512,76 @@ describe('visiblePartOf: a JSON sample cut off at the size limit', () => {
       new Map([[0, sample.slice(0, 3000)]]),
     );
     expect(draft.steps[0]?.assertions.map((a) => a.target)).toEqual(['data.banners[0].title']);
+  });
+});
+
+// On a real shop the draft filled up with requests the site sent by itself.
+describe('checkDraft: requests the site sent by itself', () => {
+  const user = (entry: RecordedEntry): RecordedEntry => ({ ...entry, trigger: 'user' });
+  const site = (entry: RecordedEntry): RecordedEntry => ({ ...entry, trigger: 'page' });
+  const recording = [
+    site(recorded(0, 'https://a.test/token', '{"token":"t1"}')),
+    site({ ...recorded(1, 'https://a.test/recently-viewed', '{}'), method: 'POST' }),
+    user({ ...recorded(2, 'https://a.test/cart/add', '{"count":1}'), method: 'POST' }),
+  ];
+
+  it('leaves them out, even when the model chose them', () => {
+    const { draft, backgroundSteps } = check(
+      output([step(1, '{{baseUrl}}/recently-viewed'), step(2, '{{baseUrl}}/cart/add')], [BASE]),
+      recording,
+    );
+    expect(draft.steps.map((s) => s.sourceIndex)).toEqual([2]);
+    expect(backgroundSteps).toBe(1);
+  });
+
+  it('keeps one that passes a value to a later step', () => {
+    const capture = { variable: 'token', path: 'token', secret: true };
+    const { draft } = check(
+      output(
+        [
+          step(0, '{{baseUrl}}/token', { captures: [capture] }),
+          step(2, '{{baseUrl}}/cart/add?t={{token}}'),
+        ],
+        [BASE],
+      ),
+      recording,
+    );
+    expect(draft.steps.map((s) => s.sourceIndex)).toEqual([0, 2]);
+  });
+
+  it('never adds them back from the recording, but adds the user actions', () => {
+    const { draft, addedSteps } = check(output([], [BASE]), recording);
+    expect(draft.steps.map((s) => s.sourceIndex)).toEqual([2]);
+    expect(addedSteps).toBe(1);
+  });
+});
+
+describe('endpointOf', () => {
+  const at = (url: string) => endpointOf(recorded(0, url));
+  it('treats calls that differ only in numbers as one endpoint', () => {
+    expect(at('https://a.test/banners?env=20&width=380')).toBe(
+      at('https://a.test/banners?env=21&width=380'),
+    );
+    expect(at('https://a.test/list?page=2')).toBe(at('https://a.test/list?page=3'));
+  });
+
+  // On a real shop every call goes to index.php and names its action in "route".
+  it('keeps calls with different actions apart', () => {
+    expect(at('https://a.test/index.php?route=cart/add')).not.toBe(
+      at('https://a.test/index.php?route=banner/list'),
+    );
+  });
+});
+
+describe('formatRecording', () => {
+  it('tells the model who caused each request, when the recorder knows it', () => {
+    const text = formatRecording('Goal', [
+      { ...recorded(0, 'https://a.test/a'), trigger: 'user' },
+      { ...recorded(1, 'https://a.test/b'), trigger: 'page' },
+      recorded(2, 'https://a.test/c'),
+    ]);
+    expect(text).toContain('GET https://a.test/a\nTriggered by: the user');
+    expect(text).toContain('GET https://a.test/b\nTriggered by: the page by itself');
+    expect(text).toContain('GET https://a.test/c\nStatus: 200');
   });
 });

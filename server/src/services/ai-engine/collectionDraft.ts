@@ -197,6 +197,8 @@ export interface CheckedDraft {
   droppedAssertions: number;
   /** User actions the AI left out (or never saw), added from the recording. */
   addedSteps: number;
+  /** Steps for requests the page sent by itself, left out of the flow. */
+  backgroundSteps: number;
 }
 
 type DraftStep = CollectionDraft['steps'][number];
@@ -402,15 +404,26 @@ export function checkDraft(
     if (added) insertInRecordedOrder(steps, added);
   }
 
+  // A request the page sent by itself belongs in the flow only to pass a
+  // value on (an id, a token) to a later step. Models add them anyway.
+  // Only the recorder knows this for sure: without its "trigger" (a HAR
+  // file), a GET the user's click caused looks like any other.
+  const recordedByIndex = new Map(recording.map((entry) => [entry.index, entry]));
+  const flow = withoutUnusedCaptures(steps).filter((step) => {
+    const entry = recordedByIndex.get(step.sourceIndex) ?? entryByIndex.get(step.sourceIndex);
+    return entry?.trigger !== 'page' || step.captures.length > 0;
+  });
+
   return {
     draft: {
       collectionName: output.collectionName.trim().slice(0, 200) || 'AI collection',
-      steps: withoutUnusedCaptures(steps),
+      steps: flow,
       variables: [...variables].map(([key, variable]) => ({ key, ...variable })),
       notes: output.notes.slice(0, 20),
     },
     droppedSteps: output.steps.length - modelSteps,
     droppedAssertions,
     addedSteps: steps.length - modelSteps,
+    backgroundSteps: steps.length - flow.length,
   };
 }

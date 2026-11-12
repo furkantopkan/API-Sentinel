@@ -78,11 +78,24 @@ export function filterAssertions(
 const FALLBACK_CODES = new Set(['AI_TIMEOUT', 'AI_INVALID_OUTPUT', 'AI_UNAVAILABLE']);
 
 /** Tells the user, by name, what the AI did not see and what was added for it. */
-export function draftNotices(omitted: readonly RecordedEntry[], addedSteps: number): string[] {
+export function draftNotices(
+  omitted: readonly RecordedEntry[],
+  addedSteps: number,
+  backgroundSteps = 0,
+): string[] {
   const notices: string[] = [];
+  if (backgroundSteps > 0) {
+    notices.push(
+      `Left out ${backgroundSteps} step(s) for requests the site sent by itself (not your clicks), as no later step needs a value from them.`,
+    );
+  }
   const background = omitted.filter((entry) => !isUserAction(entry));
   if (background.length > 0) {
-    const names = background.slice(0, 5).map((e) => `${e.method} ${new URL(e.url).pathname}`);
+    const names = background.slice(0, 5).map((e) => {
+      const url = new URL(e.url);
+      const where = `${url.pathname}${url.search}`;
+      return `${e.method} ${where.length > 80 ? `${where.slice(0, 79)}…` : where}`;
+    });
     const more = background.length > 5 ? ` and ${background.length - 5} more` : '';
     notices.push(
       `To keep the AI fast and within its limit, ${background.length} background request(s) the page made by itself were not sent to it: ${names.join(', ')}${more}.`,
@@ -231,7 +244,7 @@ export function createAiService(
         fallback = `The AI could not finish (${error.message}) This draft was built straight from your recording: every page you opened and every change you made, with status checks. Review it and add assertions as needed.`;
       }
 
-      const { draft, droppedSteps, droppedAssertions, addedSteps } = checkDraft(
+      const { draft, droppedSteps, droppedAssertions, addedSteps, backgroundSteps } = checkDraft(
         output,
         entries,
         new Map(input.entries.map((entry) => [entry.index, entry.responseSample])),
@@ -240,7 +253,9 @@ export function createAiService(
       return {
         result: {
           ...draft,
-          notes: fallback ? [fallback] : [...draftNotices(omitted, addedSteps), ...draft.notes],
+          notes: fallback
+            ? [fallback]
+            : [...draftNotices(omitted, addedSteps, backgroundSteps), ...draft.notes],
         },
         meta: { model: ai.model, mock: ai.isMock, droppedAssertions, droppedItems: droppedSteps },
       };

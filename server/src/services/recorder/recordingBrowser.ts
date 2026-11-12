@@ -4,10 +4,22 @@ import {
   responseSampleText,
   type HarEntry,
 } from '@api-sentinel/shared';
-import type { Response } from 'playwright';
+import type { Request, Response } from 'playwright';
 import { AppError } from '../../errors/AppError';
+import { createActionTracker, reportedTime, userActionScript, type Trigger } from './userActions';
 
 const MAX_CAPTURED = 500;
+/** Name of the function the recorded page calls to report a user action. */
+const ACTION_BINDING = '__apiSentinelUserAction';
+
+/** A navigation of the main window (service worker requests have no frame). */
+function isMainPage(request: Request): boolean {
+  try {
+    return request.isNavigationRequest() && request.frame().parentFrame() === null;
+  } catch {
+    return false;
+  }
+}
 const NAVIGATION_TIMEOUT_MS = 30_000;
 const SETTLE_TIMEOUT_MS = 3_000;
 
@@ -31,7 +43,7 @@ const TEXT_MIME = /json|html|text\/|xml|javascript/i;
  * an imported HAR file. The body of a page is reduced to its text first, so
  * the sample shows the page's words rather than the first scripts in it.
  */
-async function toHarEntry(response: Response): Promise<HarEntry> {
+async function toHarEntry(response: Response, trigger: Trigger): Promise<HarEntry> {
   const request = response.request();
   const mime = response.headers()['content-type'] ?? '';
   const headers = await request.allHeaders();
@@ -40,6 +52,7 @@ async function toHarEntry(response: Response): Promise<HarEntry> {
   const text = responseSampleText(mime, body);
   return {
     _resourceType: request.resourceType(),
+    _trigger: trigger,
     request: {
       method: request.method(),
       url: request.url(),
@@ -83,15 +96,31 @@ export function createPlaywrightRecordingBrowser(options: { headless: boolean })
       const reads: Promise<void>[] = [];
       let count = 0;
 
+      // Which requests the user caused: the window reports clicks, submits and Enter.
+      const tracker = createActionTracker();
+      const startedAt = new WeakMap<object, number>();
+      await context.exposeBinding(ACTION_BINDING, (_source, at: unknown) => {
+        tracker.userActed(reportedTime(at));
+      });
+      await context.addInitScript({ content: userActionScript(ACTION_BINDING) });
+      context.on('request', (request) => {
+        const at = Date.now();
+        startedAt.set(request, at);
+        if (isMainPage(request)) tracker.navigationStarted(at);
+      });
+
       context.on('response', (response) => {
-        const type = response.request().resourceType();
+        const request = response.request();
+        const type = request.resourceType();
         // Pages count only in the main window: frames are mostly ads and widgets.
-        const page = type === 'document' && response.frame().parentFrame() === null;
+        const page = type === 'document' && isMainPage(request);
         if ((type !== 'xhr' && type !== 'fetch' && !page) || reads.length >= MAX_CAPTURED) return;
+        // A page in the main window is always one the user opened or was sent to.
+        const trigger = page ? 'user' : tracker.triggerOf(startedAt.get(request) ?? Date.now());
         // Reserving the slot now keeps the arrival order, however long each body takes to read.
         const slot = results.push(null) - 1;
         reads.push(
-          toHarEntry(response).then(
+          toHarEntry(response, trigger).then(
             (entry) => {
               results[slot] = entry;
               if (entry) count += 1;

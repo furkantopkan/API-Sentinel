@@ -28,12 +28,17 @@ test('AB-01: record a flow, build a draft and create a collection', async ({ pag
   // The goal is optional: showing the flow is enough.
   await dialog.getByRole('button', { name: 'Build draft' }).click();
   const steps = dialog.getByRole('list', { name: 'Draft steps' });
-  await expect(steps.getByRole('listitem')).toHaveCount(3);
+  // /nested was sent by the page itself, /json after a click: only the click is a step.
+  await expect(steps.getByRole('listitem')).toHaveCount(2);
   await expect(steps).toContainText('{{baseUrl}}/json');
+  await expect(steps).not.toContainText('/nested');
+  await expect(
+    dialog.getByText(/Left out 1 step\(s\) for requests the site sent by itself/),
+  ).toBeVisible();
 
   const name = `Recorded flow ${Date.now()}`;
   await dialog.getByLabel('Collection name').fill(name);
-  await dialog.getByRole('button', { name: 'Create collection (3)' }).click();
+  await dialog.getByRole('button', { name: 'Create collection (2)' }).click();
 
   await expect(page.getByRole('listitem', { name: `Collection ${name}` })).toBeVisible();
 });

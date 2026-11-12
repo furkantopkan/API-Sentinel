@@ -24,8 +24,16 @@ describe('draftNotices', () => {
       2,
     );
     expect(notices[0]).toBe(
-      'To keep the AI fast and within its limit, 7 background request(s) the page made by itself were not sent to it: GET /r0, GET /r1, GET /r2, GET /r3, GET /r4 and 2 more.',
+      'To keep the AI fast and within its limit, 7 background request(s) the page made by itself were not sent to it: GET /r0?x=1, GET /r1?x=1, GET /r2?x=1, GET /r3?x=1, GET /r4?x=1 and 2 more.',
     );
     expect(notices[1]).toMatch(/^2 step\(s\) for pages you opened or changes you made were added/);
+  });
+});
+
+describe('draftNotices for requests the site sent by itself', () => {
+  it('says how many were left out of the flow', () => {
+    expect(draftNotices([], 0, 3)).toEqual([
+      'Left out 3 step(s) for requests the site sent by itself (not your clicks), as no later step needs a value from them.',
+    ]);
   });
 });

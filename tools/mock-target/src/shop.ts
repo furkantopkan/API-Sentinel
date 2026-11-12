@@ -109,10 +109,14 @@ export function addShopRoutes(app: Express): void {
     page(
       res,
       'Shop flow',
-      `<script>
-        const form = new FormData();
-        form.append('product_id', '7');
-        fetch('/shop/cart/add', { method: 'POST', body: form }).then(() => { location.href = '/shop/cart'; });
+      // The page clicks its own button, as automated tests cannot reach the recording window.
+      `<button>Add to cart</button><script>
+        document.querySelector('button').addEventListener('click', () => {
+          const form = new FormData();
+          form.append('product_id', '7');
+          fetch('/shop/cart/add', { method: 'POST', body: form }).then(() => { location.href = '/shop/cart'; });
+        });
+        setTimeout(() => document.querySelector('button').click(), 500);
       </script>`,
     );
   });

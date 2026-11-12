@@ -26,6 +26,8 @@ const harSchema = z.object({
     entries: z.array(
       z.object({
         _resourceType: z.string().optional(),
+        /** Set by API Sentinel's recorder: did the user cause this request? */
+        _trigger: z.enum(['user', 'page']).optional(),
         request: z.object({
           method: z.string(),
           url: z.string(),
@@ -102,8 +104,10 @@ function kindOf(
   status: number,
 ): Kind | null {
   if (resourceType === 'document') {
+    // A classic form (a login, a search) sends its data as a page load.
+    if (method !== 'GET') return status < 400 ? 'write' : null;
     // Only pages that loaded; a redirect shows up again as the page it led to.
-    return method === 'GET' && status >= 200 && status < 300 && /html/i.test(mime) ? 'page' : null;
+    return status >= 200 && status < 300 && /html/i.test(mime) ? 'page' : null;
   }
   // Chrome labels entries; other browsers do not, so the content decides too.
   if (resourceType !== undefined && resourceType !== 'xhr' && resourceType !== 'fetch') {
@@ -137,8 +141,10 @@ function requestBodyAndHeaders(
  * These must never be lost when a recording is shortened.
  */
 export function isUserAction(
-  entry: Pick<RecordedEntry, 'method' | 'responseContentType' | 'responseSample'>,
+  entry: Pick<RecordedEntry, 'method' | 'responseContentType' | 'responseSample' | 'trigger'>,
 ): boolean {
+  // The recorder saw the clicks; a HAR file did not, so it is judged by its kind.
+  if (entry.trigger !== undefined) return entry.trigger === 'user';
   if (entry.method !== 'GET') return true;
   return /html/i.test(entry.responseContentType) && !looksLikeJson(entry.responseSample);
 }
@@ -171,7 +177,7 @@ export function parseHar(json: unknown): ParseHarResult {
   let siteHost: string | null = null;
 
   for (const entry of parsed.data.log.entries) {
-    const { request, response, _resourceType: resourceType } = entry;
+    const { request, response, _resourceType: resourceType, _trigger: trigger } = entry;
     const mime = response.content.mimeType ?? '';
     const method = request.method.toUpperCase();
     const host = hostOf(request.url);
@@ -216,6 +222,7 @@ export function parseHar(json: unknown): ParseHarResult {
       requestBody: recorded.body.slice(0, MAX_RECORDED_BODY),
       responseContentType: mime.slice(0, 200),
       responseSample: responseSampleText(mime, text).slice(0, MAX_RESPONSE_SAMPLE),
+      ...(trigger === undefined ? {} : { trigger }),
     });
   }
 

@@ -262,3 +262,32 @@ describe('parseHar with more requests than the limit', () => {
     expect(result.entries.at(-1)?.url).toBe('https://a.test/cart/remove');
   });
 });
+
+describe('parseHar with what the recorder saw', () => {
+  it('keeps who caused each request, and uses it to tell actions apart', () => {
+    const result = parseHar(
+      har(
+        { ...entry('https://a.test/cart/add', { method: 'POST' }), _trigger: 'user' },
+        { ...entry('https://a.test/recently-viewed', { method: 'POST' }), _trigger: 'page' },
+        entry('https://a.test/plain'),
+      ),
+    );
+    if (!result.ok) throw new Error(result.error);
+    expect(result.entries.map((e) => e.trigger)).toEqual(['user', 'page', undefined]);
+    expect(result.entries.map(isUserAction)).toEqual([true, false, false]);
+  });
+
+  it('keeps a classic form sent as a page load, also when it redirects', () => {
+    const entries = parsedEntries(
+      entry('https://a.test/login', {
+        method: 'POST',
+        type: 'document',
+        mime: 'text/html',
+        status: 302,
+        text: '',
+      }),
+      entry('https://a.test/old', { type: 'document', mime: 'text/html', status: 302, text: '' }),
+    );
+    expect(entries.map((e) => `${e.method} ${e.url}`)).toEqual(['POST https://a.test/login']);
+  });
+});

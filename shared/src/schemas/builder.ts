@@ -22,6 +22,8 @@ export const recordedEntrySchema = z.object({
   requestBody: z.string().max(MAX_RECORDED_BODY),
   responseContentType: z.string().max(200),
   responseSample: z.string().max(MAX_RESPONSE_SAMPLE),
+  /** From the recorder: caused by the user (click, submit, Enter, page opened) or sent by the page itself. */
+  trigger: z.enum(['user', 'page']).optional(),
 });
 
 export const buildCollectionRequestSchema = z.object({
