@@ -237,7 +237,7 @@ Otomatik karşılıkları: `e2e/runs.spec.ts`, `server/tests/integration/runs.te
 | RE-06 | Çok sayıda arka plan isteği olan uzun bir akış kaydet | Sayfalar ve değişiklikler taslakta eksiksiz ve sırasında; atılan arka plan istekleri notta adıyla |
 | RE-05 | Bir mağazada ürün aç, sepete ekle, sepete git, sil; taslağı çalıştır | Sayfalar ve sepet istekleri taslakta; sepet sayfası eklenen ürünü gösterir (cookie taşındı) |
 
-Otomasyon: `parseHar`, `checkDraft`, `fitRecording`, `ollamaClient`, `recorderService` (sahte tarayıcıyla), `/api/recordings`, `/api/ai/build-collection`, `/api/collections/import`, `draftToImport`, `siteUrl`, `formBody`, `pageText`, `readJsonBody`, `cookieJar`, cookie'li collection çalıştırması (mock `/shop`) ve `e2e/builder.spec.ts` (AB-01…05, gerçek kayıt tarayıcısı + yerel mock site).
+Otomasyon: `parseHar`, `checkDraft`, `fitRecording`, `ollamaClient`, `recorderService` (sahte tarayıcıyla), `/api/recordings`, `/api/ai/build-collection`, `/api/collections/import`, `draftToImport`, `siteUrl`, `formBody`, `pageText`, `readJsonBody`, `cookieJar`, cookie'li collection çalıştırması (mock `/shop`) ve `e2e/builder.spec.ts` (AB-01…06, gerçek kayıt tarayıcısı + yerel mock site).
 
 ---
 
