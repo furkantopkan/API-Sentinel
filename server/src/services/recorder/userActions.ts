@@ -15,25 +15,38 @@ const MAX_EVENTS = 10_000;
 export interface ActionTracker {
   userActed(at?: number): void;
   navigationStarted(at?: number): void;
+  /** A change on the site (POST, PUT, PATCH, DELETE) was answered. */
+  changeAnswered(startedAt: number, answeredAt?: number): void;
   triggerOf(startedAt: number): Trigger;
 }
 
+/**
+ * Besides pages, one more thing ends what a click caused: once a change it
+ * sent has been answered, what follows is the page showing the result
+ * (seen on a shop: after "add to cart" answered, a box loaded payment
+ * options, delivery dates and offers). The change itself was sent at once.
+ */
 export function createActionTracker(now: () => number = Date.now): ActionTracker {
   const actions: number[] = [];
   const navigations: number[] = [];
-  const remember = (list: number[], at: number) => {
-    list.push(at);
+  const answers: { startedAt: number; answeredAt: number }[] = [];
+  const remember = <T>(list: T[], item: T) => {
+    list.push(item);
     if (list.length > MAX_EVENTS) list.shift();
   };
 
   return {
     userActed: (at = now()) => remember(actions, at),
     navigationStarted: (at = now()) => remember(navigations, at),
+    changeAnswered: (startedAt, answeredAt = now()) => remember(answers, { startedAt, answeredAt }),
     triggerOf(startedAt) {
       const action = actions.filter((at) => at <= startedAt).at(-1);
       if (action === undefined || startedAt - action > ACTION_WINDOW_MS) return 'page';
       const newPageSince = navigations.some((at) => at > action && at < startedAt);
-      return newPageSince ? 'page' : 'user';
+      const resultShown = answers.some(
+        (answer) => answer.startedAt >= action && answer.answeredAt <= startedAt,
+      );
+      return newPageSince || resultShown ? 'page' : 'user';
     },
   };
 }

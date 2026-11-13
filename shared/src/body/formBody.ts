@@ -16,6 +16,19 @@ export function isFormContentType(value: string): boolean {
   return value.toLowerCase().includes(FORM_CONTENT_TYPE);
 }
 
+/**
+ * The Content-Type of a body that is sent as typed: anything declared that is
+ * not JSON (a form, plain text, XML). Null means the body must be JSON, which
+ * is also the default when no Content-Type is given.
+ */
+export function bodySentAsTyped(headers: readonly HeaderRow[]): string | null {
+  const declared = headers.find(
+    (row) =>
+      row.enabled && row.key.trim().toLowerCase() === 'content-type' && row.value.trim() !== '',
+  );
+  return declared && !/json/i.test(declared.value) ? declared.value.trim() : null;
+}
+
 export function isFormBody(headers: readonly HeaderRow[]): boolean {
   return headers.some(
     (row) =>

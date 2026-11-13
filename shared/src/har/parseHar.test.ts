@@ -533,3 +533,16 @@ describe('parseHar and a page redrawing itself after a click', () => {
     ]);
   });
 });
+
+describe('parseHar and best-seller boxes after a click', () => {
+  it("does not count them as the user's", () => {
+    const result = parseHar(
+      har(
+        { ...entry('https://shop.test/api/basket/item/1', { method: 'DELETE' }), _trigger: 'user' },
+        { ...entry('https://shop.test/api/v1/product/top-selling?size=4'), _trigger: 'user' },
+      ),
+    );
+    if (!result.ok) throw new Error(result.error);
+    expect(result.entries.map((e) => e.url)).toEqual(['https://shop.test/api/basket/item/1']);
+  });
+});

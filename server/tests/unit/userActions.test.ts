@@ -50,3 +50,22 @@ describe('userActionScript', () => {
     expect(script).not.toContain('__name');
   });
 });
+
+// Seen on a shop: after "add to cart" was answered, a box loaded payment options and offers.
+describe('createActionTracker after a change was answered', () => {
+  it('gives what the page loads to show the result back to the page', () => {
+    const tracker = createActionTracker();
+    tracker.userActed(1000);
+    tracker.changeAnswered(1010, 1300);
+    expect(tracker.triggerOf(1010)).toBe('user');
+    expect(tracker.triggerOf(1200)).toBe('user');
+    expect(tracker.triggerOf(1350)).toBe('page');
+  });
+
+  it('does not let a change answered before the click end the next click', () => {
+    const tracker = createActionTracker();
+    tracker.changeAnswered(500, 900);
+    tracker.userActed(1000);
+    expect(tracker.triggerOf(1100)).toBe('user');
+  });
+});

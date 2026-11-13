@@ -1,6 +1,6 @@
 import {
   buildFinalUrl,
-  isFormBody,
+  bodySentAsTyped,
   resolveRequest,
   type ExecuteRequest,
   type VariableLookup,
@@ -168,7 +168,8 @@ export function RequestBuilder({
           <BodyEditor
             body={draft.body}
             method={draft.method}
-            form={isFormBody(draft.headers)}
+            form={bodySentAsTyped(draft.headers) !== null}
+            contentType={bodySentAsTyped(draft.headers) ?? undefined}
             onChange={(body) => dispatch({ type: 'setBody', body })}
           />
         )}

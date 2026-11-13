@@ -1,7 +1,7 @@
 import {
   FORM_CONTENT_TYPE,
   buildFinalUrl,
-  isFormBody,
+  bodySentAsTyped,
   type ExecuteRequest,
   type ExecutedResponse,
 } from '@api-sentinel/shared';
@@ -62,9 +62,9 @@ export function createRequestEngine(
     const url = new URL(urlResult.url);
 
     // The client validates the body too; never rely on that alone.
-    // A form body (declared by its Content-Type header) is sent as typed.
+    // A body declared as something else than JSON (a form, plain text) is sent as typed.
     const hasBody = request.body.trim() !== '';
-    if (hasBody && !isFormBody(request.headers)) {
+    if (hasBody && bodySentAsTyped(request.headers) === null) {
       try {
         JSON.parse(request.body);
       } catch {

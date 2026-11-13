@@ -15,6 +15,7 @@ import {
   type VariableLookup,
 } from '@api-sentinel/shared';
 import { FORBIDDEN_HEADERS } from '../request-engine/headerPolicy';
+import { PROMPT_BODY_CHARS } from './prompts';
 import { REDACTED } from './redact';
 
 const MAX_ASSERTIONS_PER_STEP = 8;
@@ -203,6 +204,24 @@ export interface CheckedDraft {
 
 type DraftStep = CollectionDraft['steps'][number];
 
+/** Page titles come from the page source: &amp; and the like are shown as the characters they stand for. */
+function decodeEntities(text: string): string {
+  const named: Record<string, string> = {
+    amp: '&',
+    lt: '<',
+    gt: '>',
+    quot: '"',
+    apos: "'",
+    nbsp: ' ',
+  };
+  return text.replace(/&(#\d+|#x[\da-f]+|[a-z]+);/gi, (whole, code: string) => {
+    if (code.startsWith('#x') || code.startsWith('#X'))
+      return String.fromCodePoint(parseInt(code.slice(2), 16));
+    if (code.startsWith('#')) return String.fromCodePoint(Number(code.slice(1)));
+    return named[code.toLowerCase()] ?? whole;
+  });
+}
+
 const clip = (text: string, max: number) =>
   text.length > max ? `${text.slice(0, max - 1)}…` : text;
 
@@ -223,7 +242,7 @@ function shortName(entry: RecordedEntry, original: string): string {
   const url = new URL(entry.url);
   if (entry.method === 'GET' && /html/i.test(entry.responseContentType)) {
     const title = original.split('\n')[0]?.trim() ?? '';
-    return `Open: ${clip(title !== '' ? title : actionOf(url), 60)}`;
+    return `Open: ${clip(decodeEntities(title !== '' ? title : actionOf(url)), 60)}`;
   }
   return `${entry.method} ${clip(actionOf(url).split(REDACTED).join('…'), 60)}`;
 }
@@ -436,6 +455,28 @@ function withoutRecordedId(assertion: SuggestedAssertion): SuggestedAssertion {
     : assertion;
 }
 
+/**
+ * Whether a body the model wrote can be sent like the recorded one: not
+ * empty, and still JSON when the recorded body was JSON ({{variables}} count
+ * as values, so "{{sku}}" in quotes is fine and a bare {{count}} is checked as a number).
+ */
+function sendable(body: string, entry: RecordedEntry): boolean {
+  if (body.trim() === '') return false;
+  const contentType = entry.requestHeaders.find(([name]) => name.toLowerCase() === 'content-type');
+  if (contentType && !/json/i.test(contentType[1])) return true;
+  try {
+    JSON.parse(entry.requestBody);
+  } catch {
+    return true; // the recorded body was not JSON either
+  }
+  try {
+    JSON.parse(resolveText(body, () => '1').text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Puts each added step after the last step that comes earlier in the recording. */
 function insertInRecordedOrder(steps: DraftStep[], added: DraftStep): void {
   let position = 0;
@@ -484,10 +525,21 @@ export function checkDraft(
   let droppedAssertions = 0;
   const steps: CollectionDraft['steps'] = [];
 
-  for (const step of output.steps) {
+  for (let step of output.steps) {
     const entry = entryByIndex.get(step.sourceIndex);
     if (!entry) continue;
 
+    // The model saw only the start of a long body, or wrote one that cannot be
+    // sent (empty, or no longer JSON): the recorded body is the sure one.
+    if (
+      entry.requestBody !== '' &&
+      (entry.requestBody.length > PROMPT_BODY_CHARS || !sendable(step.body, entry))
+    ) {
+      step = {
+        ...step,
+        body: withSecretVariables(entry.requestBody, (name) => secretVariable(name, variables)),
+      };
+    }
     const headers = withRecordedContentType(
       step.headers.filter(
         (header) => header.key.trim() !== '' && !FORBIDDEN_HEADERS.has(header.key.toLowerCase()),

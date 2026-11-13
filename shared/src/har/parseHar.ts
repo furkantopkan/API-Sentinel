@@ -94,6 +94,16 @@ const ANALYTICS_QUERY = /[?&](tid=(G|UA|AW|DC|GT)-|gtm=|_gid=)/i;
 const ANALYTICS_PART =
   /^(metrics|collect|measurement|telemetry|beacon|pixel|analytics|gtm|gtag|ccm|rmkt|pagead)$/i;
 
+/** Error reporting, analytics and ads: never part of a flow. */
+export function isNoiseUrl(url: string): boolean {
+  return TELEMETRY_URL.test(url) || isAnalyticsUrl(url);
+}
+
+/** The site an address belongs to (www.shop.com and api.shop.com are one), or null. */
+export function siteOfUrl(url: string): string | null {
+  return siteOf(hostOf(url));
+}
+
 export function isAnalyticsUrl(url: string): boolean {
   if (ANALYTICS_QUERY.test(url)) return true;
   try {
@@ -105,7 +115,7 @@ export function isAnalyticsUrl(url: string): boolean {
 
 /** Requests a page sends to fill its own boxes, also right after a click. */
 const UI_REFRESH =
-  /recommend|personali[sz]|seo|banner|advert|widget|suggest|dictionary|translation|i18n/i;
+  /recommend|personali[sz]|seo|banner|advert|widget|suggest|dictionary|translation|i18n|top-?selling|best-?seller|trending/i;
 
 /** Words in the address of an ad or tracking service; only applied to other sites. */
 const TRACKING_WORD =

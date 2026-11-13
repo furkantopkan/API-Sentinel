@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isFormBody, multipartToForm } from './formBody';
+import { bodySentAsTyped, isFormBody, multipartToForm } from './formBody';
 
 const part = (name: string, value: string, extra = '') =>
   `--B\r\nContent-Disposition: form-data; name="${name}"${extra}\r\n\r\n${value}\r\n`;
@@ -36,5 +36,22 @@ describe('multipartToForm', () => {
 
   it('refuses a Content-Type without a boundary', () => {
     expect(multipartToForm(`${part('a', '1')}--B--`, 'multipart/form-data')).toBeNull();
+  });
+});
+
+describe('bodySentAsTyped', () => {
+  const header = (value: string, enabled = true) => [{ key: 'Content-Type', value, enabled }];
+  it('gives the declared type of a body that is not JSON', () => {
+    expect(bodySentAsTyped(header('text/plain;charset=UTF-8'))).toBe('text/plain;charset=UTF-8');
+    expect(bodySentAsTyped(header('application/x-www-form-urlencoded'))).toBe(
+      'application/x-www-form-urlencoded',
+    );
+  });
+
+  it('is null for JSON, for no Content-Type and for a disabled one', () => {
+    expect(bodySentAsTyped(header('application/json; charset=utf-8'))).toBeNull();
+    expect(bodySentAsTyped(header('application/vnd.api+json'))).toBeNull();
+    expect(bodySentAsTyped([])).toBeNull();
+    expect(bodySentAsTyped(header('text/plain', false))).toBeNull();
   });
 });

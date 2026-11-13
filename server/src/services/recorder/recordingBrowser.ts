@@ -1,7 +1,9 @@
 import {
   MAX_RECORDED_BODY,
   MAX_RESPONSE_SAMPLE,
+  isNoiseUrl,
   responseSampleText,
+  siteOfUrl,
   type HarEntry,
 } from '@api-sentinel/shared';
 import type { Request, Response } from 'playwright';
@@ -14,10 +16,14 @@ const ACTION_BINDING = '__apiSentinelUserAction';
 
 /** A navigation of the main window (service worker requests have no frame). */
 function isMainPage(request: Request): boolean {
+  if (!request.isNavigationRequest()) return false;
   try {
-    return request.isNavigationRequest() && request.frame().parentFrame() === null;
+    return request.frame().parentFrame() === null;
   } catch {
-    return false;
+    // The page of a new tab (a link with target="_blank", as shops use for
+    // products) is requested before its frame exists. A frame inside a page
+    // always exists before it loads, so this can only be a new tab.
+    return request.resourceType() === 'document';
   }
 }
 const NAVIGATION_TIMEOUT_MS = 30_000;
@@ -103,15 +109,31 @@ export function createPlaywrightRecordingBrowser(options: { headless: boolean })
         tracker.userActed(reportedTime(at));
       });
       await context.addInitScript({ content: userActionScript(ACTION_BINDING) });
+      // The site is the one of the first page; only its own changes end what a click caused.
+      let site: string | null = null;
       context.on('request', (request) => {
         const at = Date.now();
         startedAt.set(request, at);
-        if (isMainPage(request)) tracker.navigationStarted(at);
+        if (isMainPage(request)) {
+          site ??= siteOfUrl(request.url());
+          tracker.navigationStarted(at);
+        }
       });
 
       context.on('response', (response) => {
         const request = response.request();
         const type = request.resourceType();
+        const start = startedAt.get(request);
+        if (
+          start !== undefined &&
+          (type === 'xhr' || type === 'fetch') &&
+          request.method() !== 'GET' &&
+          site !== null &&
+          siteOfUrl(request.url()) === site &&
+          !isNoiseUrl(request.url())
+        ) {
+          tracker.changeAnswered(start);
+        }
         // Pages count only in the main window: frames are mostly ads and widgets.
         const page = type === 'document' && isMainPage(request);
         if ((type !== 'xhr' && type !== 'fetch' && !page) || reads.length >= MAX_CAPTURED) return;

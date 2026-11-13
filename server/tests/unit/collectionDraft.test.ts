@@ -400,19 +400,28 @@ describe('checkDraft: form bodies', () => {
     ]);
   });
 
-  it('keeps the header the model wrote, and adds nothing to a step without a body', () => {
+  it('keeps the header the model wrote', () => {
     const own = [{ key: 'content-type', value: 'application/json' }];
     const { draft } = check(
-      output(
-        [
-          step(0, '{{baseUrl}}/cart/add', { body: '{"id":7}', headers: own }),
-          step(0, '{{baseUrl}}/cart/add'),
-        ],
-        [BASE],
-      ),
+      output([step(0, '{{baseUrl}}/cart/add', { body: '{"id":7}', headers: own })], [BASE]),
       [form],
     );
-    expect(draft.steps.map((s) => s.headers)).toEqual([own, []]);
+    expect(draft.steps[0]?.headers).toEqual(own);
+  });
+
+  // Sent without its body, "add to cart" would add nothing.
+  it('gives a step the model left without a body the recorded body and its type', () => {
+    const { draft } = check(output([step(0, '{{baseUrl}}/cart/add')], [BASE]), [form]);
+    expect(draft.steps[0]).toMatchObject({
+      body: 'product_id=7',
+      headers: [{ key: 'Content-Type', value: 'application/x-www-form-urlencoded' }],
+    });
+  });
+
+  it('adds no Content-Type to a step that sends no body', () => {
+    const read: RecordedEntry = { ...recorded(0, 'https://a.test/cart', '{}') };
+    const { draft } = check(output([step(0, '{{baseUrl}}/cart')], [BASE]), [read]);
+    expect(draft.steps[0]?.headers).toEqual([]);
   });
 });
 
@@ -753,5 +762,59 @@ describe('checkDraft: what is added from the recording', () => {
     ];
     const { draft } = checkDraft(output([], [BASE]), recording, new Map());
     expect(draft.steps.map((s) => s.sourceIndex)).toEqual([1]);
+  });
+});
+
+describe('checkDraft: long bodies and page titles', () => {
+  it('sends the whole recorded body when the model saw only its start', () => {
+    const body = JSON.stringify({ items: Array.from({ length: 200 }, (_, i) => ({ id: i })) });
+    const post: RecordedEntry = {
+      ...recorded(0, 'https://a.test/api/price', '{}'),
+      method: 'POST',
+      requestBody: body,
+    };
+    const { draft } = check(
+      output([step(0, '{{baseUrl}}/api/price', { body: body.slice(0, 1500) })], [BASE]),
+      [post],
+    );
+    expect(draft.steps[0]?.body).toBe(body);
+  });
+
+  it('shows the characters a page title stands for', () => {
+    const page: RecordedEntry = {
+      ...recorded(0, 'https://a.test/c', 'Ev Elektroniği &amp; Fiyatları &#8211; Shop'),
+      responseContentType: 'text/html',
+      trigger: 'user',
+    };
+    const { draft } = checkDraft(output([], [BASE]), [page], new Map([[0, page.responseSample]]));
+    expect(draft.steps[0]?.name).toBe('Open: Ev Elektroniği & Fiyatları – Shop');
+  });
+});
+
+describe('checkDraft: a body the model broke', () => {
+  const put: RecordedEntry = {
+    ...recorded(0, 'https://a.test/api/basket', '{}'),
+    method: 'PUT',
+    requestHeaders: [['content-type', 'application/json']],
+    requestBody: '{"product":{"sku":"HBC1"},"quantity":1}',
+  };
+  const bodyOf = (body: string) =>
+    check(
+      output(
+        [step(0, '{{baseUrl}}/api/basket', { body })],
+        [BASE, { key: 'sku', value: 'HBC1', secret: false }],
+      ),
+      [put],
+    ).draft.steps[0]?.body;
+
+  it('uses the recorded body when the model wrote broken JSON or none', () => {
+    expect(bodyOf('{"product":{"sku":"HBC1"},"quantity":')).toBe(put.requestBody);
+    expect(bodyOf('')).toBe(put.requestBody);
+  });
+
+  it('keeps a valid body the model wrote, with its variables', () => {
+    expect(bodyOf('{"product":{"sku":"{{sku}}"},"quantity":1}')).toBe(
+      '{"product":{"sku":"{{sku}}"},"quantity":1}',
+    );
   });
 });

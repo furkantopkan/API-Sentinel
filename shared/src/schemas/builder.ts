@@ -14,7 +14,8 @@ import { httpMethodSchema } from './http';
  */
 export const MAX_RECORDED_ENTRIES = 300;
 export const MAX_RESPONSE_SAMPLE = 3000;
-export const MAX_RECORDED_BODY = 4000;
+/** Bodies are kept whole for the steps; the AI is shown only their start. */
+export const MAX_RECORDED_BODY = 32_000;
 
 export const recordedEntrySchema = z.object({
   /** Position in the recording. Every draft step must point back to one of these. */

@@ -434,3 +434,32 @@ describe('form bodies', () => {
     ).toBe('INVALID_JSON_BODY');
   });
 });
+
+describe('bodies declared as something else than JSON', () => {
+  it('sends a plain text body as typed', async () => {
+    const response = await engine.execute(
+      req({
+        method: 'POST',
+        url: `${base}/echo`,
+        headers: [{ key: 'Content-Type', value: 'text/plain;charset=UTF-8', enabled: true }],
+        body: 'sku=1|qty=2',
+      }),
+    );
+    const echo = JSON.parse(response.body.kind === 'json' ? response.body.text : '{}') as {
+      body: string;
+    };
+    expect(echo.body).toBe('sku=1|qty=2');
+  });
+
+  it('still refuses a broken body declared as JSON', async () => {
+    const sending = engine.execute(
+      req({
+        method: 'POST',
+        url: `${base}/echo`,
+        headers: [{ key: 'Content-Type', value: 'application/json', enabled: true }],
+        body: '{"a":',
+      }),
+    );
+    expect(await errorCode(sending)).toBe('INVALID_JSON_BODY');
+  });
+});

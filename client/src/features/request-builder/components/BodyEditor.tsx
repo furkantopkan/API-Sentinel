@@ -9,10 +9,12 @@ interface BodyEditorProps {
   method: HttpMethod;
   /** True when the Content-Type header declares a form: the body is sent as typed. */
   form?: boolean;
+  /** The declared Content-Type of a body sent as typed. */
+  contentType?: string;
   onChange: (body: string) => void;
 }
 
-export function BodyEditor({ body, method, form = false, onChange }: BodyEditorProps) {
+export function BodyEditor({ body, method, form = false, contentType, onChange }: BodyEditorProps) {
   // Cheap enough to run on every render; no need to store it in state.
   const validation = form
     ? ({ ok: true, empty: body.trim() === '' } as const)
@@ -27,7 +29,11 @@ export function BodyEditor({ body, method, form = false, onChange }: BodyEditorP
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-slate-600">
-          {form ? 'Form body (x-www-form-urlencoded)' : 'JSON body'}
+          {!form
+            ? 'JSON body'
+            : contentType === undefined || /x-www-form-urlencoded/i.test(contentType)
+              ? 'Form body (x-www-form-urlencoded)'
+              : `Body sent as typed (${contentType})`}
         </span>
         {!form && (
           <Button onClick={handleFormat} disabled={!validation.ok || validation.empty}>
