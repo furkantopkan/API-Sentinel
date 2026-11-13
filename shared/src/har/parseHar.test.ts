@@ -422,3 +422,17 @@ describe('parseHar and subdomains of the site', () => {
     ]);
   });
 });
+
+describe('parseHar and values passed between requests of the site', () => {
+  it('does not keep a site request whose value only another site request uses', () => {
+    const result = parseHar(
+      har(
+        { ...entry('https://a.test/session', { text: '{"sid":"s-777777"}' }), _trigger: 'page' },
+        { ...entry('https://a.test/recommend?sid=s-777777'), _trigger: 'page' },
+        { ...entry('https://a.test/cart/add', { method: 'POST' }), _trigger: 'user' },
+      ),
+    );
+    if (!result.ok) throw new Error(result.error);
+    expect(result.entries.map((e) => e.url)).toEqual(['https://a.test/cart/add']);
+  });
+});
