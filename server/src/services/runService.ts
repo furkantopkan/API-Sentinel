@@ -11,6 +11,7 @@ import type { RunRepository } from '../repositories/runRepository';
 import type { CollectionService, ServiceClock } from './collectionService';
 import type { EnvironmentService } from './environmentService';
 import { applyCaptures, type FlowState } from './captures';
+import { botBlockMessage, botBlockOf } from './botBlock';
 import { createCookieJar } from './cookieJar';
 import { maskResponse, type ExecutionContext, type ExecutionService } from './executionService';
 
@@ -62,6 +63,20 @@ async function runOne(
       response = maskResponse(response, createSecretMasker(hidden));
     }
     const assertions = [...captures.results, ...evaluateAssertions(saved.assertions, response)];
+    // The site never answered the request itself: an error, not a failed check.
+    const blocked = botBlockOf(response.status, response.headers);
+    if (blocked !== null) {
+      return {
+        ...base,
+        outcome: 'error',
+        status: response.status,
+        statusText: response.statusText,
+        durationMs: response.durationMs,
+        errorCode: 'BLOCKED_BY_SITE',
+        errorMessage: botBlockMessage(blocked),
+        assertions,
+      };
+    }
     return {
       ...base,
       outcome: assertions.every((a) => a.outcome === 'pass') ? 'pass' : 'fail',

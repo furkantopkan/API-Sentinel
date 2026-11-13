@@ -164,6 +164,23 @@ describe('running a collection', () => {
     expect(blocked?.errorMessage).toContain('10.0.0.1');
   });
 
+  it("reports a refusal by the site's bot protection as an error that says so", async () => {
+    const run = await startRun(
+      await createCollection([
+        { name: 'Page', url: `${base}/bot-blocked` },
+        { name: 'Own 403', url: `${base}/status/403` },
+      ]),
+    );
+    const [own, page] = run.results; // runs in name order
+
+    expect(page).toMatchObject({ outcome: 'error', status: 403, errorCode: 'BLOCKED_BY_SITE' });
+    expect(page?.errorMessage).toContain('proxy-reason: blocked malicious bot');
+    expect(page?.assertions[0]).toMatchObject({ outcome: 'fail' });
+    // An API's own 403 is a normal failed check.
+    expect(own).toMatchObject({ outcome: 'fail', errorCode: null, errorMessage: null });
+    expect(run).toMatchObject({ failed: 1, errors: 1 });
+  });
+
   it('counts a request without assertions as passed when a response arrives', async () => {
     const run = await startRun(
       await createCollection([{ name: 'x', url: `${base}/json`, assertions: [] }]),

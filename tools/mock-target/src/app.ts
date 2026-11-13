@@ -39,6 +39,7 @@ export function createMockTargetApp(): Express {
       endpoints: [
         'GET /json',
         'GET /recording-page',
+        'GET /bot-blocked',
         'GET /text',
         'GET /html',
         'GET /empty',
@@ -76,6 +77,11 @@ export function createMockTargetApp(): Express {
       .send(
         "<button onclick=\"fetch('/json')\">Load</button><script>fetch('/nested'); setTimeout(() => document.querySelector('button').click(), 500);</script>",
       );
+  });
+
+  // What a shop's bot protection answers to a test tool (seen on a real site).
+  app.get('/bot-blocked', (_req, res) => {
+    res.status(403).set('Proxy-Reason', 'blocked malicious bot').end();
   });
 
   app.get('/json', (_req, res) => {
