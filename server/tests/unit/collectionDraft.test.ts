@@ -744,3 +744,14 @@ describe('checkDraft: a change added from the recording', () => {
     expect(draft.variables).toEqual([BASE]);
   });
 });
+
+describe('checkDraft: what is added from the recording', () => {
+  it('adds pages and changes, but leaves the choice of reads after a click to the model', () => {
+    const recording: RecordedEntry[] = [
+      { ...recorded(0, 'https://a.test/list?brand=lenovo', '{"items":[]}'), trigger: 'user' },
+      { ...recorded(1, 'https://a.test/api/basket', '{}'), method: 'PUT', trigger: 'user' },
+    ];
+    const { draft } = checkDraft(output([], [BASE]), recording, new Map());
+    expect(draft.steps.map((s) => s.sourceIndex)).toEqual([1]);
+  });
+});
