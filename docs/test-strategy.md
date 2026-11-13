@@ -232,6 +232,7 @@ Otomatik karşılıkları: `e2e/runs.spec.ts`, `server/tests/integration/runs.te
 | RE-02 | Finish yerine pencereyi kapat | Kayıt kendiliğinden toplanır |
 | RE-03 | Kayıt sırasında Cancel | Pencere kapanır, liste oluşmaz |
 | RE-04 | `http://192.168.1.1` | Pencere açılmadan hata |
+| RE-08 | Bir mağazada kategori, filtre, sepete ekle, sepetten sil; taslağı çalıştır | Yalnızca bu eylemler, düzgün adlarla; silme adımı kimliği sepete ekleme cevabından alır (`{{basketItemId}}`) ve geçer |
 | RE-07 | Sayfası kendi kendine istek atan bir sitede birkaç tıklama yap | Taslakta yalnızca açtığınız sayfalar ve tıklamalarınızın istekleri; notta "Left out N step(s)…" |
 | RE-06 | Çok sayıda arka plan isteği olan uzun bir akış kaydet | Sayfalar ve değişiklikler taslakta eksiksiz ve sırasında; atılan arka plan istekleri notta adıyla |
 | RE-05 | Bir mağazada ürün aç, sepete ekle, sepete git, sil; taslağı çalıştır | Sayfalar ve sepet istekleri taslakta; sepet sayfası eklenen ürünü gösterir (cookie taşındı) |
