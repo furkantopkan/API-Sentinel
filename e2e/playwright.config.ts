@@ -42,6 +42,9 @@ export default defineConfig({
         AI_MODE: 'mock',
         DB_PATH: ':memory:',
         RECORDER_HEADLESS: 'true',
+        // The suite calls the (mock) AI more than 10 times a minute across parallel tests;
+        // the limit itself is covered by the server's integration tests.
+        AI_RATE_LIMIT_PER_MINUTE: '1000',
       },
       reuseExistingServer: false,
       cwd: '..',

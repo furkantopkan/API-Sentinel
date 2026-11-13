@@ -164,3 +164,16 @@ test('AB-05: a shop flow keeps the form, the pages and the cart session', async 
   ).json()) as { run: { total: number; passed: number } };
   expect(run.run).toMatchObject({ total: 3, passed: 3 });
 });
+
+// Shops open products in a new tab; that page is requested before its tab exists.
+test('AB-06: a page opened in a new tab is part of the recording', async ({ page }) => {
+  const dialog = await openBuilder(page);
+  await dialog.getByLabel('Website to record').fill(`${MOCK}/shop/tab-flow`);
+  await dialog.getByRole('button', { name: 'Start recording' }).click();
+  await expect(dialog.getByRole('status')).toContainText('2 requests from your actions so far');
+  await dialog.getByRole('button', { name: 'Finish recording' }).click();
+  await dialog.getByRole('button', { name: 'Build draft' }).click();
+  await expect(dialog.getByRole('list', { name: 'Draft steps' })).toContainText(
+    '{{baseUrl}}/shop/product/7',
+  );
+});

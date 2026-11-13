@@ -105,6 +105,16 @@ export function addShopRoutes(app: Express): void {
     page(res, 'My cart', removed ? `<p>${productName(id)} removed</p>` : '<p>Not in your cart</p>');
   });
 
+  // A product link that opens in a new tab, as shops often do (clicked by the page for automated tests).
+  app.get('/shop/tab-flow', (_req, res) => {
+    page(
+      res,
+      'Shop list',
+      `<a href="/shop/product/7" target="_blank">${productName('7')}</a>
+      <script>setTimeout(() => document.querySelector('a').click(), 500);</script>`,
+    );
+  });
+
   app.get('/shop/flow', (_req, res) => {
     page(
       res,
