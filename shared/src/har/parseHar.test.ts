@@ -264,7 +264,7 @@ describe('parseHar with more requests than the limit', () => {
 });
 
 describe('parseHar with what the recorder saw', () => {
-  it('keeps who caused each request, and uses it to tell actions apart', () => {
+  it('uses only the user actions, but counts everything that was found', () => {
     const result = parseHar(
       har(
         { ...entry('https://a.test/cart/add', { method: 'POST' }), _trigger: 'user' },
@@ -273,8 +273,65 @@ describe('parseHar with what the recorder saw', () => {
       ),
     );
     if (!result.ok) throw new Error(result.error);
-    expect(result.entries.map((e) => e.trigger)).toEqual(['user', 'page', undefined]);
-    expect(result.entries.map(isUserAction)).toEqual([true, false, false]);
+    expect(result.entries.map((e) => [e.url, e.trigger])).toEqual([
+      ['https://a.test/cart/add', 'user'],
+    ]);
+    expect(result.found).toBe(3);
+  });
+
+  it('tells actions apart by who caused them', () => {
+    const recorded = (trigger: 'user' | 'page') => ({
+      method: 'GET' as const,
+      responseContentType: 'application/json',
+      responseSample: '{}',
+      trigger,
+    });
+    expect(isUserAction(recorded('user'))).toBe(true);
+    expect(isUserAction({ ...recorded('page'), method: 'POST' })).toBe(false);
+  });
+
+  // Without the cart id the site fetched by itself, "add to cart" could not run.
+  it('also uses a request of the site when a later action needs a value from it', () => {
+    const result = parseHar(
+      har(
+        { ...entry('https://a.test/cart', { text: '{"cartId":"c-123456"}' }), _trigger: 'page' },
+        { ...entry('https://a.test/ads', { text: '{"slot":"banner-1"}' }), _trigger: 'page' },
+        {
+          ...entry('https://a.test/cart/c-123456/items', { method: 'POST', body: '{"id":7}' }),
+          _trigger: 'user',
+        },
+        {
+          ...entry('https://a.test/later', { text: '{"token":"t-999999"}' }),
+          _trigger: 'page',
+        },
+      ),
+    );
+    if (!result.ok) throw new Error(result.error);
+    expect(result.entries.map((e) => [e.index, e.url])).toEqual([
+      [0, 'https://a.test/cart'],
+      [1, 'https://a.test/cart/c-123456/items'],
+    ]);
+  });
+
+  it('finds a needed value in a later header or body too, but not short values', () => {
+    const result = parseHar(
+      har(
+        {
+          ...entry('https://a.test/token', { text: '{"token":"tok-abcdef","n":1}' }),
+          _trigger: 'page',
+        },
+        { ...entry('https://a.test/size', { text: '{"n":1}' }), _trigger: 'page' },
+        {
+          ...entry('https://a.test/me?n=1', { headers: [['Authorization', 'Bearer tok-abcdef']] }),
+          _trigger: 'user',
+        },
+      ),
+    );
+    if (!result.ok) throw new Error(result.error);
+    expect(result.entries.map((e) => e.url)).toEqual([
+      'https://a.test/token',
+      'https://a.test/me?n=1',
+    ]);
   });
 
   it('keeps a classic form sent as a page load, also when it redirects', () => {
@@ -326,11 +383,18 @@ describe('parseHar and other sites', () => {
   });
 
   it("never counts a change sent to another site as the user's", () => {
-    const [, other] = parsedEntries(page, {
-      ...entry('https://api.partner.com/orders', { method: 'POST' }),
-      _trigger: 'user',
-    });
-    expect(other?.trigger).toBe('page');
+    const result = parseHar(
+      har(
+        { ...page, _trigger: 'user' },
+        {
+          ...entry('https://api.partner.com/orders', { method: 'POST' }),
+          _trigger: 'user',
+        },
+      ),
+    );
+    if (!result.ok) throw new Error(result.error);
+    expect(result.entries.map((e) => e.url)).toEqual(['https://www.shop.com.tr/']);
+    expect(result.found).toBe(2);
   });
 
   it('treats a shop under a country code as one site, but not two shops', () => {

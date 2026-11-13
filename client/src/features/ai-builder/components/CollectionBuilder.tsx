@@ -11,6 +11,7 @@ import { unwrap } from '../../collections/hooks/useCollections';
 import type { Environments } from '../../environments/hooks/useEnvironments';
 import { useFlowRecorder } from '../hooks/useFlowRecorder';
 import { draftToImport, isReadOnly, missingCaptures } from '../lib/draftToImport';
+import { recordingSummary } from '../lib/recordingSummary';
 import { FlowRecorderPanel } from './FlowRecorderPanel';
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
@@ -174,10 +175,7 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
           <>
             <FlowRecorderPanel recorder={recorder} />
             {entries && !recording && (
-              <p className="text-xs text-slate-600">
-                {found} request{found === 1 ? '' : 's'} found
-                {found > entries.length && `; the first ${entries.length} will be used`}.
-              </p>
+              <p className="text-xs text-slate-600">{recordingSummary(entries, found)}</p>
             )}
             <label className="block text-xs font-medium text-slate-600">
               What do you want to test? (optional)

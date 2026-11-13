@@ -205,6 +205,50 @@ export function keepActions(entries: readonly RecordedEntry[], max: number): Rec
     .map((entry, index) => ({ ...entry, index }));
 }
 
+/** Values in a JSON answer that could be reused later: ids, tokens, codes. */
+function reusableValues(sample: string): Set<string> {
+  const values = new Set<string>();
+  let document: unknown;
+  try {
+    document = JSON.parse(sample) as unknown;
+  } catch {
+    return values;
+  }
+  const visit = (value: unknown, depth: number) => {
+    if (depth > 20 || values.size > 500) return;
+    if (Array.isArray(value)) value.forEach((item) => visit(item, depth + 1));
+    else if (value !== null && typeof value === 'object') {
+      Object.values(value).forEach((item) => visit(item, depth + 1));
+    } else if (typeof value === 'string' || typeof value === 'number') {
+      const text = String(value);
+      // Short values (1, "ok", true) would match by chance.
+      if (text.length >= 4 && text.length <= 500 && /[\dA-Za-z]/.test(text)) values.add(text);
+    }
+  };
+  visit(document, 0);
+  return values;
+}
+
+/**
+ * The user's actions, and the requests the site sent by itself only when a
+ * later action uses a value from their answer (a cart id, a token): without
+ * them the flow could not run. Everything else the site sent is left out.
+ */
+export function actionsAndWhatTheyNeed(entries: readonly RecordedEntry[]): RecordedEntry[] {
+  return entries.filter((entry, position) => {
+    if (isUserAction(entry)) return true;
+    const values = reusableValues(entry.responseSample);
+    if (values.size === 0) return false;
+    return entries.slice(position + 1).some((later) => {
+      if (!isUserAction(later)) return false;
+      const sent = [later.url, later.requestBody, ...later.requestHeaders.map(([, v]) => v)].join(
+        '\n',
+      );
+      return [...values].some((value) => sent.includes(value));
+    });
+  });
+}
+
 export function parseHar(json: unknown): ParseHarResult {
   const parsed = harSchema.safeParse(json);
   if (!parsed.success) return { ok: false, error: 'This file is not a valid HAR recording.' };
@@ -268,5 +312,13 @@ export function parseHar(json: unknown): ParseHarResult {
     });
   }
 
-  return { ok: true, entries: keepActions(entries, MAX_RECORDED_ENTRIES), found: entries.length };
+  // With the recorder's click information, only the user's actions are used,
+  // plus what they depend on. A HAR file has no such information.
+  const recorded = entries.some((entry) => entry.trigger !== undefined);
+  const used = recorded ? actionsAndWhatTheyNeed(entries) : entries;
+  return {
+    ok: true,
+    entries: keepActions(used, MAX_RECORDED_ENTRIES).map((entry, index) => ({ ...entry, index })),
+    found: entries.length,
+  };
 }

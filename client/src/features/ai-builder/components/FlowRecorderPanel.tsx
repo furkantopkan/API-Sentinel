@@ -22,7 +22,7 @@ export function FlowRecorderPanel({ recorder }: { recorder: FlowRecorder }) {
               that window when you are done.
             </p>
             <p className="text-xs">
-              {captured} request{captured === 1 ? '' : 's'} captured so far.
+              {captured} request{captured === 1 ? '' : 's'} from your actions so far.
             </p>
             <div className="flex items-center gap-2">
               <Button variant="primary" size="md" onClick={() => void recorder.finish()}>

@@ -123,7 +123,8 @@ export function createPlaywrightRecordingBrowser(options: { headless: boolean })
           toHarEntry(response, trigger).then(
             (entry) => {
               results[slot] = entry;
-              if (entry) count += 1;
+              // The live count shows the user's own requests, not the site's background traffic.
+              if (trigger === 'user') count += 1;
             },
             // The page navigated away before the body could be read: nothing to keep.
             () => undefined,

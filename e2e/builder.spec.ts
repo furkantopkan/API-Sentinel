@@ -20,10 +20,15 @@ test('AB-01: record a flow, build a draft and create a collection', async ({ pag
 
   await dialog.getByLabel('Website to record').fill(`${MOCK}/recording-page`);
   await dialog.getByRole('button', { name: 'Start recording' }).click();
-  await expect(dialog.getByRole('status')).toContainText('3 requests captured');
+  // The page and the request of the click; /nested is sent by the page itself.
+  await expect(dialog.getByRole('status')).toContainText('2 requests from your actions so far');
 
   await dialog.getByRole('button', { name: 'Finish recording' }).click();
-  await expect(dialog.getByText('3 requests found.')).toBeVisible();
+  await expect(
+    dialog.getByText(
+      '2 requests from your actions. 1 other request the site sent by itself will not be used.',
+    ),
+  ).toBeVisible();
 
   // The goal is optional: showing the flow is enough.
   await dialog.getByRole('button', { name: 'Build draft' }).click();
@@ -32,9 +37,6 @@ test('AB-01: record a flow, build a draft and create a collection', async ({ pag
   await expect(steps.getByRole('listitem')).toHaveCount(2);
   await expect(steps).toContainText('{{baseUrl}}/json');
   await expect(steps).not.toContainText('/nested');
-  await expect(
-    dialog.getByText(/Left out 1 step\(s\) for requests the site sent by itself/),
-  ).toBeVisible();
 
   const name = `Recorded flow ${Date.now()}`;
   await dialog.getByLabel('Collection name').fill(name);
@@ -104,9 +106,9 @@ test('AB-05: a shop flow keeps the form, the pages and the cart session', async 
   const dialog = await openBuilder(page);
   await dialog.getByLabel('Website to record').fill(`${MOCK}/shop/flow`);
   await dialog.getByRole('button', { name: 'Start recording' }).click();
-  await expect(dialog.getByRole('status')).toContainText('3 requests captured');
+  await expect(dialog.getByRole('status')).toContainText('3 requests from your actions so far');
   await dialog.getByRole('button', { name: 'Finish recording' }).click();
-  await expect(dialog.getByText('3 requests found.')).toBeVisible();
+  await expect(dialog.getByText('3 requests from your actions.')).toBeVisible();
 
   await dialog.getByRole('button', { name: 'Build draft' }).click();
   const steps = dialog.getByRole('list', { name: 'Draft steps' });
