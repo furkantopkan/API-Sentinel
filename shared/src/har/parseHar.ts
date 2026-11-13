@@ -103,6 +103,10 @@ export function isAnalyticsUrl(url: string): boolean {
   }
 }
 
+/** Requests a page sends to fill its own boxes, also right after a click. */
+const UI_REFRESH =
+  /recommend|personali[sz]|seo|banner|advert|widget|suggest|dictionary|translation|i18n/i;
+
 /** Words in the address of an ad or tracking service; only applied to other sites. */
 const TRACKING_WORD =
   /pixel|track|collect|analytic|telemetry|beacon|metric|adservice|pagead|doubleclick|\/ads?\/|\/sdk\/|\/ccm\/|\/rmkt\//i;
@@ -312,6 +316,9 @@ export function parseHar(json: unknown): ParseHarResult {
       if (kind !== 'api' || TRACKING_WORD.test(request.url.split('?')[0] ?? '')) continue;
       if (method !== 'GET') trigger = 'page';
     }
+    // A page redraws itself after a click: recommendations, personalisation,
+    // SEO texts. They follow the click but are not what the user did.
+    if (trigger === 'user' && kind !== 'page' && UI_REFRESH.test(request.url)) trigger = 'page';
 
     const key = `${method} ${request.url}`;
     if (seen.has(key)) continue;

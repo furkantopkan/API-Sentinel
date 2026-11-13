@@ -100,9 +100,17 @@ describe('checkDraft: every step must come from the recording', () => {
       { key: 'apiToken', value: 'guessed', secret: true },
       { key: 'copied', value: 'x[REDACTED]', secret: false },
     ];
-    expect(check(output([], variables)).draft.variables).toEqual([
+    const uses = step(0, 'https://a.test/users?t={{apiToken}}&c={{copied}}');
+    expect(check(output([uses], variables)).draft.variables).toEqual([
       { key: 'apiToken', value: '', secret: true },
       { key: 'copied', value: '', secret: true },
+    ]);
+  });
+
+  it('leaves out variables no step uses', () => {
+    const variables = [BASE, { key: 'unused', value: 'x', secret: false }];
+    expect(check(output([step(0, '{{baseUrl}}/users')], variables)).draft.variables).toEqual([
+      BASE,
     ]);
   });
 });
@@ -598,5 +606,141 @@ describe('names of steps added from the recording', () => {
     };
     const { draft } = checkDraft(output([], [BASE]), [change], new Map());
     expect(draft.steps[0]?.name).toBe('POST checkout/cart/add');
+  });
+});
+
+// On a real shop "remove from cart" failed with 400: it sent the item id of the recorded session.
+describe('checkDraft: ids passed from one step to a later one', () => {
+  const ITEM = '4f4e1074-65f5-43ed-913b-bc6bab7753ef';
+  const add: RecordedEntry = {
+    ...recorded(0, 'https://a.test/api/basket', ''),
+    method: 'PUT',
+    trigger: 'user',
+    responseSample: JSON.stringify({
+      result: { products: [{ sku: 'HBC1', basketItemId: ITEM }], total: 1 },
+    }),
+  };
+  const remove: RecordedEntry = {
+    ...recorded(
+      1,
+      `https://a.test/api/basket/item/${ITEM}`,
+      `{"result":{"basketItemId":"${ITEM}"}}`,
+    ),
+    method: 'DELETE',
+    trigger: 'user',
+  };
+  const samples = new Map([add, remove].map((e) => [e.index, e.responseSample]));
+  const draftFor = (steps: Step[], variables = [BASE]) =>
+    checkDraft(output(steps, variables), [add, remove], samples).draft;
+
+  it('captures the id from the answer that gave it and uses it later', () => {
+    const draft = draftFor([
+      step(0, '{{baseUrl}}/api/basket'),
+      step(1, `{{baseUrl}}/api/basket/item/${ITEM}`),
+    ]);
+    expect(draft.steps[0]?.captures).toEqual([
+      { variable: 'basketItemId', path: 'result.products[0].basketItemId', secret: false },
+    ]);
+    expect(draft.steps[1]?.url).toBe('{{baseUrl}}/api/basket/item/{{basketItemId}}');
+  });
+
+  it('checks that a changing id is there instead of expecting the recorded one', () => {
+    const equalsId: SuggestedAssertion = {
+      kind: 'jsonPath',
+      target: 'result.basketItemId',
+      operator: 'equals',
+      expected: `"${ITEM}"`,
+    };
+    const equalsWord: SuggestedAssertion = {
+      ...equalsId,
+      target: 'result.sku',
+      expected: '"HBC1-ok"',
+    };
+    const draft = draftFor([
+      step(0, '{{baseUrl}}/api/basket'),
+      step(1, `{{baseUrl}}/api/basket/item/${ITEM}`, { assertions: [equalsId, equalsWord] }),
+    ]);
+    expect(draft.steps[1]?.assertions.map((a) => `${a.target} ${a.operator}`)).toContain(
+      'result.basketItemId exists',
+    );
+  });
+
+  it('reuses the name of a variable the model defined but nothing uses', () => {
+    const draft = draftFor(
+      [step(0, '{{baseUrl}}/api/basket'), step(1, `{{baseUrl}}/api/basket/item/${ITEM}`)],
+      [BASE, { key: 'basketItemId', value: '', secret: false }],
+    );
+    expect(draft.steps[1]?.url).toBe('{{baseUrl}}/api/basket/item/{{basketItemId}}');
+    expect(draft.variables.map((v) => v.key)).toEqual(['baseUrl']);
+  });
+
+  it('leaves words, small numbers and values the user chose alone', () => {
+    const list: RecordedEntry = {
+      ...recorded(0, 'https://a.test/list', '{"page":2,"brand":"lenovo","count":12345}'),
+      trigger: 'user',
+    };
+    const next: RecordedEntry = {
+      ...recorded(1, 'https://a.test/list?page=2&brand=lenovo&count=12345', '{}'),
+      trigger: 'user',
+    };
+    const { draft } = checkDraft(
+      output(
+        [step(0, '{{baseUrl}}/list'), step(1, '{{baseUrl}}/list?page=2&brand=lenovo&count=12345')],
+        [BASE],
+      ),
+      [list, next],
+      new Map([list, next].map((e) => [e.index, e.responseSample])),
+    );
+    expect(draft.steps[1]?.url).toBe('{{baseUrl}}/list?page=2&brand=lenovo&count=12345');
+    expect(draft.steps[0]?.captures).toEqual([]);
+  });
+});
+
+describe('checkDraft: a change added from the recording', () => {
+  // A shop's basket API answered 401 without the headers the page had sent.
+  it('keeps every header the page sent, with masked ones as blank secrets', () => {
+    const put: RecordedEntry = {
+      ...recorded(0, 'https://a.test/api/basket', '{}'),
+      method: 'PUT',
+      trigger: 'user',
+      requestBody: '{"id":7}',
+      requestHeaders: [
+        ['content-type', 'application/json'],
+        ['client-id', 'c-1'],
+        ['tenant-id', 't-1'],
+        ['authorization', '[REDACTED]'],
+      ],
+    };
+    const { draft } = checkDraft(output([], [BASE]), [put], new Map());
+    expect(draft.steps[0]?.headers).toEqual([
+      { key: 'Content-Type', value: 'application/json' },
+      { key: 'client-id', value: 'c-1' },
+      { key: 'tenant-id', value: 't-1' },
+      { key: 'authorization', value: '{{authorization}}' },
+    ]);
+  });
+
+  it('chains an id even when the model copied it into a variable, and names the step without it', () => {
+    const ITEM = '03c4c61b-c0ca-4df9-80ff-844b2c63b222';
+    const add: RecordedEntry = {
+      ...recorded(0, 'https://a.test/api/basket', JSON.stringify({ basketItemId: ITEM })),
+      method: 'PUT',
+      trigger: 'user',
+    };
+    const remove: RecordedEntry = {
+      ...recorded(1, `https://a.test/api/basket/item/${ITEM}`, '{}'),
+      method: 'DELETE',
+      trigger: 'user',
+    };
+    const { draft } = checkDraft(
+      output([], [BASE, { key: 'itemId', value: ITEM, secret: false }]),
+      [add, remove],
+      new Map([add, remove].map((e) => [e.index, e.responseSample])),
+    );
+    expect(draft.steps.map((s) => [s.name, s.url])).toEqual([
+      ['PUT api/basket', '{{baseUrl}}/api/basket'],
+      ['DELETE basket/item', '{{baseUrl}}/api/basket/item/{{basketItemId}}'],
+    ]);
+    expect(draft.variables).toEqual([BASE]);
   });
 });

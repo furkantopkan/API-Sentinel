@@ -514,3 +514,22 @@ describe('keepActions with more user actions than the limit', () => {
     ]);
   });
 });
+
+describe('parseHar and a page redrawing itself after a click', () => {
+  it("does not count recommendations, SEO texts or dictionaries as the user's", () => {
+    const result = parseHar(
+      har(
+        { ...entry('https://shop.test/api/basket/item/1', { method: 'DELETE' }), _trigger: 'user' },
+        { ...entry('https://reco.shop.test/recommendation?type=cart'), _trigger: 'user' },
+        { ...entry('https://shop.test/api/v1/onlySeo', { method: 'POST' }), _trigger: 'user' },
+        { ...entry('https://shop.test/api/v1/dictionary/98'), _trigger: 'user' },
+        { ...entry('https://shop.test/api/products?brand=lenovo'), _trigger: 'user' },
+      ),
+    );
+    if (!result.ok) throw new Error(result.error);
+    expect(result.entries.map((e) => e.url)).toEqual([
+      'https://shop.test/api/basket/item/1',
+      'https://shop.test/api/products?brand=lenovo',
+    ]);
+  });
+});

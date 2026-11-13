@@ -1,4 +1,5 @@
 import {
+  MAX_RECORDED_ENTRIES,
   collectionResponseSchema,
   finishRecordingResponseSchema,
   recordingStatusResponseSchema,
@@ -274,6 +275,25 @@ describe('POST /api/ai/build-collection', () => {
       .post('/api/ai/build-collection')
       .send({ goal: 'Check', entries: [entry] })
       .expect(429);
+  });
+
+  // The whole flow must reach the builder, even when it is long; other routes keep the 1 MB limit.
+  it('accepts a long recording beyond the normal body limit', async () => {
+    const { app } = appWith({ answer });
+    const long = Array.from({ length: MAX_RECORDED_ENTRIES }, (_, index) => ({
+      ...entry,
+      index,
+      url: `https://a.test/me/${String(index)}`,
+      requestBody: 'b'.repeat(4000),
+      responseSample: 's'.repeat(3000),
+    }));
+    const body = { goal: 'Check', entries: long };
+    expect(JSON.stringify(body).length).toBeGreaterThan(1024 * 1024);
+    await request(app).post('/api/ai/build-collection').send(body).expect(200);
+    await request(app)
+      .post('/api/collections')
+      .send({ name: 'x'.repeat(1024 * 1024 + 10) })
+      .expect(413);
   });
 
   it('needs a goal and at least one request', async () => {

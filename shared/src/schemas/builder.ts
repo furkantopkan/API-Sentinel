@@ -8,8 +8,11 @@ import { httpMethodSchema } from './http';
  * written by the user become a draft collection, which the user reviews.
  */
 
-/** A few KB each: 60 stay well under the 1 MB limit of our own API. */
-export const MAX_RECORDED_ENTRIES = 60;
+/**
+ * Only a guard against runaway recordings: the user's own actions rarely
+ * come near it. A few KB each; the builder route accepts up to 10 MB.
+ */
+export const MAX_RECORDED_ENTRIES = 300;
 export const MAX_RESPONSE_SAMPLE = 3000;
 export const MAX_RECORDED_BODY = 4000;
 

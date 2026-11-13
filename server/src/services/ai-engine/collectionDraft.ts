@@ -213,7 +213,8 @@ const clip = (text: string, max: number) =>
 function actionOf(url: URL): string {
   const named = [...url.searchParams.values()].find((value) => /^[\w-]+(\/[\w-]+)+$/.test(value));
   if (named) return named;
-  const parts = url.pathname.split('/').filter((part) => part !== '');
+  // Ids say nothing about the action and change on every run.
+  const parts = url.pathname.split('/').filter((part) => part !== '' && !isIdentifier(part));
   return parts.length === 0 ? 'home page' : parts.slice(-2).join('/');
 }
 
@@ -261,8 +262,11 @@ function stepFromRecording(
         ([name]) =>
           name.toLowerCase() !== 'content-type' && !FORBIDDEN_HEADERS.has(name.toLowerCase()),
       )
-      .filter(([, value]) => value === REDACTED)
-      .map(([name]) => ({ key: name, value: `{{${secret(name)}}}` })),
+      // Every header the page sent: APIs often need their own (client ids, tenant ids).
+      .map(([name, value]) => ({
+        key: name,
+        value: value === REDACTED ? `{{${secret(name)}}}` : value,
+      })),
   );
   if ([url, body].some((text) => text.includes(REDACTED))) return null;
 
@@ -318,6 +322,118 @@ function withSecretVariables(text: string, secret: (name: string) => string): st
       new RegExp(`"([^"]+)"(\\s*:\\s*)"${marker}"`, 'g'),
       (_m, key: string, colon: string) => `"${key}"${colon}"{{${secret(key)}}}"`,
     );
+}
+
+/** Values that identify something and change between runs: ids, uuids, codes. Not words or small numbers. */
+function isIdentifier(text: string): boolean {
+  return text.length >= 6 && text.length <= 200 && /\d/.test(text) && /^[\w.:~-]+$/.test(text);
+}
+
+const IDENTIFIER_KEY = /^[A-Za-z_$][\w$]*$/;
+
+/** Every identifier in a JSON document, with the path that reaches it. */
+function identifiersIn(document: unknown): Map<string, { path: string; key: string }> {
+  const found = new Map<string, { path: string; key: string }>();
+  const visit = (value: unknown, path: string, key: string, depth: number) => {
+    if (depth > 12 || found.size > 2000) return;
+    if (Array.isArray(value)) {
+      value.forEach((item, index) => visit(item, `${path}[${String(index)}]`, key, depth + 1));
+    } else if (value !== null && typeof value === 'object') {
+      for (const [name, child] of Object.entries(value)) {
+        const step = IDENTIFIER_KEY.test(name)
+          ? `${path === '' ? '' : '.'}${name}`
+          : `[${JSON.stringify(name)}]`;
+        visit(child, `${path}${step}`, name, depth + 1);
+      }
+    } else if (
+      typeof value === 'string' ||
+      (typeof value === 'number' && Number.isInteger(value))
+    ) {
+      const text = String(value);
+      // The first place wins: it is usually the main one (products[0], not a copy further down).
+      if (isIdentifier(text) && !found.has(text)) found.set(text, { path, key });
+    }
+  };
+  visit(document, '', 'value', 0);
+  return found;
+}
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * A later step that sends an id an earlier step received (the cart item id
+ * that "add to cart" returned, used by "remove") must take it from that
+ * answer on every run: the recorded id belongs to the recorded session.
+ * Found by comparing the recording, not left to the model.
+ */
+function chainValues(
+  steps: CollectionDraft['steps'],
+  samples: ReadonlyMap<number, string>,
+  variables: Map<string, { value: string; secret: boolean }>,
+): CollectionDraft['steps'] {
+  const result = steps.map((step) => ({ ...step, captures: [...step.captures] }));
+  const taken = new Set([
+    ...variables.keys(),
+    ...steps.flatMap((s) => s.captures.map((c) => c.variable)),
+  ]);
+  const answers = result.map((step) => {
+    const sample = samples.get(step.sourceIndex) ?? '';
+    let document: unknown;
+    try {
+      document = JSON.parse(sample) as unknown;
+    } catch {
+      document = visiblePartOf(sample);
+    }
+    return document === undefined
+      ? new Map<string, { path: string; key: string }>()
+      : identifiersIn(document);
+  });
+
+  result.forEach((step, position) => {
+    const texts = () => [step.url, step.body, ...step.headers.map((h) => h.value)].join('\n');
+    for (let earlier = position - 1; earlier >= 0; earlier--) {
+      for (const [value, where] of answers[earlier] ?? []) {
+        const pattern = new RegExp(`(?<![\\w-])${escapeRegExp(value)}(?![\\w-])`, 'g');
+        if (!pattern.test(texts())) continue;
+
+        const source = result[earlier]!;
+        let variable = source.captures.find((c) => c.path === where.path)?.variable;
+        if (variable === undefined) {
+          const base = where.key.replace(/[^\w]/g, '_').replace(/^(?=\d)/, '_') || 'value';
+          // A variable the model defined with this name but no step uses can give way.
+          if (variables.has(base) && !result.some((s) => usesVariable(s, base))) {
+            variables.delete(base);
+            taken.delete(base);
+          }
+          variable = base;
+          for (let n = 2; taken.has(variable); n++) variable = `${base}${String(n)}`;
+          taken.add(variable);
+          source.captures.push({ variable, path: where.path, secret: false });
+        }
+        const placeholder = `{{${variable}}}`;
+        const swap = (text: string) => text.replace(pattern, placeholder);
+        step.url = swap(step.url);
+        step.body = swap(step.body);
+        step.headers = step.headers.map((h) => ({ ...h, value: swap(h.value) }));
+      }
+    }
+  });
+  return result.map((step) => ({ ...step, assertions: step.assertions.map(withoutRecordedId) }));
+}
+
+const usesVariable = (step: CollectionDraft['steps'][number], name: string) =>
+  variablesUsedBy(step).has(name);
+
+/**
+ * "id equals <the recorded id>" fails on every run, as the id is new each
+ * time; whether the field is there is what can be checked.
+ */
+function withoutRecordedId(assertion: SuggestedAssertion): SuggestedAssertion {
+  if (assertion.kind !== 'jsonPath' || assertion.operator !== 'equals') return assertion;
+  const expected = assertion.expected.trim().replace(/^"(.*)"$/, '$1');
+  return (isIdentifier(expected) && /[A-Za-z]/.test(expected)) || /^\d{8,}$/.test(expected)
+    ? { ...assertion, operator: 'exists', expected: '' }
+    : assertion;
 }
 
 /** Puts each added step after the last step that comes earlier in the recording. */
@@ -414,6 +530,8 @@ export function checkDraft(
   const modelSteps = steps.length;
   for (const entry of recording) {
     if (covered.has(entry.index) || !isUserAction(entry)) continue;
+    // Pages and changes are certain; which reads after a click matter is the model's call.
+    if (entry.method === 'GET' && !/html/i.test(entry.responseContentType)) continue;
     const added = stepFromRecording(entry, originalSamples.get(entry.index) ?? '', variables);
     if (added) insertInRecordedOrder(steps, added);
   }
@@ -423,16 +541,23 @@ export function checkDraft(
   // Only the recorder knows this for sure: without its "trigger" (a HAR
   // file), a GET the user's click caused looks like any other.
   const recordedByIndex = new Map(recording.map((entry) => [entry.index, entry]));
-  const flow = withoutUnusedCaptures(steps).filter((step) => {
-    const entry = recordedByIndex.get(step.sourceIndex) ?? entryByIndex.get(step.sourceIndex);
-    return entry?.trigger !== 'page' || step.captures.length > 0;
-  });
+  const flow = chainValues(
+    withoutUnusedCaptures(steps).filter((step) => {
+      const entry = recordedByIndex.get(step.sourceIndex) ?? entryByIndex.get(step.sourceIndex);
+      return entry?.trigger !== 'page' || step.captures.length > 0;
+    }),
+    originalSamples,
+    variables,
+  );
 
   return {
     draft: {
       collectionName: output.collectionName.trim().slice(0, 200) || 'AI collection',
       steps: flow,
-      variables: [...variables].map(([key, variable]) => ({ key, ...variable })),
+      // A variable no step uses (often the model's copy of a recorded id) is only clutter.
+      variables: [...variables]
+        .filter(([key]) => flow.some((step) => usesVariable(step, key)))
+        .map(([key, variable]) => ({ key, ...variable })),
       notes: output.notes.slice(0, 20),
     },
     droppedSteps: output.steps.length - modelSteps,

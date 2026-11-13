@@ -43,6 +43,8 @@ export interface AppDependencies {
   recordingBrowser?: RecordingBrowser;
 }
 
+/** Up to 300 recorded requests of a few KB each (MAX_RECORDED_ENTRIES). */
+const BUILD_COLLECTION_BODY_LIMIT = '10mb';
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
 
 function aiClientFor(config: AppConfig): AiClient | null {
@@ -100,6 +102,8 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
 
   if (config.serveClient) app.use(localHostOnly);
 
+  // A long recording is sent to the AI builder in one piece; everything else keeps the normal limit.
+  app.use('/api/ai/build-collection', express.json({ limit: BUILD_COLLECTION_BODY_LIMIT }));
   app.use(express.json({ limit: config.requestBodyLimit }));
 
   app.use(
