@@ -1,1 +1,78 @@
 @import 'tailwindcss';
+
+/* `dark:` classes apply when the page is in the dark theme (set by features/theme). */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/*
+ * Dark theme. Tailwind's colour classes read CSS variables, so the whole UI is
+ * redrawn by giving those variables dark values here, instead of adding a
+ * `dark:` class next to every colour in every component:
+ * - slate (backgrounds, borders, text) is turned around: light shades become
+ *   dark ones and dark text becomes light;
+ * - white is the colour of cards and panels;
+ * - coloured shades used as backgrounds (50–200) become dark tints of that
+ *   colour, and coloured text (700–900) becomes light. Buttons (500–600) stay.
+ * The few places this cannot cover use `dark:` classes in the component.
+ */
+:root[data-theme='dark'] {
+  --color-white: #131b2e;
+  --color-slate-50: #0b1120;
+  --color-slate-100: #1e293b;
+  --color-slate-200: #334155;
+  --color-slate-300: #475569;
+  --color-slate-400: #64748b;
+  --color-slate-500: #94a3b8;
+  --color-slate-600: #cbd5e1;
+  --color-slate-700: #e2e8f0;
+  --color-slate-800: #f1f5f9;
+  --color-slate-900: #f8fafc;
+
+  --color-red-50: color-mix(in oklab, #ef4444 14%, #131b2e);
+  --color-red-100: color-mix(in oklab, #ef4444 26%, #131b2e);
+  --color-red-200: color-mix(in oklab, #ef4444 42%, #131b2e);
+  --color-red-700: #fca5a5;
+  --color-red-800: #fecaca;
+  --color-red-900: #fee2e2;
+
+  --color-amber-50: color-mix(in oklab, #f59e0b 14%, #131b2e);
+  --color-amber-100: color-mix(in oklab, #f59e0b 26%, #131b2e);
+  --color-amber-200: color-mix(in oklab, #f59e0b 42%, #131b2e);
+  --color-amber-700: #fcd34d;
+  --color-amber-800: #fde68a;
+  --color-amber-900: #fef3c7;
+
+  --color-emerald-50: color-mix(in oklab, #10b981 14%, #131b2e);
+  --color-emerald-100: color-mix(in oklab, #10b981 26%, #131b2e);
+  --color-emerald-200: color-mix(in oklab, #10b981 42%, #131b2e);
+  --color-emerald-700: #6ee7b7;
+  --color-emerald-800: #a7f3d0;
+  --color-emerald-900: #d1fae5;
+
+  --color-sky-50: color-mix(in oklab, #0ea5e9 14%, #131b2e);
+  --color-sky-100: color-mix(in oklab, #0ea5e9 26%, #131b2e);
+  --color-sky-200: color-mix(in oklab, #0ea5e9 42%, #131b2e);
+  --color-sky-700: #7dd3fc;
+  --color-sky-800: #bae6fd;
+  --color-sky-900: #e0f2fe;
+
+  --color-indigo-50: color-mix(in oklab, #6366f1 18%, #131b2e);
+  --color-indigo-100: color-mix(in oklab, #6366f1 28%, #131b2e);
+  --color-indigo-200: color-mix(in oklab, #6366f1 44%, #131b2e);
+  --color-indigo-700: #a5b4fc;
+  --color-indigo-800: #c7d2fe;
+  --color-indigo-900: #e0e7ff;
+
+  --color-violet-50: color-mix(in oklab, #8b5cf6 14%, #131b2e);
+  --color-violet-100: color-mix(in oklab, #8b5cf6 26%, #131b2e);
+  --color-violet-200: color-mix(in oklab, #8b5cf6 42%, #131b2e);
+  --color-violet-700: #c4b5fd;
+  --color-violet-800: #ddd6fe;
+  --color-violet-900: #ede9fe;
+
+  background-color: #0b1120;
+}
+
+/* White text sits on coloured buttons, so it stays white even though "white" is now dark. */
+:root[data-theme='dark'] .text-white {
+  color: #fff;
+}

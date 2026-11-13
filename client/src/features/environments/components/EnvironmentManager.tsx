@@ -203,7 +203,7 @@ export function EnvironmentManager({ environments, onClose }: ManagerProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 p-6">
+    <div className="fixed inset-0 z-20 flex items-center justify-center bg-slate-900/40 dark:bg-black/60 p-6">
       <div
         role="dialog"
         aria-modal="true"

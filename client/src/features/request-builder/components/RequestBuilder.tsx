@@ -121,7 +121,9 @@ export function RequestBuilder({
           <button
             type="submit"
             className={`w-24 rounded-r-md px-5 py-2 text-sm font-semibold text-white focus:outline-2 focus:outline-offset-2 focus:outline-indigo-500 ${
-              isSending ? 'bg-slate-500 hover:bg-slate-600' : 'bg-indigo-600 hover:bg-indigo-700'
+              isSending
+                ? 'bg-slate-500 hover:bg-slate-600 dark:bg-slate-300 dark:hover:bg-slate-400'
+                : 'bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-500'
             }`}
           >
             {isSending ? 'Cancel' : 'Send'}

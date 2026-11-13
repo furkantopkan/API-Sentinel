@@ -223,6 +223,8 @@ Otomatik karşılıkları: `e2e/runs.spec.ts`, `server/tests/integration/runs.te
 | RU-10…12 | Ortamla / ortamsız; rapor | Çözülür; "Select an environment"; raporda secret yok |
 | RU-13 / 14 | Boş collection; sil | Buton pasif; geçmişten silinir |
 | RU-15…17 | Collection sil; F5; görünüm değiştir | Geçmiş kalır; editör korunur |
+| RU-18 | Bot koruması olan bir sitenin sayfasını çalıştır (ör. Trendyol sayfa adımları) | Satır ERROR, kod `BLOCKED_BY_SITE`, mesaj sinyali (`proxy-reason`, `cf-mitigated`…) adıyla söyler; API'nin kendi 403'ü normal FAIL kalır |
+| TH-01 | Sağ üstteki Dark / Light butonu; sayfayı yenile; sistem koyu temadayken ilk açılış | Bütün ekran koyu/açık olur, metinler okunur; seçim yenilemede korunur; seçim yoksa sistem ayarı uygulanır |
 
 ### 4.9 AI Collection Builder (Faz 7)
 

@@ -7,6 +7,7 @@ import {
 } from '@api-sentinel/shared';
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { BackendStatusBadge } from '../components/BackendStatusBadge';
+import { ThemeToggle } from '../features/theme/components/ThemeToggle';
 import { Tabs } from '../components/Tabs';
 import { AiPanel } from '../features/ai-assistant/components/AiPanel';
 import { useAiAssistant } from '../features/ai-assistant/hooks/useAiAssistant';
@@ -140,6 +141,7 @@ export function App() {
         <div className="flex items-center gap-4">
           <EnvironmentSelector environments={environments} />
           <BackendStatusBadge health={health} />
+          <ThemeToggle />
         </div>
       </header>
 
