@@ -248,6 +248,29 @@ function shortName(entry: RecordedEntry, original: string): string {
 }
 
 /**
+ * A step the user caused is named after what they clicked, in their words:
+ * 'Click "Add to cart"'. When one click led to several steps, the step's own
+ * name follows, so the names stay apart. Steps with nothing clicked (the
+ * first page, a value passed on) keep their name.
+ */
+function namedAfterActions(
+  steps: DraftStep[],
+  entryOf: (index: number) => RecordedEntry | undefined,
+): DraftStep[] {
+  const actions = steps.map((step) => entryOf(step.sourceIndex)?.action);
+  const count = new Map<string, number>();
+  for (const action of actions) {
+    if (action !== undefined) count.set(action, (count.get(action) ?? 0) + 1);
+  }
+  return steps.map((step, position) => {
+    const action = actions[position];
+    if (action === undefined) return step;
+    const name = (count.get(action) ?? 0) > 1 ? `${action} – ${step.name}` : action;
+    return { ...step, name: clip(name, 200) };
+  });
+}
+
+/**
  * A step built straight from the recording, for a page the user opened or a
  * change they made that the AI left out. Checks only what is certain: the
  * status, and for a page its first line of text (usually the title).
@@ -602,10 +625,15 @@ export function checkDraft(
     variables,
   );
 
+  const named = namedAfterActions(
+    flow,
+    (index) => recordedByIndex.get(index) ?? entryByIndex.get(index),
+  );
+
   return {
     draft: {
       collectionName: output.collectionName.trim().slice(0, 200) || 'AI collection',
-      steps: flow,
+      steps: named,
       // A variable no step uses (often the model's copy of a recorded id) is only clutter.
       variables: [...variables]
         .filter(([key]) => flow.some((step) => usesVariable(step, key)))

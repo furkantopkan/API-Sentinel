@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_RECORDED_ENTRIES, MAX_RESPONSE_SAMPLE } from '../schemas/builder';
-import { isAnalyticsUrl, isUserAction, keepActions, parseHar } from './parseHar';
+import { isAnalyticsUrl, isBotSensorBody, isUserAction, keepActions, parseHar } from './parseHar';
 
 interface Options {
   method?: string;
@@ -544,5 +544,98 @@ describe('parseHar and best-seller boxes after a click', () => {
     );
     if (!result.ok) throw new Error(result.error);
     expect(result.entries.map((e) => e.url)).toEqual(['https://shop.test/api/basket/item/1']);
+  });
+});
+
+// Seen on a real shop: accepting cookies started ad services, which answered
+// JSON within the click's window; the user then changed the quantity twice.
+describe('parseHar with what the user clicked', () => {
+  const page = {
+    ...entry('https://www.shop.com.tr/', { type: 'document', mime: 'text/html', text: '<p>x</p>' }),
+    _trigger: 'user',
+  };
+  const mine = (url: string, options: Options = {}, action?: string) => ({
+    ...entry(url, options),
+    _trigger: 'user',
+    ...(action === undefined ? {} : { _action: action }),
+  });
+
+  it("leaves out another site's reads after a click unless a later step needs their value", () => {
+    const entries = parsedEntries(
+      page,
+      mine('https://gum.criteo.com/sid/json', { text: '{"sid":"zzz"}' }, 'Click "Accept"'),
+      mine('https://ads.example.net/config', { text: '{"cfg":"ok"}' }),
+      mine('https://api.partner.com/token', { text: '{"token":"tok-123456"}' }),
+      mine('https://www.shop.com.tr/api/cart', { method: 'POST', body: '{"t":"tok-123456"}' }),
+    );
+    expect(entries.map((e) => e.url)).toEqual([
+      'https://www.shop.com.tr/',
+      'https://api.partner.com/token',
+      'https://www.shop.com.tr/api/cart',
+    ]);
+    expect(entries[1]?.trigger).toBe('page');
+  });
+
+  it('keeps a change made twice to the same address, but a read only once', () => {
+    const entries = parsedEntries(
+      page,
+      mine('https://www.shop.com.tr/api/basket/item/9', { method: 'PATCH', body: '{"q":2}' }),
+      mine('https://www.shop.com.tr/api/basket/item/9', { method: 'PATCH', body: '{"q":1}' }),
+      mine('https://www.shop.com.tr/api/basket'),
+      mine('https://www.shop.com.tr/api/basket'),
+    );
+    expect(entries.map((e) => `${e.method} ${e.requestBody}`)).toEqual([
+      'GET ',
+      'PATCH {"q":2}',
+      'PATCH {"q":1}',
+      'GET ',
+    ]);
+  });
+
+  it("keeps what the user clicked on the user's own requests only", () => {
+    const entries = parsedEntries(
+      { ...page, _action: 'Click "Home"' },
+      // Sent by the page, but kept: the change below uses its value.
+      {
+        ...entry('https://www.shop.com.tr/api/session', { text: '{"sid":"s-777777"}' }),
+        _trigger: 'page',
+        _action: 'Click "Home"',
+      },
+      mine(
+        'https://www.shop.com.tr/api/basket',
+        { method: 'PUT', body: '{"sid":"s-777777"}' },
+        'Click "Sepete ekle"',
+      ),
+    );
+    expect(entries.map((e) => e.action)).toEqual([
+      'Click "Home"',
+      undefined,
+      'Click "Sepete ekle"',
+    ]);
+  });
+});
+
+// Seen on a real shop (Akamai): after every click, a POST to a random address of the site itself.
+describe('parseHar and bot protection sensors', () => {
+  it('leaves out a sensor report, known only by its body', () => {
+    const entries = parsedEntries(
+      entry('https://www.shop.com.tr/', { type: 'document', mime: 'text/html', text: '<p>x</p>' }),
+      entry('https://www.shop.com.tr/X1ewx77xw93/ru3cck/EmQxAg', {
+        method: 'POST',
+        body: '{"sensor_data":"3;0;1;0;3159619"}',
+        status: 201,
+      }),
+      entry('https://www.shop.com.tr/api/basket', { method: 'POST', body: '{"sku":"7"}' }),
+    );
+    expect(entries.map((e) => e.url)).toEqual([
+      'https://www.shop.com.tr/',
+      'https://www.shop.com.tr/api/basket',
+    ]);
+  });
+
+  it('is not fooled by a body that only mentions the word', () => {
+    expect(isBotSensorBody('{"sensor_data":"x"}')).toBe(true);
+    expect(isBotSensorBody('{"note":"sensor_data"}')).toBe(false);
+    expect(isBotSensorBody('')).toBe(false);
   });
 });

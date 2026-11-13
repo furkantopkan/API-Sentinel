@@ -113,6 +113,8 @@ test('AB-05: a shop flow keeps the form, the pages and the cart session', async 
   await dialog.getByRole('button', { name: 'Build draft' }).click();
   const steps = dialog.getByRole('list', { name: 'Draft steps' });
   await expect(steps).toContainText('{{baseUrl}}/shop/cart/add');
+  // Named after the text of the button that was clicked.
+  await expect(steps).toContainText('Click "Add to cart"');
   await expect(dialog.getByLabel('Include step 2')).toBeChecked();
 
   const name = `Shop flow ${Date.now()}`;

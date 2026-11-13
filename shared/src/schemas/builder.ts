@@ -16,6 +16,7 @@ export const MAX_RECORDED_ENTRIES = 300;
 export const MAX_RESPONSE_SAMPLE = 3000;
 /** Bodies are kept whole for the steps; the AI is shown only their start. */
 export const MAX_RECORDED_BODY = 32_000;
+export const MAX_ACTION = 100;
 
 export const recordedEntrySchema = z.object({
   /** Position in the recording. Every draft step must point back to one of these. */
@@ -29,6 +30,8 @@ export const recordedEntrySchema = z.object({
   responseSample: z.string().max(MAX_RESPONSE_SAMPLE),
   /** From the recorder: caused by the user (click, submit, Enter, page opened) or sent by the page itself. */
   trigger: z.enum(['user', 'page']).optional(),
+  /** From the recorder: what the user clicked or searched for, e.g. 'Click "Add to cart"'. */
+  action: z.string().max(MAX_ACTION).optional(),
 });
 
 export const buildCollectionRequestSchema = z.object({

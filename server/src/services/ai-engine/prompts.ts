@@ -82,6 +82,9 @@ function bodyShownToModel(body: string): string {
 
 function triggerLine(entry: RecordedEntry): string {
   if (entry.trigger === undefined) return '';
+  if (entry.trigger === 'user' && entry.action !== undefined) {
+    return `\nTriggered by: the user (${entry.action})`;
+  }
   return entry.trigger === 'user'
     ? '\nTriggered by: the user (a page they opened or something they clicked)'
     : '\nTriggered by: the page by itself (background)';

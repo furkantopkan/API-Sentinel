@@ -818,3 +818,38 @@ describe('checkDraft: a body the model broke', () => {
     );
   });
 });
+
+describe('checkDraft names steps after what the user clicked', () => {
+  const clicked = (index: number, url: string, action?: string): RecordedEntry => ({
+    ...recorded(index, url),
+    trigger: 'user',
+    ...(action === undefined ? {} : { action }),
+  });
+
+  it('uses the clicked text, and the step name too when one click led to several steps', () => {
+    const entries = [
+      clicked(0, 'https://a.test/'),
+      clicked(1, 'https://a.test/basket', 'Click "Sepete ekle"'),
+      clicked(2, 'https://a.test/offers', 'Click "Sepete ekle"'),
+      clicked(3, 'https://a.test/cart', 'Click "Sepetim"'),
+    ];
+    const { draft } = check(
+      output(
+        [
+          step(0, '{{baseUrl}}/', { name: 'Home Page' }),
+          step(1, '{{baseUrl}}/basket', { name: 'Add to Basket' }),
+          step(2, '{{baseUrl}}/offers', { name: 'Get Offers' }),
+          step(3, '{{baseUrl}}/cart', { name: 'Open Cart' }),
+        ],
+        [BASE],
+      ),
+      entries,
+    );
+    expect(draft.steps.map((s) => s.name)).toEqual([
+      'Home Page',
+      'Click "Sepete ekle" – Add to Basket',
+      'Click "Sepete ekle" – Get Offers',
+      'Click "Sepetim"',
+    ]);
+  });
+});

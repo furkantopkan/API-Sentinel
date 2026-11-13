@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ACTION_WINDOW_MS,
   createActionTracker,
+  reportedLabel,
   reportedTime,
   userActionScript,
 } from '../../src/services/recorder/userActions';
@@ -32,6 +33,40 @@ describe('createActionTracker', () => {
   });
 });
 
+describe('labelOf', () => {
+  it('names a request after the click that caused it, within the same window', () => {
+    const tracker = createActionTracker();
+    tracker.userActed(1000, 'Click "Add to cart"');
+    expect(tracker.labelOf(1100)).toBe('Click "Add to cart"');
+    expect(tracker.labelOf(1001 + ACTION_WINDOW_MS)).toBeUndefined();
+    expect(tracker.labelOf(999)).toBeUndefined();
+  });
+
+  it('keeps the text of the click when a submit without text follows it', () => {
+    const tracker = createActionTracker();
+    tracker.userActed(1000, 'Click "Sign in"');
+    tracker.userActed(1005);
+    expect(tracker.labelOf(1010)).toBe('Click "Sign in"');
+  });
+
+  it('uses the latest click', () => {
+    const tracker = createActionTracker();
+    tracker.userActed(1000, 'Click "+"');
+    tracker.userActed(1500, 'Click "Remove"');
+    expect(tracker.labelOf(1600)).toBe('Click "Remove"');
+  });
+});
+
+describe('reportedLabel', () => {
+  it('keeps one short line of text and nothing else', () => {
+    expect(reportedLabel('  Click "Sepete\n  ekle" ')).toBe('Click "Sepete ekle"');
+    expect(reportedLabel('x'.repeat(200))).toHaveLength(80);
+    expect(reportedLabel('   ')).toBeUndefined();
+    expect(reportedLabel(42)).toBeUndefined();
+    expect(reportedLabel(undefined)).toBeUndefined();
+  });
+});
+
 describe('reportedTime', () => {
   it('uses the time of the click when it is recent, and "now" for anything else', () => {
     expect(reportedTime(9_000, 10_000)).toBe(9_000);
@@ -45,7 +80,9 @@ describe('userActionScript', () => {
   it('reports to the binding by its exact name, quoted safely', () => {
     const script = userActionScript('a"b');
     expect(script).toContain('window["a\\"b"]');
-    expect(script).toContain("addEventListener('click', report, true)");
+    expect(script).toContain("window.addEventListener('click',");
+    // Regular expressions reach the page with their backslashes.
+    expect(script).toContain(String.raw`/\s+/g`);
     // Helpers added by the TypeScript runner do not exist in the page.
     expect(script).not.toContain('__name');
   });

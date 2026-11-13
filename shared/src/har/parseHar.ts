@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import {
+  MAX_ACTION,
   MAX_RECORDED_BODY,
   MAX_RECORDED_ENTRIES,
   MAX_RESPONSE_SAMPLE,
@@ -28,6 +29,8 @@ const harSchema = z.object({
         _resourceType: z.string().optional(),
         /** Set by API Sentinel's recorder: did the user cause this request? */
         _trigger: z.enum(['user', 'page']).optional(),
+        /** Set by the recorder: what the user clicked, e.g. 'Click "Add to cart"'. */
+        _action: z.string().optional(),
         request: z.object({
           method: z.string(),
           url: z.string(),
@@ -97,6 +100,15 @@ const ANALYTICS_PART =
 /** Error reporting, analytics and ads: never part of a flow. */
 export function isNoiseUrl(url: string): boolean {
   return TELEMETRY_URL.test(url) || isAnalyticsUrl(url);
+}
+
+/**
+ * A bot protection sensor (Akamai): the page sends one after every click, to
+ * a random address on the site itself, so only its body gives it away. It is
+ * not something the user did, and its answer does not show a result.
+ */
+export function isBotSensorBody(body: string): boolean {
+  return /^\s*\{\s*"sensor_data"\s*:/.test(body);
 }
 
 /** The site an address belongs to (www.shop.com and api.shop.com are one), or null. */
@@ -312,6 +324,7 @@ export function parseHar(json: unknown): ParseHarResult {
       !isMethod(method) ||
       host === null ||
       TELEMETRY_URL.test(request.url) ||
+      isBotSensorBody(request.postData?.text ?? '') ||
       isAnalyticsUrl(request.url) ||
       request.url.length > 8192 ||
       response.status <= 0
@@ -320,18 +333,21 @@ export function parseHar(json: unknown): ParseHarResult {
     }
     const kind = kindOf(method, resourceType, mime, text, response.status);
     if (kind === null) continue;
-    // Another site: ads and tracking react to clicks too. Only its JSON reads
-    // may belong to the flow (a site that searches through a public API).
+    // Another site: ads and tracking react to clicks too (accepting cookies
+    // starts a burst of them). Only its JSON reads may belong to the flow, and
+    // in a recording only to pass a value on to a later step of the site.
     if (site !== null && siteOf(host) !== site) {
       if (kind !== 'api' || TRACKING_WORD.test(request.url.split('?')[0] ?? '')) continue;
-      if (method !== 'GET') trigger = 'page';
+      if (method !== 'GET' || trigger !== undefined) trigger = 'page';
     }
     // A page redraws itself after a click: recommendations, personalisation,
     // SEO texts. They follow the click but are not what the user did.
     if (trigger === 'user' && kind !== 'page' && UI_REFRESH.test(request.url)) trigger = 'page';
 
+    // A read asked twice is the same check; a change made twice (quantity up,
+    // then down) is two things the user did.
     const key = `${method} ${request.url}`;
-    if (seen.has(key)) continue;
+    if (method === 'GET' && seen.has(key)) continue;
     seen.add(key);
 
     const recorded = requestBodyAndHeaders(
@@ -354,6 +370,10 @@ export function parseHar(json: unknown): ParseHarResult {
       responseContentType: mime.slice(0, 200),
       responseSample: responseSampleText(mime, text).slice(0, MAX_RESPONSE_SAMPLE),
       ...(trigger === undefined ? {} : { trigger }),
+      // Only the user's own requests are named after what they clicked.
+      ...(trigger === 'user' && entry._action
+        ? { action: entry._action.slice(0, MAX_ACTION) }
+        : {}),
     });
   }
 
