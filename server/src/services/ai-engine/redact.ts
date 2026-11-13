@@ -26,10 +26,24 @@ const SECRET_HEADERS = new Set([
 const SECRET_NAME =
   /(pass(word|wd)?|secret|token|api[-_]?key|apikey|auth|credential|session|private[-_]?key|signature|^sig$|^key$)/i;
 
+/**
+ * A switch or a count is never a secret, whatever its name says: masking
+ * "withcredentials: true" only turned a plain flag into a secret variable
+ * the user had to fill in.
+ */
+function canBeSecret(value: unknown): boolean {
+  if (typeof value === 'boolean') return false;
+  return !(
+    typeof value === 'string' && /^(true|false|yes|no|on|off|0|1|null|)$/i.test(value.trim())
+  );
+}
+
 export function redactHeaders(headers: readonly [string, string][]): [string, string][] {
   return headers.map(([name, value]) => [
     name,
-    SECRET_HEADERS.has(name.toLowerCase()) || SECRET_NAME.test(name) ? REDACTED : value,
+    SECRET_HEADERS.has(name.toLowerCase()) || (SECRET_NAME.test(name) && canBeSecret(value))
+      ? REDACTED
+      : value,
   ]);
 }
 
@@ -45,7 +59,9 @@ export function redactUrl(raw: string): string {
     url.password = url.password ? 'REDACTED' : '';
   }
   for (const key of [...url.searchParams.keys()]) {
-    if (SECRET_NAME.test(key)) url.searchParams.set(key, REDACTED);
+    if (SECRET_NAME.test(key) && canBeSecret(url.searchParams.get(key))) {
+      url.searchParams.set(key, REDACTED);
+    }
   }
   return url.toString();
 }
@@ -57,7 +73,7 @@ function redactJsonValue(value: unknown): unknown {
     return Object.fromEntries(
       Object.entries(value).map(([key, child]) => [
         key,
-        SECRET_NAME.test(key) && child !== null && typeof child !== 'object'
+        SECRET_NAME.test(key) && child !== null && typeof child !== 'object' && canBeSecret(child)
           ? REDACTED
           : redactJsonValue(child),
       ]),
@@ -104,7 +120,8 @@ function redactForm(body: string): string {
       } catch {
         // Not valid percent-encoding: judge the name as written.
       }
-      return SECRET_NAME.test(key) ? `${name}=${REDACTED}` : pair;
+      const value = pair.slice(name.length + 1);
+      return SECRET_NAME.test(key) && canBeSecret(value) ? `${name}=${REDACTED}` : pair;
     })
     .join('&');
 }

@@ -148,6 +148,11 @@ export function App() {
       {building && (
         <CollectionBuilder
           environments={environments}
+          collectionNames={
+            collections.state.status === 'ready'
+              ? collections.state.collections.map((c) => c.name)
+              : []
+          }
           onClose={() => setBuilding(false)}
           onCreated={() => {
             setBuilding(false);

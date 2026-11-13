@@ -179,3 +179,69 @@ test('AB-06: a page opened in a new tab is part of the recording', async ({ page
     '{{baseUrl}}/shop/product/7',
   );
 });
+
+// Seen in use: the collection was not created, but its environment stayed behind,
+// selected, and another collection then ran with it and missed its own variables.
+test('AB-07: a failed create leaves no environment behind; a taken name gets a number', async ({
+  page,
+}) => {
+  const har = {
+    log: {
+      entries: [
+        {
+          _resourceType: 'fetch',
+          request: { method: 'GET', url: `${MOCK}/json`, headers: [] },
+          response: { status: 200, content: { mimeType: 'application/json', text: '{"a":1}' } },
+        },
+      ],
+    },
+  };
+  const buildFromHar = async () => {
+    const dialog = await openBuilder(page);
+    await dialog.getByText('Advanced: use a HAR file instead').click();
+    await dialog.getByLabel('HAR file').setInputFiles({
+      name: 'flow.har',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(har)),
+    });
+    await dialog.getByRole('button', { name: 'Build draft' }).click();
+    await expect(dialog.getByRole('list', { name: 'Draft steps' })).toBeVisible();
+    return dialog;
+  };
+  const environmentNames = async () =>
+    (
+      (await (await page.request.get('/api/environments')).json()) as {
+        environments: { id: string; name: string }[];
+      }
+    ).environments;
+
+  let dialog = await buildFromHar();
+  const name = `Failing create ${Date.now()}`;
+  await dialog.getByLabel('Collection name').fill(name);
+  await page.route('**/api/collections/import', (route) =>
+    route.fulfill({
+      status: 500,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: false,
+        error: { code: 'INTERNAL_ERROR', message: 'Import failed.' },
+      }),
+    }),
+  );
+  await dialog.getByRole('button', { name: /Create collection/ }).click();
+  await expect(dialog.getByRole('alert')).toContainText('Import failed.');
+  await expect.poll(async () => (await environmentNames()).map((e) => e.name)).not.toContain(name);
+  await page.unroute('**/api/collections/import');
+
+  // An environment already has the draft's name: the new one is numbered.
+  await dialog.getByRole('button', { name: 'Close' }).click();
+  const created = (await (
+    await page.request.post('/api/environments', {
+      data: { name: 'Mock AI collection', variables: [] },
+    })
+  ).json()) as { environment: { id: string } };
+  await page.reload();
+  dialog = await buildFromHar();
+  await expect(dialog.getByLabel('Collection name')).toHaveValue(/^Mock AI collection \(\d+\)$/);
+  await page.request.delete(`/api/environments/${created.environment.id}`);
+});

@@ -12,6 +12,7 @@ import type { Environments } from '../../environments/hooks/useEnvironments';
 import { useFlowRecorder } from '../hooks/useFlowRecorder';
 import { draftToImport, isReadOnly, missingCaptures } from '../lib/draftToImport';
 import { recordingSummary } from '../lib/recordingSummary';
+import { uniqueName } from '../lib/uniqueName';
 import { FlowRecorderPanel } from './FlowRecorderPanel';
 
 const MAX_FILE_BYTES = 50 * 1024 * 1024;
@@ -21,6 +22,8 @@ const DEFAULT_GOAL = 'Test the recorded flow step by step and verify each respon
 
 interface Props {
   environments: Environments;
+  /** Names of the existing collections: a new one gets a name of its own. */
+  collectionNames: readonly string[];
   onClose: () => void;
   onCreated: () => void;
 }
@@ -31,7 +34,7 @@ interface Props {
  * The AI sends no requests here: it only proposes, and nothing is saved
  * until "Create collection".
  */
-export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
+export function CollectionBuilder({ environments, collectionNames, onClose, onCreated }: Props) {
   const [goal, setGoal] = useState('');
   const [entries, setEntries] = useState<RecordedEntry[] | null>(null);
   const [found, setFound] = useState(0);
@@ -104,7 +107,12 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
       return;
     }
     setDraft({ result: result.data.result, meta: result.data.meta });
-    setName(result.data.result.collectionName);
+    setName(
+      uniqueName(result.data.result.collectionName, [
+        ...collectionNames,
+        ...environments.environments.map((environment) => environment.name),
+      ]),
+    );
     // Everything the user did in the recording is wanted: changes are marked, not left out.
     setSelected(new Set(result.data.result.steps.map((_step, index) => index)));
   };
@@ -129,6 +137,8 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
     setBusy('creating');
     setError(null);
     const { variables } = draft.result;
+    const previous = environments.selected?.id ?? null;
+    let created: string | null = null;
     if (variables.length > 0) {
       const saved = await environments.save(null, {
         name,
@@ -144,11 +154,18 @@ export function CollectionBuilder({ environments, onClose, onCreated }: Props) {
         setError(saved.message);
         return;
       }
-      environments.select(saved.environment.id);
+      created = saved.environment.id;
+      environments.select(created);
     }
     const result = await unwrap(
       collectionsApi.importCollection(draftToImport(draft.result, name, selected)),
     );
+    if (!result.ok && created !== null) {
+      // No collection: its environment must not stay behind, selected, for
+      // other collections to run with (they would miss their own variables).
+      await environments.remove(created);
+      environments.select(previous);
+    }
     setBusy(null);
     if (result.ok) onCreated();
     else setError(result.message);

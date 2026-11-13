@@ -139,3 +139,32 @@ describe('redactBody with a form body', () => {
     expect(redactBody('user%5Bpassword%5D=P1')).toBe(`user%5Bpassword%5D=${REDACTED}`);
   });
 });
+
+// Seen on a shop: a "withcredentials: true" header became a secret variable to fill in.
+describe('a switch is not a secret, whatever its name', () => {
+  it('keeps true/false/0/1 values under secret-looking names', () => {
+    expect(
+      redactHeaders([
+        ['withcredentials', 'true'],
+        ['x-auth-required', '0'],
+        ['x-auth-token', 'true'],
+        ['session-id', 'abc123'],
+      ]),
+    ).toEqual([
+      ['withcredentials', 'true'],
+      ['x-auth-required', '0'],
+      ['x-auth-token', REDACTED],
+      ['session-id', REDACTED],
+    ]);
+    expect(redactUrl('https://a.test/?auth=false&token=t-1')).toBe(
+      `https://a.test/?auth=false&token=${encodeURIComponent(REDACTED)}`,
+    );
+    expect(JSON.parse(redactBody('{"rememberSession":true,"sessionId":"s-1"}'))).toEqual({
+      rememberSession: true,
+      sessionId: REDACTED,
+    });
+    expect(redactBody('withCredentials=true&password=hunter2')).toBe(
+      `withCredentials=true&password=${REDACTED}`,
+    );
+  });
+});
