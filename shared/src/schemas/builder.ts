@@ -8,7 +8,8 @@ import { httpMethodSchema } from './http';
  * written by the user become a draft collection, which the user reviews.
  */
 
-export const MAX_RECORDED_ENTRIES = 40;
+/** A few KB each: 60 stay well under the 1 MB limit of our own API. */
+export const MAX_RECORDED_ENTRIES = 60;
 export const MAX_RESPONSE_SAMPLE = 3000;
 export const MAX_RECORDED_BODY = 4000;
 

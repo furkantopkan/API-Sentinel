@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_RECORDED_ENTRIES, MAX_RESPONSE_SAMPLE } from '../schemas/builder';
-import { isUserAction, keepActions, parseHar } from './parseHar';
+import { isAnalyticsUrl, isUserAction, keepActions, parseHar } from './parseHar';
 
 interface Options {
   method?: string;
@@ -434,5 +434,83 @@ describe('parseHar and values passed between requests of the site', () => {
     );
     if (!result.ok) throw new Error(result.error);
     expect(result.entries.map((e) => e.url)).toEqual(['https://a.test/cart/add']);
+  });
+});
+
+// Seen on a real shop: Google Analytics sent through the shop's own address filled the draft.
+describe('isAnalyticsUrl', () => {
+  it.each([
+    'https://www.hepsiburada.com/metrics/gs/measurement/conversion?random=1&cv=11&tid=G-44CSPTX731&gtm=45g9',
+    'https://www.hepsiburada.com/metrics/ga/g/c?v=2&tid=G-44CSPTX731&gtm=45g92e',
+    'https://www.hepsiburada.com/metrics/gs/ccm/collect?rcb=6&frm=0&tid=AW-866272902',
+    'https://shop.test/g/collect?v=2&tid=G-ABC',
+    'https://shop.test/api/x?gtm=45g9',
+  ])('recognises %s', (url) => {
+    expect(isAnalyticsUrl(url)).toBe(true);
+  });
+
+  it.each([
+    'https://shop.test/collections/summer',
+    'https://www.kitapyurdu.com/index.php?route=checkout/cart/add',
+    'https://api.github.com/users/octocat',
+    'https://shop.test/api/products?tid=123',
+    'https://checkout.hepsiburada.com/api/basket/items',
+  ])('leaves %s alone', (url) => {
+    expect(isAnalyticsUrl(url)).toBe(false);
+  });
+
+  it('is applied to the site itself, not only to other sites', () => {
+    const entries = parsedEntries(
+      entry('https://www.shop.com/', { type: 'document', mime: 'text/html', text: '<p>x</p>' }),
+      {
+        ...entry('https://www.shop.com/metrics/ga/g/c?tid=G-1', {
+          method: 'POST',
+          mime: 'text/plain',
+          text: '',
+        }),
+        _trigger: 'user',
+      },
+      { ...entry('https://www.shop.com/basket/add', { method: 'POST' }), _trigger: 'user' },
+    );
+    expect(entries.map((e) => e.url)).toEqual([
+      'https://www.shop.com/',
+      'https://www.shop.com/basket/add',
+    ]);
+  });
+});
+
+describe('keepActions with more user actions than the limit', () => {
+  const action = (index: number, method: string, mime = 'application/json') => ({
+    index,
+    method: method as 'GET',
+    url: `https://a.test/${String(index)}`,
+    status: 200,
+    requestHeaders: [],
+    requestBody: '',
+    responseContentType: mime,
+    responseSample: mime === 'text/html' ? 'Page' : '{}',
+    trigger: 'user' as const,
+  });
+
+  // The "remove from cart" at the end was lost when the limit was full.
+  it('gives up reads after a click first, then pages, and keeps the changes', () => {
+    const entries = [
+      action(0, 'GET', 'text/html'),
+      action(1, 'GET'),
+      action(2, 'GET'),
+      action(3, 'POST'),
+      action(4, 'GET', 'text/html'),
+      action(5, 'DELETE'),
+    ];
+    expect(keepActions(entries, 4).map((e) => e.url)).toEqual([
+      'https://a.test/0',
+      'https://a.test/3',
+      'https://a.test/4',
+      'https://a.test/5',
+    ]);
+    expect(keepActions(entries, 2).map((e) => e.url)).toEqual([
+      'https://a.test/3',
+      'https://a.test/5',
+    ]);
   });
 });

@@ -84,6 +84,25 @@ function keepHeader(name: string): boolean {
 const isMethod = (method: string): method is HttpMethod =>
   (HTTP_METHODS as readonly string[]).includes(method);
 
+/**
+ * Analytics that a site sends through its own address (server-side tagging,
+ * as on hepsiburada.com/metrics/gs/measurement/conversion): recognised by the
+ * measurement ids in the query (tid=G-…, AW-…, gtm=…) or by a whole path part
+ * that only analytics use. Whole parts only: /collections is not /collect.
+ */
+const ANALYTICS_QUERY = /[?&](tid=(G|UA|AW|DC|GT)-|gtm=|_gid=)/i;
+const ANALYTICS_PART =
+  /^(metrics|collect|measurement|telemetry|beacon|pixel|analytics|gtm|gtag|ccm|rmkt|pagead)$/i;
+
+export function isAnalyticsUrl(url: string): boolean {
+  if (ANALYTICS_QUERY.test(url)) return true;
+  try {
+    return new URL(url).pathname.split('/').some((part) => ANALYTICS_PART.test(part));
+  } catch {
+    return false;
+  }
+}
+
 /** Words in the address of an ad or tracking service; only applied to other sites. */
 const TRACKING_WORD =
   /pixel|track|collect|analytic|telemetry|beacon|metric|adservice|pagead|doubleclick|\/ads?\/|\/sdk\/|\/ccm\/|\/rmkt\//i;
@@ -194,14 +213,22 @@ export function isUserAction(
  */
 export function keepActions(entries: readonly RecordedEntry[], max: number): RecordedEntry[] {
   if (entries.length <= max) return [...entries];
-  const actions = entries.filter(isUserAction).length;
-  let backgroundRoom = Math.max(0, max - actions);
-  let actionRoom = max - backgroundRoom;
+  // What is given up first when there are too many: background reads, then
+  // reads after a click, then pages; changes (add to cart, remove) last.
+  const rank = (entry: RecordedEntry): number => {
+    if (!isUserAction(entry)) return 3;
+    if (entry.method !== 'GET') return 0;
+    return /html/i.test(entry.responseContentType) ? 1 : 2;
+  };
+  const kept = new Set(
+    entries
+      .map((entry, position) => ({ position, rank: rank(entry) }))
+      .sort((a, b) => a.rank - b.rank || a.position - b.position)
+      .slice(0, max)
+      .map((item) => item.position),
+  );
   return entries
-    .filter((entry) => {
-      if (isUserAction(entry)) return actionRoom-- > 0;
-      return backgroundRoom-- > 0;
-    })
+    .filter((_entry, position) => kept.has(position))
     .map((entry, index) => ({ ...entry, index }));
 }
 
@@ -271,6 +298,7 @@ export function parseHar(json: unknown): ParseHarResult {
       !isMethod(method) ||
       host === null ||
       TELEMETRY_URL.test(request.url) ||
+      isAnalyticsUrl(request.url) ||
       request.url.length > 8192 ||
       response.status <= 0
     ) {
