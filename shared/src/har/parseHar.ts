@@ -127,7 +127,7 @@ export function isAnalyticsUrl(url: string): boolean {
 
 /** Requests a page sends to fill its own boxes, also right after a click. */
 const UI_REFRESH =
-  /recommend|personali[sz]|seo|banner|advert|widget|suggest|dictionary|translation|i18n|top-?selling|best-?seller|trending/i;
+  /recommend|personali[sz]|seo|banner|advert|widget|suggest|dictionary|translation|i18n|top-?selling|best-?seller|trending|loyalty|\/navigation\/|\/menus?(\/|$|\?)/i;
 
 /** Words in the address of an ad or tracking service; only applied to other sites. */
 const TRACKING_WORD =
@@ -344,10 +344,14 @@ export function parseHar(json: unknown): ParseHarResult {
     // SEO texts. They follow the click but are not what the user did.
     if (trigger === 'user' && kind !== 'page' && UI_REFRESH.test(request.url)) trigger = 'page';
 
-    // A read asked twice is the same check; a change made twice (quantity up,
-    // then down) is two things the user did.
-    const key = `${method} ${request.url}`;
-    if (method === 'GET' && seen.has(key)) continue;
+    // A read asked twice is the same check. A change to the same address with
+    // another body (quantity up, then down) is another thing the user did; the
+    // very same body twice is the page repeating itself.
+    const key =
+      method === 'GET'
+        ? `${method} ${request.url}`
+        : `${method} ${request.url}\n${request.postData?.text ?? ''}`;
+    if (seen.has(key)) continue;
     seen.add(key);
 
     const recorded = requestBodyAndHeaders(

@@ -639,3 +639,36 @@ describe('parseHar and bot protection sensors', () => {
     expect(isBotSensorBody('')).toBe(false);
   });
 });
+
+// Seen on a real shop: after "add to cart", the same loyalty POST twice, and menu data after a menu click.
+describe('parseHar and what the page repeats or redraws', () => {
+  const page = {
+    ...entry('https://www.shop.com.tr/', { type: 'document', mime: 'text/html', text: '<p>x</p>' }),
+    _trigger: 'user',
+  };
+  const mine = (url: string, options: Options = {}) => ({
+    ...entry(url, options),
+    _trigger: 'user',
+  });
+
+  it('keeps a change sent twice with the very same body once', () => {
+    const entries = parsedEntries(
+      page,
+      mine('https://www.shop.com.tr/api/basket', { method: 'PUT', body: '{"sku":"7"}' }),
+      mine('https://www.shop.com.tr/api/basket', { method: 'PUT', body: '{"sku":"7"}' }),
+    );
+    expect(entries.filter((e) => e.method === 'PUT')).toHaveLength(1);
+  });
+
+  it.each([
+    'https://loyalty-agw.shop.com.tr/calculate-for-selected-item',
+    'https://www.shop.com.tr/api/v1/navigation/1711',
+    'https://www.shop.com.tr/api/menu?id=3',
+  ])('treats %s after a click as the page redrawing itself', (url) => {
+    const entries = parsedEntries(
+      page,
+      mine(url, { method: url.includes('loyalty') ? 'POST' : 'GET' }),
+    );
+    expect(entries.map((e) => e.url)).toEqual(['https://www.shop.com.tr/']);
+  });
+});
