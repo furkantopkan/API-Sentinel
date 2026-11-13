@@ -64,7 +64,8 @@ async function runOne(
     }
     const assertions = [...captures.results, ...evaluateAssertions(saved.assertions, response)];
     // The site never answered the request itself: an error, not a failed check.
-    const blocked = botBlockOf(response.status, response.headers);
+    const text = response.body.kind === 'text' ? response.body.text : '';
+    const blocked = botBlockOf(response.status, response.headers, text);
     if (blocked !== null) {
       return {
         ...base,

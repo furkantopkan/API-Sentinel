@@ -40,6 +40,7 @@ export function createMockTargetApp(): Express {
         'GET /json',
         'GET /recording-page',
         'GET /bot-blocked',
+        'GET /cloudflare-blocked',
         'GET /text',
         'GET /html',
         'GET /empty',
@@ -82,6 +83,16 @@ export function createMockTargetApp(): Express {
   // What a shop's bot protection answers to a test tool (seen on a real site).
   app.get('/bot-blocked', (_req, res) => {
     res.status(403).set('Proxy-Reason', 'blocked malicious bot').end();
+  });
+  // Cloudflare's block page: only its title tells it from the site's own 403.
+  app.get('/cloudflare-blocked', (_req, res) => {
+    res
+      .status(403)
+      .set('Server', 'cloudflare')
+      .type('html')
+      .send(
+        '<html><head><title>Attention Required! | Cloudflare</title></head><body>Sorry, you have been blocked</body></html>',
+      );
   });
 
   app.get('/json', (_req, res) => {

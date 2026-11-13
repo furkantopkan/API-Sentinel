@@ -8,9 +8,13 @@
  * Only signals that bot protection products add on purpose are used, so an
  * API's own 403 (e.g. a missing token) is never mistaken for one.
  */
+const CLOUDFLARE_BLOCK_PAGE = /<title>\s*Attention Required! \| Cloudflare\s*<\/title>/i;
+
 export function botBlockOf(
   status: number,
   headers: readonly (readonly [string, string])[],
+  /** The body as text, when it is text: some block pages are only recognisable by it. */
+  body = '',
 ): string | null {
   if (status < 400) return null;
   const header = (name: string) => headers.find(([key]) => key.toLowerCase() === name)?.[1].trim();
@@ -23,6 +27,15 @@ export function botBlockOf(
   const server = header('server');
   if (status === 403 && server !== undefined && /akamaighost/i.test(server))
     return `server: ${server}`;
+  // Every answer through Cloudflare says "server: cloudflare", the site's own 403 too;
+  // only Cloudflare's block page has this title.
+  if (
+    status === 403 &&
+    server !== undefined &&
+    /cloudflare/i.test(server) &&
+    CLOUDFLARE_BLOCK_PAGE.test(body)
+  )
+    return 'Cloudflare block page';
   return null;
 }
 

@@ -169,16 +169,19 @@ describe('running a collection', () => {
       await createCollection([
         { name: 'Page', url: `${base}/bot-blocked` },
         { name: 'Own 403', url: `${base}/status/403` },
+        { name: 'Shield', url: `${base}/cloudflare-blocked` },
       ]),
     );
-    const [own, page] = run.results; // runs in name order
+    const [own, page, shield] = run.results; // runs in name order
 
     expect(page).toMatchObject({ outcome: 'error', status: 403, errorCode: 'BLOCKED_BY_SITE' });
     expect(page?.errorMessage).toContain('proxy-reason: blocked malicious bot');
     expect(page?.assertions[0]).toMatchObject({ outcome: 'fail' });
     // An API's own 403 is a normal failed check.
     expect(own).toMatchObject({ outcome: 'fail', errorCode: null, errorMessage: null });
-    expect(run).toMatchObject({ failed: 1, errors: 1 });
+    expect(shield).toMatchObject({ outcome: 'error', errorCode: 'BLOCKED_BY_SITE' });
+    expect(shield?.errorMessage).toContain('Cloudflare block page');
+    expect(run).toMatchObject({ failed: 1, errors: 2 });
   });
 
   it('counts a request without assertions as passed when a response arrives', async () => {
