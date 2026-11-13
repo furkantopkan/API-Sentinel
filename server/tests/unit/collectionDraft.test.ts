@@ -439,7 +439,11 @@ describe('checkDraft: every page and change of the user is in the flow', () => {
       [2, 'GET', '{{baseUrl}}/cart'],
       [3, 'POST', '{{baseUrl}}/cart/remove?id=7'],
     ]);
-    expect(draft.steps[0]?.name).toBe('Open /product/7');
+    expect(draft.steps.map((s) => s.name)).toEqual([
+      'Open: Mock Book 7',
+      'Step', // written by the model
+      'POST cart/remove',
+    ]);
     expect(draft.steps[0]?.assertions).toEqual([
       { kind: 'status', target: '', operator: 'equals', expected: '200' },
       { kind: 'body', target: '', operator: 'contains', expected: 'Mock Book 7' },
@@ -583,5 +587,16 @@ describe('formatRecording', () => {
     expect(text).toContain('GET https://a.test/a\nTriggered by: the user');
     expect(text).toContain('GET https://a.test/b\nTriggered by: the page by itself');
     expect(text).toContain('GET https://a.test/c\nStatus: 200');
+  });
+});
+
+describe('names of steps added from the recording', () => {
+  it('names a change by the action in its address', () => {
+    const change: RecordedEntry = {
+      ...recorded(0, 'https://a.test/index.php?route=checkout/cart/add&x=1', '{}'),
+      method: 'POST',
+    };
+    const { draft } = checkDraft(output([], [BASE]), [change], new Map());
+    expect(draft.steps[0]?.name).toBe('POST checkout/cart/add');
   });
 });

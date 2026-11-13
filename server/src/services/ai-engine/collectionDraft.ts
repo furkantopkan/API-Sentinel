@@ -203,14 +203,28 @@ export interface CheckedDraft {
 
 type DraftStep = CollectionDraft['steps'][number];
 
-function shortName(entry: RecordedEntry): string {
+const clip = (text: string, max: number) =>
+  text.length > max ? `${text.slice(0, max - 1)}…` : text;
+
+/**
+ * What a request does, in a few words: many sites name the action in a query
+ * value (index.php?route=checkout/cart/add), others in the last parts of the path.
+ */
+function actionOf(url: URL): string {
+  const named = [...url.searchParams.values()].find((value) => /^[\w-]+(\/[\w-]+)+$/.test(value));
+  if (named) return named;
+  const parts = url.pathname.split('/').filter((part) => part !== '');
+  return parts.length === 0 ? 'home page' : parts.slice(-2).join('/');
+}
+
+/** A short name for the sidebar: a page by its title, a change by its action. */
+function shortName(entry: RecordedEntry, original: string): string {
   const url = new URL(entry.url);
-  // searchParams.toString would encode the marker, so the raw URL text is used.
-  const where = entry.url.slice(url.origin.length).split(REDACTED).join('…');
-  const label = where.length > 70 ? `${where.slice(0, 69)}…` : where;
-  return isUserAction(entry) && entry.method === 'GET'
-    ? `Open ${label}`
-    : `${entry.method} ${label}`;
+  if (entry.method === 'GET' && /html/i.test(entry.responseContentType)) {
+    const title = original.split('\n')[0]?.trim() ?? '';
+    return `Open: ${clip(title !== '' ? title : actionOf(url), 60)}`;
+  }
+  return `${entry.method} ${clip(actionOf(url).split(REDACTED).join('…'), 60)}`;
 }
 
 /**
@@ -261,7 +275,7 @@ function stepFromRecording(
   }
   return {
     sourceIndex: entry.index,
-    name: shortName(entry),
+    name: shortName(entry, original),
     method: entry.method,
     url,
     headers,

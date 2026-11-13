@@ -291,3 +291,53 @@ describe('parseHar with what the recorder saw', () => {
     expect(entries.map((e) => `${e.method} ${e.url}`)).toEqual(['POST https://a.test/login']);
   });
 });
+
+// On a real shop the draft filled with ad and tracking calls made right after each click.
+describe('parseHar and other sites', () => {
+  const page = entry('https://www.shop.com.tr/', {
+    type: 'document',
+    mime: 'text/html',
+    text: '<p>x</p>',
+  });
+  const urls = (...more: unknown[]) => parsedEntries(page, ...more).map((e) => e.url);
+
+  it('leaves out ad and tracking services, also when they answer JSON', () => {
+    expect(
+      urls(
+        entry('https://www.google.com/ccm/collect?en=page_view', {
+          method: 'POST',
+          mime: 'text/plain',
+          text: '',
+        }),
+        entry('https://bzr.openai.com/v1/sdk/events', { method: 'POST' }),
+        entry('https://cdn.vendor.net/pixel-config.json'),
+      ),
+    ).toEqual(['https://www.shop.com.tr/']);
+  });
+
+  it('keeps JSON reads from a public API, and the other parts of the same site', () => {
+    expect(
+      urls(entry('https://api.github.com/users/octocat'), entry('https://img.shop.com.tr/list')),
+    ).toEqual([
+      'https://www.shop.com.tr/',
+      'https://api.github.com/users/octocat',
+      'https://img.shop.com.tr/list',
+    ]);
+  });
+
+  it("never counts a change sent to another site as the user's", () => {
+    const [, other] = parsedEntries(page, {
+      ...entry('https://api.partner.com/orders', { method: 'POST' }),
+      _trigger: 'user',
+    });
+    expect(other?.trigger).toBe('page');
+  });
+
+  it('treats a shop under a country code as one site, but not two shops', () => {
+    expect(
+      urls(
+        entry('https://other.com.tr/x', { method: 'POST', mime: 'text/html', text: '<p>ok</p>' }),
+      ),
+    ).toEqual(['https://www.shop.com.tr/']);
+  });
+});

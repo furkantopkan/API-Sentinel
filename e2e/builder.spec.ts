@@ -119,9 +119,28 @@ test('AB-05: a shop flow keeps the form, the pages and the cart session', async 
   await expect(page.getByRole('listitem', { name: `Collection ${name}` })).toBeVisible();
 
   const collections = (await (await page.request.get('/api/collections')).json()) as {
-    collections: { id: string; name: string; requests: { id: string; name: string }[] }[];
+    collections: {
+      id: string;
+      name: string;
+      requests: { id: string; name: string; method: string }[];
+    }[];
   };
   const created = collections.collections.find((c) => c.name === name)!;
+
+  // Opening AI-made requests one after the other must not ask to discard changes.
+  let asked = false;
+  page.on('dialog', (dialog) => {
+    asked = true;
+    void dialog.dismiss();
+  });
+  const sidebar = page.getByRole('listitem', { name: `Collection ${name}` });
+  for (const saved of created.requests) {
+    await sidebar
+      .getByRole('button', { name: `${saved.method} ${saved.name}`, exact: true })
+      .click();
+    await expect(page.getByText('● Unsaved changes')).toHaveCount(0);
+  }
+  expect(asked).toBe(false);
   const add = (await (
     await page.request.get(`/api/saved-requests/${created.requests[1]!.id}`)
   ).json()) as {

@@ -1,4 +1,16 @@
 import type { Assertion, ExecuteRequest } from '@api-sentinel/shared';
+import { fromExecuteRequest } from '../../request-builder/lib/fromExecuteRequest';
+import { toExecuteRequest } from '../../request-builder/lib/toExecuteRequest';
+
+/**
+ * A stored request as the editor holds it once loaded. The editor fills in
+ * what a stored request may leave out (an AI draft has no timeout, the
+ * server default applies), so comparing the stored form itself would show
+ * "unsaved changes" on a request nobody touched.
+ */
+export function asEditorHoldsIt(request: ExecuteRequest): ExecuteRequest {
+  return toExecuteRequest(fromExecuteRequest(request, () => ''));
+}
 
 /**
  * JSON with object keys sorted, so two objects with the same content always

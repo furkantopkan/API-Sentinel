@@ -1,7 +1,7 @@
 import type { Assertion, ExecuteRequest } from '@api-sentinel/shared';
 import { useCallback, useState } from 'react';
 import { collectionsApi } from '../../../services/apiClient';
-import { isDirty, snapshotOf, type OpenRequest } from '../lib/savedRequest';
+import { asEditorHoldsIt, isDirty, snapshotOf, type OpenRequest } from '../lib/savedRequest';
 import { unwrap } from './useCollections';
 
 interface WorkspaceDeps {
@@ -45,7 +45,7 @@ export function useWorkspace({
         id: saved.id,
         name: saved.name,
         collectionId: saved.collectionId,
-        snapshot: snapshotOf(saved.request, saved.assertions),
+        snapshot: snapshotOf(asEditorHoldsIt(saved.request), saved.assertions),
       });
       return null;
     },

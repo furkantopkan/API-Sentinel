@@ -2,7 +2,13 @@ import type { Assertion, ExecuteRequest } from '@api-sentinel/shared';
 import { describe, expect, it } from 'vitest';
 import { fromExecuteRequest } from '../../request-builder/lib/fromExecuteRequest';
 import { toExecuteRequest } from '../../request-builder/lib/toExecuteRequest';
-import { isDirty, snapshotOf, stableStringify, type OpenRequest } from './savedRequest';
+import {
+  asEditorHoldsIt,
+  isDirty,
+  snapshotOf,
+  stableStringify,
+  type OpenRequest,
+} from './savedRequest';
 
 const request: ExecuteRequest = {
   method: 'GET',
@@ -101,5 +107,22 @@ describe('fromExecuteRequest', () => {
     );
 
     expect(draft.options).toEqual({ timeoutMs: 15_000, followRedirects: false });
+  });
+});
+
+// AI drafts are stored without a timeout; every click on one asked to discard changes.
+describe('a stored request that leaves a default out', () => {
+  const withoutTimeout: ExecuteRequest = { ...request, options: { followRedirects: true } };
+
+  it('is not dirty right after it is loaded into the editor', () => {
+    const inEditor = toExecuteRequest(fromExecuteRequest(withoutTimeout, () => 'id'));
+    const open = opened(snapshotOf(asEditorHoldsIt(withoutTimeout), [assertion]));
+    expect(isDirty(open, inEditor, [assertion])).toBe(false);
+  });
+
+  it('becomes dirty once something is really changed', () => {
+    const inEditor = toExecuteRequest(fromExecuteRequest(withoutTimeout, () => 'id'));
+    const open = opened(snapshotOf(asEditorHoldsIt(withoutTimeout), [assertion]));
+    expect(isDirty(open, { ...inEditor, url: 'https://y.io' }, [assertion])).toBe(true);
   });
 });

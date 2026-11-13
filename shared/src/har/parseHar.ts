@@ -84,6 +84,44 @@ function keepHeader(name: string): boolean {
 const isMethod = (method: string): method is HttpMethod =>
   (HTTP_METHODS as readonly string[]).includes(method);
 
+/** Words in the address of an ad or tracking service; only applied to other sites. */
+const TRACKING_WORD =
+  /pixel|track|collect|analytic|telemetry|beacon|metric|adservice|pagead|doubleclick|\/ads?\/|\/sdk\/|\/ccm\/|\/rmkt\//i;
+
+/** Second-level names under a country code, as in kitapyurdu.com.tr or bbc.co.uk. */
+const SHARED_SECOND_LEVEL = new Set([
+  'com',
+  'net',
+  'org',
+  'gov',
+  'edu',
+  'co',
+  'ac',
+  'gen',
+  'biz',
+  'info',
+  'k12',
+  'bel',
+  'web',
+  'tv',
+]);
+
+/**
+ * The site a host belongs to: www.shop.com and img.shop.com are one site.
+ * An approximation of the public suffix list, enough to tell a shop from
+ * the ad and tracking services it loads.
+ */
+function siteOf(host: string | null): string | null {
+  if (host === null) return null;
+  const name = host.replace(/:\d+$/, '').toLowerCase();
+  if (/^[\d.]+$/.test(name) || name.startsWith('[') || !name.includes('.')) return name;
+  const labels = name.split('.');
+  const second = labels[labels.length - 2] ?? '';
+  const countryCode = (labels[labels.length - 1] ?? '').length === 2;
+  const keep = countryCode && SHARED_SECOND_LEVEL.has(second) ? 3 : 2;
+  return labels.slice(-keep).join('.');
+}
+
 function hostOf(url: string): string | null {
   try {
     const { protocol, host } = new URL(url);
@@ -174,10 +212,12 @@ export function parseHar(json: unknown): ParseHarResult {
   const seen = new Set<string>();
   const entries: RecordedEntry[] = [];
   // The site is the one of the first page: pages of other sites (ads, widgets) are not part of the flow.
-  let siteHost: string | null = null;
+  const firstPage = parsed.data.log.entries.find((e) => e._resourceType === 'document');
+  const site = firstPage ? siteOf(hostOf(firstPage.request.url)) : null;
 
   for (const entry of parsed.data.log.entries) {
-    const { request, response, _resourceType: resourceType, _trigger: trigger } = entry;
+    const { request, response, _resourceType: resourceType } = entry;
+    let trigger = entry._trigger;
     const mime = response.content.mimeType ?? '';
     const method = request.method.toUpperCase();
     const host = hostOf(request.url);
@@ -194,9 +234,11 @@ export function parseHar(json: unknown): ParseHarResult {
     }
     const kind = kindOf(method, resourceType, mime, text, response.status);
     if (kind === null) continue;
-    if (kind === 'page') {
-      siteHost ??= host;
-      if (host !== siteHost) continue;
+    // Another site: ads and tracking react to clicks too. Only its JSON reads
+    // may belong to the flow (a site that searches through a public API).
+    if (site !== null && siteOf(host) !== site) {
+      if (kind !== 'api' || TRACKING_WORD.test(request.url.split('?')[0] ?? '')) continue;
+      if (method !== 'GET') trigger = 'page';
     }
 
     const key = `${method} ${request.url}`;
