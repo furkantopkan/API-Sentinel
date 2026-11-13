@@ -341,3 +341,20 @@ describe('parseHar and other sites', () => {
     ).toEqual(['https://www.shop.com.tr/']);
   });
 });
+
+describe('parseHar and subdomains of the site', () => {
+  it('keeps a change sent to another part of the same site', () => {
+    const entries = parsedEntries(
+      entry('https://www.shop.com.tr/', { type: 'document', mime: 'text/html', text: '<p>x</p>' }),
+      entry('https://cart.shop.com.tr/add', {
+        method: 'POST',
+        mime: 'text/html',
+        text: '<p>ok</p>',
+      }),
+    );
+    expect(entries.map((e) => e.url)).toEqual([
+      'https://www.shop.com.tr/',
+      'https://cart.shop.com.tr/add',
+    ]);
+  });
+});
