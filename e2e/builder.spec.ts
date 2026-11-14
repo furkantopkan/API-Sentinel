@@ -256,10 +256,22 @@ test('AB-07: a failed create leaves no environment behind; a taken name gets a n
   };
   const created = collections.collections.find((c) => c.name === createdName)!;
   expect(created.environmentId).toBe(environment!.id);
-  // Run from the sidebar with nothing selected: the collection's own environment is used.
-  await page.getByLabel('Environment', { exact: true }).selectOption({ label: 'No environment' });
+  // Another environment is selected: the collection still runs with its own,
+  // and opening one of its requests selects it for sending.
+  const otherName = `Other ${Date.now()}`;
+  const other = (await (
+    await page.request.post('/api/environments', { data: { name: otherName, variables: [] } })
+  ).json()) as { environment: { id: string } };
+  await page.reload();
+  const selector = page.getByLabel('Environment', { exact: true });
+  await selector.selectOption({ label: otherName });
   await page.getByRole('button', { name: `Run collection ${createdName}` }).click();
   await expect(page.getByText('Environment: 127.0.0.1')).toBeVisible();
+  await page.getByRole('tab', { name: 'Requests' }).click();
+  const sidebar = page.getByRole('listitem', { name: `Collection ${createdName}` });
+  await sidebar.getByRole('button', { name: /^GET / }).first().click();
+  await expect(selector.locator('option:checked')).toHaveText('127.0.0.1');
+  await page.request.delete(`/api/environments/${other.environment.id}`);
 
   await page.request.delete(`/api/collections/${created.id}`);
   await page.request.delete(`/api/collections/${taken.collection.id}`);
