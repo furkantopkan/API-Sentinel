@@ -80,8 +80,13 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
     deps.aiLogger ?? ((line) => console.info(line)),
   );
   const db = deps.db ?? openDatabase(config.dbPath);
-  const collections = createCollectionService(createCollectionRepository(db), deps.clock);
-  const environments = createEnvironmentService(createEnvironmentRepository(db), deps.clock);
+  const environmentRepository = createEnvironmentRepository(db);
+  const collections = createCollectionService(
+    createCollectionRepository(db),
+    deps.clock,
+    (id) => environmentRepository.get(id) !== undefined,
+  );
+  const environments = createEnvironmentService(environmentRepository, deps.clock);
   const execution = createExecutionService(engine, environments);
   const runs = createRunService({
     repo: createRunRepository(db),

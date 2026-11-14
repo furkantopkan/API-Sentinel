@@ -607,3 +607,25 @@ describe('a Cookie header written by the user', () => {
     expect(run.results.map((r) => r.outcome)).toEqual(['pass', 'pass']);
   });
 });
+
+describe('a collection with its own environment', () => {
+  it('runs with it when none is chosen, and with the chosen one otherwise', async () => {
+    const environmentId = await createEnvironment();
+    const collectionId = await createCollection([{ name: 'Ok', url: '{{baseUrl}}/status/200' }]);
+    await request(app)
+      .patch(`/api/collections/${collectionId}`)
+      .send({ name: 'Suite', environmentId });
+
+    const own = await startRun(collectionId);
+    expect(own).toMatchObject({ environmentName: 'Staging', passed: 1 });
+
+    const other = await request(app)
+      .post('/api/environments')
+      .send({ name: 'Empty', variables: [] });
+    const chosen = await startRun(
+      collectionId,
+      (other.body as { environment: { id: string } }).environment.id,
+    );
+    expect(chosen).toMatchObject({ environmentName: 'Empty', errors: 1 });
+  });
+});

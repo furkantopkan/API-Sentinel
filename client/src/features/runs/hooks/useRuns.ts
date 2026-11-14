@@ -32,7 +32,14 @@ export function useRuns(environmentId: string | undefined) {
       controllerRef.current = controller;
       setRunning(collection.name);
       setError(null);
-      const result = await unwrap(runsApi.start(collection.id, environmentId, controller.signal));
+      const result = await unwrap(
+        runsApi.start(
+          collection.id,
+          // A collection with its own environment always runs with it.
+          collection.environmentId ?? environmentId,
+          controller.signal,
+        ),
+      );
       if (controller.signal.aborted) return; // cancel() already cleaned up
       setRunning(null);
       if (result.ok) {

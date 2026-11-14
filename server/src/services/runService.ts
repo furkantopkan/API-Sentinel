@@ -115,9 +115,15 @@ export function createRunService({
      * Runs the saved requests of a collection one after the other and stores
      * the outcome. A cancelled run throws and is not stored.
      */
-    async start(collectionId: string, environmentId?: string, signal?: AbortSignal): Promise<Run> {
+    async start(
+      collectionId: string,
+      chosenEnvironmentId?: string,
+      signal?: AbortSignal,
+    ): Promise<Run> {
       const collection = collections.list().find((c) => c.id === collectionId);
       if (!collection) throw new AppError('NOT_FOUND', 'Collection not found.', 404);
+      // A collection with its own environment runs with it unless another one is asked for.
+      const environmentId = chosenEnvironmentId ?? collection.environmentId ?? undefined;
       if (collection.requests.length === 0) {
         throw new AppError(
           'VALIDATION_ERROR',

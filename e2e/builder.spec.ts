@@ -190,7 +190,7 @@ test('AB-07: a failed create leaves no environment behind; a taken name gets a n
       entries: [
         {
           _resourceType: 'fetch',
-          request: { method: 'GET', url: `${MOCK}/json`, headers: [] },
+          request: { method: 'GET', url: `http://127.0.0.1:${MOCK_PORT}/json`, headers: [] },
           response: { status: 200, content: { mimeType: 'application/json', text: '{"a":1}' } },
         },
       ],
@@ -208,12 +208,14 @@ test('AB-07: a failed create leaves no environment behind; a taken name gets a n
     await expect(dialog.getByRole('list', { name: 'Draft steps' })).toBeVisible();
     return dialog;
   };
-  const environmentNames = async () =>
+  // The site of this recording (127.0.0.1) is used by no other test: its
+  // environment exists only if this test leaves it behind.
+  const siteEnvironment = async () =>
     (
       (await (await page.request.get('/api/environments')).json()) as {
         environments: { id: string; name: string }[];
       }
-    ).environments;
+    ).environments.find((e) => e.name === '127.0.0.1');
 
   let dialog = await buildFromHar();
   const name = `Failing create ${Date.now()}`;
@@ -230,18 +232,36 @@ test('AB-07: a failed create leaves no environment behind; a taken name gets a n
   );
   await dialog.getByRole('button', { name: /Create collection/ }).click();
   await expect(dialog.getByRole('alert')).toContainText('Import failed.');
-  await expect.poll(async () => (await environmentNames()).map((e) => e.name)).not.toContain(name);
+  await expect.poll(siteEnvironment).toBeUndefined();
   await page.unroute('**/api/collections/import');
 
-  // An environment already has the draft's name: the new one is numbered.
+  // A collection already has the draft's name: the new one is numbered.
   await dialog.getByRole('button', { name: 'Close' }).click();
-  const created = (await (
-    await page.request.post('/api/environments', {
-      data: { name: 'Mock AI collection', variables: [] },
-    })
-  ).json()) as { environment: { id: string } };
+  const taken = (await (
+    await page.request.post('/api/collections', { data: { name: 'Mock AI collection' } })
+  ).json()) as { collection: { id: string } };
   await page.reload();
   dialog = await buildFromHar();
-  await expect(dialog.getByLabel('Collection name')).toHaveValue(/^Mock AI collection \(\d+\)$/);
-  await page.request.delete(`/api/environments/${created.environment.id}`);
+  const field = dialog.getByLabel('Collection name');
+  await expect(field).toHaveValue(/^Mock AI collection \(\d+\)$/);
+
+  // Created: the site's environment exists and the collection runs with it.
+  const createdName = await field.inputValue();
+  await dialog.getByRole('button', { name: /Create collection/ }).click();
+  await expect(page.getByRole('listitem', { name: `Collection ${createdName}` })).toBeVisible();
+  const environment = await siteEnvironment();
+  expect(environment).toBeDefined();
+  const collections = (await (await page.request.get('/api/collections')).json()) as {
+    collections: { id: string; name: string; environmentId: string | null }[];
+  };
+  const created = collections.collections.find((c) => c.name === createdName)!;
+  expect(created.environmentId).toBe(environment!.id);
+  // Run from the sidebar with nothing selected: the collection's own environment is used.
+  await page.getByLabel('Environment', { exact: true }).selectOption({ label: 'No environment' });
+  await page.getByRole('button', { name: `Run collection ${createdName}` }).click();
+  await expect(page.getByText('Environment: 127.0.0.1')).toBeVisible();
+
+  await page.request.delete(`/api/collections/${created.id}`);
+  await page.request.delete(`/api/collections/${taken.collection.id}`);
+  await page.request.delete(`/api/environments/${environment!.id}`);
 });

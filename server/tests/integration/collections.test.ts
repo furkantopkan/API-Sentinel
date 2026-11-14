@@ -264,3 +264,54 @@ describe('saved requests', () => {
     expect(JSON.stringify(response.body)).not.toContain('LEAK-ME');
   });
 });
+
+describe('the environment of a collection', () => {
+  const newEnvironment = async (name = 'shop.test') => {
+    const response = await request(app).post('/api/environments').send({ name, variables: [] });
+    return (response.body as { environment: { id: string } }).environment.id;
+  };
+  const importWith = (environmentId?: string) =>
+    request(app)
+      .post('/api/collections/import')
+      .send({
+        name: 'Flow',
+        ...(environmentId === undefined ? {} : { environmentId }),
+        requests: [{ name: 'Step', request: REQUEST, assertions: ASSERTIONS }],
+      });
+
+  it('is kept when a collection is imported with it, and is null otherwise', async () => {
+    const environmentId = await newEnvironment();
+    const linked = await importWith(environmentId);
+    expect(linked.status).toBe(201);
+    expect(collectionResponseSchema.parse(linked.body).collection.environmentId).toBe(
+      environmentId,
+    );
+    expect((await newCollection()).environmentId).toBeNull();
+  });
+
+  it('must exist', async () => {
+    const response = await importWith('00000000-0000-4000-8000-000000000000');
+    expect(response.status).toBe(404);
+    expect(errorCode(response.body)).toBe('NOT_FOUND');
+    expect(await list()).toEqual([]);
+  });
+
+  it('is changed or removed on rename, and kept when not mentioned', async () => {
+    const environmentId = await newEnvironment();
+    const { id } = await newCollection();
+    const patch = (body: object) => request(app).patch(`/api/collections/${id}`).send(body);
+
+    await patch({ name: 'Users', environmentId });
+    await patch({ name: 'Users 2' });
+    expect((await list())[0]).toMatchObject({ name: 'Users 2', environmentId });
+    await patch({ name: 'Users 2', environmentId: null });
+    expect((await list())[0]?.environmentId).toBeNull();
+  });
+
+  it('is unlinked when the environment is deleted', async () => {
+    const environmentId = await newEnvironment();
+    await importWith(environmentId);
+    await request(app).delete(`/api/environments/${environmentId}`);
+    expect((await list())[0]?.environmentId).toBeNull();
+  });
+});

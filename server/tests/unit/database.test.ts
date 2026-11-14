@@ -54,3 +54,37 @@ describe('migrate', () => {
     expect(db.prepare('SELECT COUNT(*) AS n FROM schema_migrations').get()?.n).toBe(0);
   });
 });
+
+describe('migration 5: the environment of a collection', () => {
+  it('links collections made until now to the (oldest) environment of the same name', () => {
+    const db = openDatabase(
+      ':memory:',
+      MIGRATIONS.filter((m) => m.id < 5),
+    );
+    const env = (id: string, name: string, at: string) =>
+      db
+        .prepare('INSERT INTO environments (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(id, name, at, at);
+    const collection = (id: string, name: string) =>
+      db
+        .prepare('INSERT INTO collections (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)')
+        .run(id, name, '2026-01-01', '2026-01-01');
+    env('e-new', 'Shop Flow', '2026-02-01');
+    env('e-old', 'Shop Flow', '2026-01-01');
+    collection('c-shop', 'Shop Flow');
+    collection('c-other', 'Hand made');
+
+    migrate(db, MIGRATIONS);
+
+    const linked = db.prepare('SELECT id, environment_id FROM collections ORDER BY id').all();
+    expect(linked.map((row) => [row.id, row.environment_id])).toEqual([
+      ['c-other', null],
+      ['c-shop', 'e-old'],
+    ]);
+    // Deleting the environment leaves the collection, unlinked.
+    db.prepare('DELETE FROM environments WHERE id = ?').run('e-old');
+    expect(db.prepare("SELECT environment_id FROM collections WHERE id = 'c-shop'").get()).toEqual(
+      expect.objectContaining({ environment_id: null }),
+    );
+  });
+});

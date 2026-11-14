@@ -28,8 +28,14 @@ export const MAX_REQUESTS_PER_COLLECTION = 500;
 export function createCollectionService(
   repo: CollectionRepository,
   clock: ServiceClock = systemClock,
+  /** Whether an environment exists; a collection can only be linked to a real one. */
+  environmentExists: (id: string) => boolean = () => true,
 ) {
   const notFound = (what: string) => new AppError('NOT_FOUND', `${what} not found.`, 404);
+
+  function requireEnvironment(id: string | null | undefined) {
+    if (id !== null && id !== undefined && !environmentExists(id)) throw notFound('Environment');
+  }
 
   function requireCollection(id: string): Collection {
     const collection = repo.getCollection(id);
@@ -52,7 +58,8 @@ export function createCollectionService(
   return {
     list: (): Collection[] => repo.listCollections(),
 
-    create(name: string): Collection {
+    create(name: string, environmentId: string | null = null): Collection {
+      requireEnvironment(environmentId);
       if (repo.listCollections().length >= MAX_COLLECTIONS) {
         throw new AppError(
           'VALIDATION_ERROR',
@@ -61,17 +68,23 @@ export function createCollectionService(
         );
       }
       const id = clock.newId();
-      repo.insertCollection(id, name, clock.now());
+      repo.insertCollection(id, name, clock.now(), environmentId);
       return requireCollection(id);
     },
 
-    rename(id: string, name: string): Collection {
-      if (!repo.renameCollection(id, name, clock.now())) throw notFound('Collection');
+    /** environmentId: undefined keeps the link, null removes it. */
+    rename(id: string, name: string, environmentId?: string | null): Collection {
+      requireEnvironment(environmentId);
+      repo.transaction(() => {
+        if (!repo.renameCollection(id, name, clock.now())) throw notFound('Collection');
+        if (environmentId !== undefined) repo.linkEnvironment(id, environmentId);
+      });
       return requireCollection(id);
     },
 
     /** Creates a collection with its requests, in the given order, or nothing at all. */
     importCollection(input: CollectionImport): Collection {
+      requireEnvironment(input.environmentId);
       if (repo.listCollections().length >= MAX_COLLECTIONS) {
         throw new AppError(
           'VALIDATION_ERROR',
@@ -82,7 +95,7 @@ export function createCollectionService(
       const id = clock.newId();
       const now = clock.now();
       repo.transaction(() => {
-        repo.insertCollection(id, input.name, now);
+        repo.insertCollection(id, input.name, now, input.environmentId ?? null);
         input.requests.forEach((request, index) => {
           repo.insertSavedRequest(
             clock.newId(),

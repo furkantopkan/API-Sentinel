@@ -12,6 +12,7 @@ import type { Environments } from '../../environments/hooks/useEnvironments';
 import { useFlowRecorder } from '../hooks/useFlowRecorder';
 import { draftToImport, isReadOnly, missingCaptures } from '../lib/draftToImport';
 import { recordingSummary } from '../lib/recordingSummary';
+import { mergeIntoEnvironment, siteEnvironmentName } from '../lib/siteEnvironment';
 import { uniqueName } from '../lib/uniqueName';
 import { FlowRecorderPanel } from './FlowRecorderPanel';
 
@@ -107,12 +108,7 @@ export function CollectionBuilder({ environments, collectionNames, onClose, onCr
       return;
     }
     setDraft({ result: result.data.result, meta: result.data.meta });
-    setName(
-      uniqueName(result.data.result.collectionName, [
-        ...collectionNames,
-        ...environments.environments.map((environment) => environment.name),
-      ]),
-    );
+    setName(uniqueName(result.data.result.collectionName, collectionNames));
     // Everything the user did in the recording is wanted: changes are marked, not left out.
     setSelected(new Set(result.data.result.steps.map((_step, index) => index)));
   };
@@ -136,34 +132,47 @@ export function CollectionBuilder({ environments, collectionNames, onClose, onCr
     if (!draft) return;
     setBusy('creating');
     setError(null);
-    const { variables } = draft.result;
     const previous = environments.selected?.id ?? null;
-    let created: string | null = null;
-    if (variables.length > 0) {
-      const saved = await environments.save(null, {
-        name,
-        variables: variables.map((v) => ({
-          key: v.key,
-          value: v.value,
-          isSecret: v.secret,
-          enabled: true,
-        })),
+    let draftToSave = draft.result;
+    // One environment per site, shared by every flow recorded on it.
+    let linked: string | undefined;
+    let undo: (() => Promise<unknown>) | null = null;
+    if (draft.result.variables.length > 0) {
+      const site = siteEnvironmentName(draft.result) ?? name;
+      const existing = environments.environments.find(
+        (environment) => environment.name.toLowerCase() === site.toLowerCase(),
+      );
+      const merged = mergeIntoEnvironment(existing?.variables ?? [], draft.result);
+      draftToSave = merged.draft;
+      const saved = await environments.save(existing?.id ?? null, {
+        name: existing?.name ?? site,
+        variables: merged.variables,
       });
       if (!saved.ok) {
         setBusy(null);
         setError(saved.message);
         return;
       }
-      created = saved.environment.id;
-      environments.select(created);
+      linked = saved.environment.id;
+      const id = linked;
+      undo = existing
+        ? () =>
+            environments.save(id, {
+              name: existing.name,
+              variables: mergeIntoEnvironment(existing.variables, {
+                ...draft.result,
+                variables: [],
+              }).variables,
+            })
+        : () => environments.remove(id);
+      environments.select(linked);
     }
     const result = await unwrap(
-      collectionsApi.importCollection(draftToImport(draft.result, name, selected)),
+      collectionsApi.importCollection(draftToImport(draftToSave, name, selected, linked)),
     );
-    if (!result.ok && created !== null) {
-      // No collection: its environment must not stay behind, selected, for
-      // other collections to run with (they would miss their own variables).
-      await environments.remove(created);
+    if (!result.ok && undo !== null) {
+      // No collection: the environment goes back to how it was, and so does the selection.
+      await undo();
       environments.select(previous);
     }
     setBusy(null);

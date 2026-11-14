@@ -27,10 +27,13 @@ export function draftToImport(
   draft: CollectionDraft,
   name: string,
   selected: ReadonlySet<number>,
+  /** The environment the collection runs with. */
+  environmentId?: string,
 ): CollectionImport {
   const steps = draft.steps.filter((_, index) => selected.has(index));
   return {
     name,
+    ...(environmentId === undefined ? {} : { environmentId }),
     requests: steps.map((step, index) => ({
       name: step.name.trim().slice(0, 200) || `Step ${index + 1}`,
       request: {

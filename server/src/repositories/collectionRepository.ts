@@ -18,10 +18,10 @@ import type { Database } from '../db/database';
 export function createCollectionRepository(db: Database) {
   const statements = {
     listCollections: db.prepare(
-      'SELECT id, name, created_at, updated_at FROM collections ORDER BY name COLLATE NOCASE, created_at',
+      'SELECT id, name, environment_id, created_at, updated_at FROM collections ORDER BY name COLLATE NOCASE, created_at',
     ),
     getCollection: db.prepare(
-      'SELECT id, name, created_at, updated_at FROM collections WHERE id = ?',
+      'SELECT id, name, environment_id, created_at, updated_at FROM collections WHERE id = ?',
     ),
     listSummaries: db.prepare(
       'SELECT id, collection_id, name, method, url FROM saved_requests ORDER BY sort_order, name COLLATE NOCASE, created_at',
@@ -30,9 +30,10 @@ export function createCollectionRepository(db: Database) {
       'SELECT id, collection_id, name, method, url FROM saved_requests WHERE collection_id = ? ORDER BY sort_order, name COLLATE NOCASE, created_at',
     ),
     insertCollection: db.prepare(
-      'INSERT INTO collections (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)',
+      'INSERT INTO collections (id, name, environment_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
     ),
     renameCollection: db.prepare('UPDATE collections SET name = ?, updated_at = ? WHERE id = ?'),
+    linkEnvironment: db.prepare('UPDATE collections SET environment_id = ? WHERE id = ?'),
     deleteCollection: db.prepare('DELETE FROM collections WHERE id = ?'),
     getSavedRequest: db.prepare('SELECT * FROM saved_requests WHERE id = ?'),
     insertSavedRequest: db.prepare(
@@ -67,6 +68,7 @@ export function createCollectionRepository(db: Database) {
     collectionSchema.parse({
       id: row.id,
       name: row.name,
+      environmentId: row.environment_id ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       requests: requests.map(toSummary),
@@ -105,8 +107,17 @@ export function createCollectionRepository(db: Database) {
       return row && toCollection(row, statements.listSummariesOf.all(id));
     },
 
-    insertCollection(id: string, name: string, now: string): void {
-      statements.insertCollection.run(id, name, now, now);
+    insertCollection(
+      id: string,
+      name: string,
+      now: string,
+      environmentId: string | null = null,
+    ): void {
+      statements.insertCollection.run(id, name, environmentId, now, now);
+    },
+
+    linkEnvironment(id: string, environmentId: string | null): void {
+      statements.linkEnvironment.run(environmentId, id);
     },
 
     renameCollection(id: string, name: string, now: string): boolean {

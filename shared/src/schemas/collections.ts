@@ -13,7 +13,11 @@ import { httpMethodSchema } from './http';
 const name = z.string().trim().min(1, 'Name is required.').max(200);
 const id = z.uuid();
 
-export const collectionInputSchema = z.object({ name });
+/**
+ * environmentId: the environment the collection runs with, whatever is
+ * selected at the time. null unlinks it; omitted on rename keeps it.
+ */
+export const collectionInputSchema = z.object({ name, environmentId: id.nullable().optional() });
 
 /**
  * Takes a value from a JSON response and makes it available to later requests
@@ -40,6 +44,7 @@ export const savedRequestInputSchema = z.object({ collectionId: id, ...requestFi
 /** A whole collection created at once, in run order (e.g. from an AI draft). */
 export const collectionImportSchema = z.object({
   name,
+  environmentId: id.optional(),
   requests: z.array(z.object(requestFields)).min(1).max(100),
 });
 
@@ -54,6 +59,7 @@ export const savedRequestSummarySchema = z.object({
 export const collectionSchema = z.object({
   id,
   name: z.string(),
+  environmentId: id.nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   requests: z.array(savedRequestSummarySchema),

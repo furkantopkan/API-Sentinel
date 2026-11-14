@@ -168,9 +168,17 @@ export function App() {
           onCreate={collectionActions.create}
           onRename={collectionActions.rename}
           onDelete={collectionActions.remove}
-          onOpenRequest={(id) => {
+          onOpenRequest={async (id) => {
             setView('requests');
-            return workspace.openRequest(id);
+            const error = await workspace.openRequest(id);
+            // Sending it should use the environment its collection runs with.
+            const own =
+              collections.state.status === 'ready'
+                ? collections.state.collections.find((c) => c.requests.some((r) => r.id === id))
+                    ?.environmentId
+                : null;
+            if (error === null && own) environments.select(own);
+            return error;
           }}
           onRun={(collection) => {
             setView('runs');

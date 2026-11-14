@@ -14,8 +14,8 @@ export function createCollectionsControllers(service: CollectionService) {
     res.json({ ok: true, collections: service.list() });
   };
   const create: RequestHandler = (req, res) => {
-    const { name } = parseBody(collectionInputSchema, req.body);
-    res.status(201).json({ ok: true, collection: service.create(name) });
+    const { name, environmentId } = parseBody(collectionInputSchema, req.body);
+    res.status(201).json({ ok: true, collection: service.create(name, environmentId ?? null) });
   };
   const importCollection: RequestHandler = (req, res) => {
     const input = parseBody(collectionImportSchema, req.body);
@@ -23,8 +23,8 @@ export function createCollectionsControllers(service: CollectionService) {
   };
   const rename: RequestHandler = (req, res) => {
     const id = idParam(req);
-    const { name } = parseBody(collectionInputSchema, req.body);
-    res.json({ ok: true, collection: service.rename(id, name) });
+    const { name, environmentId } = parseBody(collectionInputSchema, req.body);
+    res.json({ ok: true, collection: service.rename(id, name, environmentId) });
   };
   const remove: RequestHandler = (req, res) => {
     service.remove(idParam(req));

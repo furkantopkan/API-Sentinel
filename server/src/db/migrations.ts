@@ -94,4 +94,16 @@ export const MIGRATIONS: readonly Migration[] = [
       ALTER TABLE saved_requests ADD COLUMN captures_json TEXT NOT NULL DEFAULT '[]';
     `,
   },
+  {
+    id: 5,
+    name: 'environment of a collection',
+    // Collections made by the AI builder until now had an environment of the
+    // same name: they are linked to it (the oldest, if there are several).
+    sql: `
+      ALTER TABLE collections ADD COLUMN environment_id TEXT REFERENCES environments(id) ON DELETE SET NULL;
+      UPDATE collections SET environment_id = (
+        SELECT e.id FROM environments e WHERE e.name = collections.name ORDER BY e.created_at LIMIT 1
+      );
+    `,
+  },
 ];
