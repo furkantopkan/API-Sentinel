@@ -723,3 +723,27 @@ describe('parseHar and a site tracking itself', () => {
     expect(entries[0]?.requestHeaders).toEqual([['Accept-Language', 'tr-TR']]);
   });
 });
+
+// Seen on automationexercise.com: "Add to cart" is GET /add_to_cart/1 answering "Added To Cart".
+describe('parseHar and a click answered with a bit of text', () => {
+  const page = {
+    ...entry('https://shop.test/', { type: 'document', mime: 'text/html', text: '<p>x</p>' }),
+    _trigger: 'user',
+  };
+  const bit = (url: string, trigger: 'user' | 'page') => ({
+    ...entry(url, { type: 'xhr', mime: 'text/html; charset=utf-8', text: 'Added To Cart' }),
+    _trigger: trigger,
+  });
+
+  it("keeps it when the user's click sent it, not when the page did", () => {
+    const entries = parsedEntries(
+      page,
+      bit('https://shop.test/add_to_cart/1', 'user'),
+      bit('https://shop.test/widget/footer', 'page'),
+    );
+    expect(entries.map((e) => e.url)).toEqual([
+      'https://shop.test/',
+      'https://shop.test/add_to_cart/1',
+    ]);
+  });
+});

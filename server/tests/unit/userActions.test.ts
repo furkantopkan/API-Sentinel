@@ -62,6 +62,9 @@ describe('reportedLabel', () => {
     expect(reportedLabel('  Click "Sepete\n  ekle" ')).toBe('Click "Sepete ekle"');
     expect(reportedLabel('x'.repeat(200))).toHaveLength(80);
     expect(reportedLabel('   ')).toBeUndefined();
+    // Seen on a shop: an icon font's character before the link text.
+    expect(reportedLabel('Click " Products"')).toBe('Click "Products"');
+    expect(reportedLabel('Click "a\u0007b"')).toBe('Click "a b"');
     expect(reportedLabel(42)).toBeUndefined();
     expect(reportedLabel(undefined)).toBeUndefined();
   });

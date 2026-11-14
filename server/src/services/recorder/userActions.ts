@@ -78,7 +78,12 @@ export function reportedTime(value: unknown, now: number = Date.now()): number {
 /** What the page reported the user clicked: page text, so only a short single line is kept. */
 export function reportedLabel(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
-  const label = value.replace(/\s+/g, ' ').trim();
+  // Icon and control characters are invisible in a name; the page could send anything.
+  const label = value
+    .replace(/[\p{Co}\p{Cc}]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^(\p{L}+ ")\s+/u, '$1');
   return label === '' ? undefined : label.slice(0, MAX_LABEL);
 }
 const MAX_LABEL = 80;
@@ -114,7 +119,8 @@ export function userActionScript(binding: string): string {
     const found = (el.tagName === 'A'
       ? [el.getAttribute('aria-label'), el.getAttribute('title'), alt, lineOf(el.innerText)]
       : [el.getAttribute('aria-label'), el.getAttribute('title'), lineOf(el.innerText), own, alt])
-      .map((t) => (typeof t === 'string' ? t.replace(/\s+/g, ' ').trim() : ''))
+      // Icon fonts draw their icons with private-use characters: invisible in a name.
+      .map((t) => (typeof t === 'string' ? t.replace(/\p{Co}/gu, '').replace(/\s+/g, ' ').trim() : ''))
       .filter((t) => t !== '');
     const text = found.find((t) => /\p{L}/u.test(t)) || found.find((t) => /\p{N}/u.test(t)) || found[0];
     return text === undefined ? undefined : text.slice(0, MAX);

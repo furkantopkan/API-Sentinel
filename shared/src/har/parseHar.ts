@@ -346,7 +346,17 @@ export function parseHar(json: unknown): ParseHarResult {
     ) {
       continue;
     }
-    const kind = kindOf(method, resourceType, mime, text, response.status);
+    // Classic sites answer a click with a bit of text or HTML (seen: GET
+    // /add_to_cart/1 -> "Added To Cart"). Kept only when the user caused it:
+    // the page loads such bits by itself all the time (widgets, ads).
+    const userText =
+      trigger === 'user' &&
+      (resourceType === 'xhr' || resourceType === 'fetch') &&
+      response.status >= 200 &&
+      response.status < 300 &&
+      /html|text\/plain/i.test(mime);
+    const kind =
+      kindOf(method, resourceType, mime, text, response.status) ?? (userText ? 'api' : null);
     if (kind === null) continue;
     // Another site: ads and tracking react to clicks too (accepting cookies
     // starts a burst of them). Only its JSON reads may belong to the flow, and
