@@ -4,7 +4,11 @@ import type {
   SuggestedAssertion,
 } from '@api-sentinel/shared';
 import { describe, expect, it } from 'vitest';
-import { checkDraft, visiblePartOf } from '../../src/services/ai-engine/collectionDraft';
+import {
+  checkDraft,
+  steadyPart,
+  visiblePartOf,
+} from '../../src/services/ai-engine/collectionDraft';
 import {
   MAX_RECORDING_CHARS,
   fitRecording,
@@ -463,7 +467,8 @@ describe('checkDraft: every page and change of the user is in the flow', () => {
     ]);
     expect(draft.steps[0]?.assertions).toEqual([
       { kind: 'status', target: '', operator: 'equals', expected: '200' },
-      { kind: 'body', target: '', operator: 'contains', expected: 'Mock Book 7' },
+      // Numbers on a page change between visits (counts, prices): only the steady words are checked.
+      { kind: 'body', target: '', operator: 'contains', expected: 'Mock Book' },
     ]);
     expect(draft.steps[2]?.assertions).toEqual([
       { kind: 'status', target: '', operator: 'equals', expected: '200' },
@@ -851,5 +856,72 @@ describe('checkDraft names steps after what the user clicked', () => {
       'Click "Sepete ekle" – Get Offers',
       'Click "Sepetim"',
     ]);
+  });
+});
+
+describe('steadyPart', () => {
+  it('keeps a text without numbers as it is', () => {
+    expect(steadyPart('İş İlanları | LinkedIn')).toBe('İş İlanları | LinkedIn');
+  });
+
+  // Seen on LinkedIn: the job count in the title changed between the recording and the run.
+  it('keeps the longest stretch without numbers, without the punctuation around it', () => {
+    expect(
+      steadyPart('Birleşik Devletler Konumunda (11,000+ Açık Pozisyon) İş İlanları | LinkedIn'),
+    ).toBe('Açık Pozisyon) İş İlanları | LinkedIn');
+    expect(steadyPart('Laptop Fiyatları 2026 | Dizüstü Bilgisayar')).toBe('Dizüstü Bilgisayar');
+  });
+
+  it('leaves nothing when only numbers and short words are left', () => {
+    expect(steadyPart('1.299,90 TL')).toBeNull();
+  });
+});
+
+describe('checkDraft with pages', () => {
+  const pageEntry = (index: number, url: string): RecordedEntry => ({
+    ...recorded(index, url, ''),
+    responseContentType: 'text/html',
+    requestHeaders: [['accept-language', 'tr-TR,tr;q=0.9']],
+  });
+
+  it('checks only the steady words of a page and asks for the recorded language', () => {
+    const entries = [pageEntry(0, 'https://a.test/jobs')];
+    const samples = new Map([[0, 'İş İlanları (11,000+) | LinkedIn\nmore']]);
+    const { draft } = check(
+      output(
+        [
+          step(0, '{{baseUrl}}/jobs', {
+            assertions: [
+              { kind: 'body', target: '', operator: 'contains', expected: 'İş İlanları (11,000+)' },
+              { kind: 'body', target: '', operator: 'contains', expected: '11,000+' },
+            ],
+          }),
+        ],
+        [BASE],
+      ),
+      entries,
+      samples,
+    );
+    expect(draft.steps[0]?.assertions.map((a) => a.expected)).toEqual(['İş İlanları']);
+    expect(draft.steps[0]?.headers).toContainEqual({
+      key: 'Accept-Language',
+      value: 'tr-TR,tr;q=0.9',
+    });
+  });
+
+  it('leaves numbers in a JSON check alone: there they are ids', () => {
+    const { draft } = check(
+      output(
+        [
+          step(0, '{{baseUrl}}/users', {
+            assertions: [{ kind: 'body', target: '', operator: 'contains', expected: '"id":1' }],
+          }),
+        ],
+        [BASE],
+      ),
+      ENTRIES,
+      new Map([[0, '{"id":1}']]),
+    );
+    expect(draft.steps[0]?.assertions.map((a) => a.expected)).toEqual(['"id":1']);
   });
 });

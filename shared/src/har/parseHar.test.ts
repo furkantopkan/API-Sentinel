@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { MAX_RECORDED_ENTRIES, MAX_RESPONSE_SAMPLE } from '../schemas/builder';
-import { isAnalyticsUrl, isBotSensorBody, isUserAction, keepActions, parseHar } from './parseHar';
+import {
+  isAnalyticsUrl,
+  isBotSensorBody,
+  isTrackingRequest,
+  isUserAction,
+  keepActions,
+  parseHar,
+} from './parseHar';
 
 interface Options {
   method?: string;
@@ -670,5 +677,49 @@ describe('parseHar and what the page repeats or redraws', () => {
       mine(url, { method: url.includes('loyalty') ? 'POST' : 'GET' }),
     );
     expect(entries.map((e) => e.url)).toEqual(['https://www.shop.com.tr/']);
+  });
+});
+
+// Seen on LinkedIn: its own tracking calls were taken for the user's clicks.
+describe('parseHar and a site tracking itself', () => {
+  const page = {
+    ...entry('https://www.site.com/', { type: 'document', mime: 'text/html', text: '<p>x</p>' }),
+    _trigger: 'user',
+  };
+  const mine = (url: string, method = 'POST') => ({ ...entry(url, { method }), _trigger: 'user' });
+
+  it('leaves out tracking calls on the site itself', () => {
+    const entries = parsedEntries(
+      page,
+      mine('https://www.site.com/li/track'),
+      mine('https://www.site.com/litms/api/events/ext-tag-load'),
+      mine('https://www.site.com/api/ping'),
+      mine('https://www.site.com/api/jobs/save'),
+    );
+    expect(entries.map((e) => e.url)).toEqual([
+      'https://www.site.com/',
+      'https://www.site.com/api/jobs/save',
+    ]);
+  });
+
+  it('keeps reading a page about tracking (an order to follow)', () => {
+    expect(isTrackingRequest('GET', 'https://www.site.com/orders/7/track')).toBe(false);
+    expect(isTrackingRequest('POST', 'https://www.site.com/orders/7/track')).toBe(true);
+    expect(isTrackingRequest('POST', 'https://www.site.com/api/tracks')).toBe(false);
+  });
+
+  it('keeps the language the page was asked in', () => {
+    const entries = parsedEntries({
+      ...entry('https://www.site.com/', { type: 'document', mime: 'text/html', text: '<p>x</p>' }),
+      request: {
+        method: 'GET',
+        url: 'https://www.site.com/',
+        headers: [
+          { name: 'Accept-Language', value: 'tr-TR' },
+          { name: 'Cookie', value: 'a=1' },
+        ],
+      },
+    });
+    expect(entries[0]?.requestHeaders).toEqual([['Accept-Language', 'tr-TR']]);
   });
 });

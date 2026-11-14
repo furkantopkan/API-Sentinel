@@ -112,6 +112,52 @@ function withRecordedContentType(
 }
 
 /**
+ * The language the page was asked for: without it a site answers in another
+ * language or for another country, and every text check fails.
+ */
+function withRecordedLanguage(
+  headers: CollectionDraft['steps'][number]['headers'],
+  entry: RecordedEntry,
+): CollectionDraft['steps'][number]['headers'] {
+  if (headers.some((h) => h.key.toLowerCase() === 'accept-language')) return headers;
+  const recorded = entry.requestHeaders.find(([name]) => name.toLowerCase() === 'accept-language');
+  return recorded ? [...headers, { key: 'Accept-Language', value: recorded[1] }] : headers;
+}
+
+const EDGE_PUNCTUATION = /^[\s|·•:,;()[\]\-–—+/]+|[\s|·•:,;()[\]\-–—+/]+$/g;
+
+/**
+ * The part of a text that stays the same on the next visit. Numbers change:
+ * counts ("11,000+ jobs"), prices, dates, stock. A text with numbers is
+ * reduced to its longest stretch without them; null when nothing worth
+ * checking is left.
+ */
+export function steadyPart(text: string): string | null {
+  if (!/\d/.test(text)) return text;
+  const pieces = text
+    .split(/\S*\d\S*/)
+    .map((piece) => piece.replace(EDGE_PUNCTUATION, '').trim())
+    .filter((piece) => (piece.match(/\p{L}/gu)?.length ?? 0) >= 4);
+  return pieces.sort((a, b) => b.length - a.length)[0] ?? null;
+}
+
+/**
+ * On a page, "body contains" checks keep only their steady part; one with none
+ * is dropped. JSON is left alone: there a number is usually an id, which stays.
+ */
+function withSteadyText(
+  assertions: SuggestedAssertion[],
+  entry: RecordedEntry,
+): SuggestedAssertion[] {
+  if (!/html/i.test(entry.responseContentType)) return assertions;
+  return assertions.flatMap((assertion) => {
+    if (assertion.kind !== 'body' || assertion.operator !== 'contains') return [assertion];
+    const steady = steadyPart(assertion.expected);
+    return steady === null ? [] : [{ ...assertion, expected: steady }];
+  });
+}
+
+/**
  * The complete part of a JSON document that was cut off: everything up to the
  * last finished value, with the open objects and arrays closed again.
  * Undefined when the text is not the start of a JSON object or array.
@@ -316,8 +362,9 @@ function stepFromRecording(
     { kind: 'status', target: '', operator: 'equals', expected: String(entry.status) },
   ];
   const firstLine = original.split('\n')[0]?.trim() ?? '';
-  if (entry.method === 'GET' && firstLine !== '' && firstLine.length <= 120) {
-    assertions.push({ kind: 'body', target: '', operator: 'contains', expected: firstLine });
+  const steady = steadyPart(firstLine);
+  if (entry.method === 'GET' && steady !== null && steady !== '' && steady.length <= 120) {
+    assertions.push({ kind: 'body', target: '', operator: 'contains', expected: steady });
   }
   return {
     sourceIndex: entry.index,
@@ -563,11 +610,14 @@ export function checkDraft(
         body: withSecretVariables(entry.requestBody, (name) => secretVariable(name, variables)),
       };
     }
-    const headers = withRecordedContentType(
-      step.headers.filter(
-        (header) => header.key.trim() !== '' && !FORBIDDEN_HEADERS.has(header.key.toLowerCase()),
+    const headers = withRecordedLanguage(
+      withRecordedContentType(
+        step.headers.filter(
+          (header) => header.key.trim() !== '' && !FORBIDDEN_HEADERS.has(header.key.toLowerCase()),
+        ),
+        step.body,
+        entry,
       ),
-      step.body,
       entry,
     );
     const texts = [step.url, step.body, ...headers.flatMap((h) => [h.key, h.value])];
@@ -577,7 +627,7 @@ export function checkDraft(
 
     const original = originalSamples.get(entry.index) ?? '';
     const assertions = validAssertions(
-      step.assertions
+      withSteadyText(step.assertions, entry)
         // Text the response never contained would fail on every run.
         .filter(
           (a) =>

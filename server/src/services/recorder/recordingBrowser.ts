@@ -3,6 +3,7 @@ import {
   MAX_RESPONSE_SAMPLE,
   isBotSensorBody,
   isNoiseUrl,
+  isTrackingRequest,
   responseSampleText,
   siteOfUrl,
   type HarEntry,
@@ -143,7 +144,8 @@ export function createPlaywrightRecordingBrowser(options: { headless: boolean })
           site !== null &&
           siteOfUrl(request.url()) === site &&
           !isNoiseUrl(request.url()) &&
-          !isBotSensorBody(request.postData() ?? '')
+          !isBotSensorBody(request.postData() ?? '') &&
+          !isTrackingRequest(request.method(), request.url())
         ) {
           tracker.changeAnswered(start);
         }

@@ -60,7 +60,6 @@ const TELEMETRY_URL =
 /** Added by the browser or tied to its session; a saved request must not depend on them. */
 const DROPPED_HEADERS = new Set([
   'accept-encoding',
-  'accept-language',
   'cache-control',
   'connection',
   'content-length',
@@ -96,6 +95,21 @@ const isMethod = (method: string): method is HttpMethod =>
 const ANALYTICS_QUERY = /[?&](tid=(G|UA|AW|DC|GT)-|gtm=|_gid=)/i;
 const ANALYTICS_PART =
   /^(metrics|collect|measurement|telemetry|beacon|pixel|analytics|gtm|gtag|ccm|rmkt|pagead)$/i;
+
+/**
+ * A site's own tracking (seen on LinkedIn: POST /li/track, /litms/api/events/ext-tag-load).
+ * Only for requests that send something: a GET .../track can be a real page (order tracking).
+ */
+const TRACKING_PART = /^(track(ing|er)?|ping|rum|impressions?|[\w-]*tag-?load)$/i;
+
+export function isTrackingRequest(method: string, url: string): boolean {
+  if (method.toUpperCase() === 'GET') return false;
+  try {
+    return new URL(url).pathname.split('/').some((part) => TRACKING_PART.test(part));
+  } catch {
+    return false;
+  }
+}
 
 /** Error reporting, analytics and ads: never part of a flow. */
 export function isNoiseUrl(url: string): boolean {
@@ -325,6 +339,7 @@ export function parseHar(json: unknown): ParseHarResult {
       host === null ||
       TELEMETRY_URL.test(request.url) ||
       isBotSensorBody(request.postData?.text ?? '') ||
+      isTrackingRequest(method, request.url) ||
       isAnalyticsUrl(request.url) ||
       request.url.length > 8192 ||
       response.status <= 0
