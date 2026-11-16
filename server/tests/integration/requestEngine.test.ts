@@ -210,6 +210,10 @@ describe('redirects', () => {
     expect(await errorCode(engine.execute(req({ url: `${base}/redirect/7` })))).toBe(
       'TOO_MANY_REDIRECTS',
     );
+    // A chain through different addresses is not called a loop to the same one.
+    await expect(engine.execute(req({ url: `${base}/redirect/7` }))).rejects.toMatchObject({
+      message: 'Stopped after 5 redirects.',
+    });
   });
 
   it('drops the Authorization header when the redirect changes origin', async () => {
