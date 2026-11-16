@@ -2,6 +2,8 @@ import type { HttpMethod } from '@api-sentinel/shared';
 import type { Readable, Transform } from 'node:stream';
 import { createBrotliDecompress, createGunzip, createInflate } from 'node:zlib';
 import { request, type Dispatcher } from 'undici';
+import { botBlockMessage } from '../botBlock';
+import { createCookieJar, type CookieJar } from '../cookieJar';
 import { AppError } from '../../errors/AppError';
 
 export interface OutgoingRequest {
@@ -16,6 +18,13 @@ export interface OutgoingRequest {
 export interface ExecutorContext {
   /** Picks (and SSRF-checks) the connection pool for each hop. */
   dispatcherFor: (url: URL) => Dispatcher;
+  /**
+   * Cookies, as a browser keeps them: sent on every hop to the address they
+   * belong to, and learned from every answer, redirects included (a login
+   * often sets its session cookie on the redirect). A run passes its own jar;
+   * otherwise the cookies live only as long as this one request.
+   */
+  cookies?: CookieJar;
   maxResponseBytes: number;
   maxRedirects: number;
   /** Aborted when our own client disconnects. */
@@ -127,17 +136,27 @@ export async function executeHttp(
   let url = input.url;
   const headers = { ...input.headers };
   const redirects: RawResponse['redirects'] = [];
+  const jar = context.cookies ?? createCookieJar();
+  // Akamai's bot protection answers a test tool by sending it back to the same address.
+  let botCookie = false;
 
   try {
     for (let hop = 0; ; hop++) {
+      // A Cookie header the user wrote wins (and is dropped when the origin changes).
+      const fromJar = headers.cookie === undefined ? jar.headerFor(url.toString()) : undefined;
       const response = await request(url, {
         method,
-        headers,
+        headers: fromJar === undefined ? headers : { ...headers, cookie: fromJar },
         body,
         signal,
         dispatcher: context.dispatcherFor(url),
       });
 
+      const answered = flattenHeaders(response.headers);
+      jar.store(url.toString(), answered);
+      botCookie ||= answered.some(
+        ([name, value]) => name === 'set-cookie' && /^\s*(_abck|bm_sz)=/.test(value),
+      );
       const location = firstValue(response.headers.location);
       const isRedirect = REDIRECT_STATUSES.has(response.statusCode) && location !== undefined;
 
@@ -145,7 +164,7 @@ export async function executeHttp(
         const bodyBytes = await readBodyWithLimit(response, context.maxResponseBytes);
         return {
           status: response.statusCode,
-          headers: flattenHeaders(response.headers),
+          headers: answered,
           bodyBytes,
           finalUrl: url.toString(),
           redirects,
@@ -155,6 +174,22 @@ export async function executeHttp(
 
       await response.body.dump(); // discard the redirect page
       if (hop >= context.maxRedirects) {
+        const toItself = redirects.every((r) => r.location === url.toString());
+        if (toItself && botCookie) {
+          throw new AppError(
+            'BLOCKED_BY_SITE',
+            botBlockMessage('it sends the request back to the same address, again and again'),
+            502,
+          );
+        }
+        if (toItself) {
+          throw new AppError(
+            'TOO_MANY_REDIRECTS',
+            `The site keeps redirecting to the same address; stopped after ${context.maxRedirects} redirects.`,
+            502,
+            { redirects: redirects.length },
+          );
+        }
         throw new AppError(
           'TOO_MANY_REDIRECTS',
           `Stopped after ${context.maxRedirects} redirects.`,

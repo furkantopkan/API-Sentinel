@@ -10,6 +10,7 @@ import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { RequestEngineConfig } from '../../src/config/env';
 import { AppError } from '../../src/errors/AppError';
+import { createCookieJar } from '../../src/services/cookieJar';
 import {
   createRequestEngine,
   type RequestEngine,
@@ -461,5 +462,47 @@ describe('bodies declared as something else than JSON', () => {
       }),
     );
     expect(await errorCode(sending)).toBe('INVALID_JSON_BODY');
+  });
+});
+
+describe('cookies across redirects, like a browser', () => {
+  const echoed = (response: { body: { kind: string; text?: string } }) =>
+    (JSON.parse(response.body.text ?? '{}') as { headers: Record<string, string> }).headers;
+
+  it('sends a cookie set by a redirect to the next hop', async () => {
+    const response = await engine.execute(req({ url: `${base}/redirect-cookie` }));
+    expect(echoed(response).cookie).toBe('session=from-redirect');
+  });
+
+  it('learns it into the run jar, and a Cookie header the user wrote still wins', async () => {
+    const jar = createCookieJar();
+    await engine.execute(req({ url: `${base}/redirect-cookie` }), undefined, undefined, jar);
+    expect(jar.headerFor(`${base}/anything`)).toBe('session=from-redirect');
+
+    const own = await engine.execute(
+      req({
+        url: `${base}/redirect-cookie`,
+        headers: [{ key: 'Cookie', value: 'mine=1', enabled: true }],
+      }),
+      undefined,
+      undefined,
+      jar,
+    );
+    expect(echoed(own).cookie).toBe('mine=1');
+  });
+
+  // Seen on bershka.com: Akamai answers a test tool by redirecting it to the same address forever.
+  it("names a bot protection's redirect loop for what it is", async () => {
+    await expect(engine.execute(req({ url: `${base}/bot-loop` }))).rejects.toMatchObject({
+      code: 'BLOCKED_BY_SITE',
+      message: expect.stringContaining('bot protection') as unknown,
+    });
+  });
+
+  it('says a plain loop goes back to the same address', async () => {
+    await expect(engine.execute(req({ url: `${base}/self-loop` }))).rejects.toMatchObject({
+      code: 'TOO_MANY_REDIRECTS',
+      message: expect.stringContaining('same address') as unknown,
+    });
   });
 });

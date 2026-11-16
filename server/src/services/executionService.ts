@@ -21,20 +21,6 @@ export interface ExecutionContext {
   cookies?: CookieJar;
 }
 
-/** A Cookie header the user wrote wins over the jar. */
-function withCookies(request: ExecuteRequest, jar: CookieJar | undefined): ExecuteRequest {
-  if (!jar) return request;
-  const userCookie = request.headers.some(
-    (row) => row.enabled && row.key.trim().toLowerCase() === 'cookie',
-  );
-  const header = userCookie ? undefined : jar.headerFor(request.url);
-  if (header === undefined) return request;
-  return {
-    ...request,
-    headers: [...request.headers, { key: 'Cookie', value: header, enabled: true }],
-  };
-}
-
 /** Replaces `{{variables}}`; an unresolved one stops the request before it is sent. */
 function resolveOrThrow(request: ExecuteRequest, context: ExecutionContext): ExecuteRequest {
   const { request: resolved, unknown } = resolveRequest(request, context.lookup);
@@ -80,10 +66,10 @@ export function createExecutionService(engine: RequestEngine, environments: Envi
       context: ExecutionContext,
       signal?: AbortSignal,
     ): Promise<ExecutedResponse> {
-      const resolved = withCookies(resolveOrThrow(request, context), context.cookies);
+      const resolved = resolveOrThrow(request, context);
       try {
-        const response = await engine.execute(resolved, signal, context.mask);
-        context.cookies?.store(response.finalUrl, response.headers);
+        // The engine sends and learns the run's cookies on every hop, redirects included.
+        const response = await engine.execute(resolved, signal, context.mask, context.cookies);
         return maskResponse(response, context.mask);
       } catch (error) {
         // Error messages can mention the host or a header name, which may hold a secret.

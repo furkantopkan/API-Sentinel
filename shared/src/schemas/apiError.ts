@@ -32,6 +32,8 @@ export const ERROR_CODES = [
   // Phase 7 – flow recording
   'RECORDING_ACTIVE',
   'RECORDER_UNAVAILABLE',
+  // A site's bot protection refused the request (see server/src/services/botBlock.ts).
+  'BLOCKED_BY_SITE',
 ] as const;
 
 export const errorCodeSchema = z.enum(ERROR_CODES);

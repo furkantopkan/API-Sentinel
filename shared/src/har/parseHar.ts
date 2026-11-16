@@ -316,11 +316,24 @@ export function actionsAndWhatTheyNeed(entries: readonly RecordedEntry[]): Recor
   });
 }
 
+/** The path with its ids (any part holding a digit) as #: /product/7/detail -> /product/#/detail. */
+function pathPattern(url: string): string {
+  try {
+    return new URL(url).pathname
+      .split('/')
+      .map((part) => (/\d/.test(part) ? '#' : part))
+      .join('/');
+  } catch {
+    return url;
+  }
+}
+
 export function parseHar(json: unknown): ParseHarResult {
   const parsed = harSchema.safeParse(json);
   if (!parsed.success) return { ok: false, error: 'This file is not a valid HAR recording.' };
 
   const seen = new Set<string>();
+  const readsOfAction = new Set<string>();
   const entries: RecordedEntry[] = [];
   // The site is the one of the first page: pages of other sites (ads, widgets) are not part of the flow.
   const firstPage = parsed.data.log.entries.find((e) => e._resourceType === 'document');
@@ -368,6 +381,13 @@ export function parseHar(json: unknown): ParseHarResult {
     // A page redraws itself after a click: recommendations, personalisation,
     // SEO texts. They follow the click but are not what the user did.
     if (trigger === 'user' && kind !== 'page' && UI_REFRESH.test(request.url)) trigger = 'page';
+    // One click, the same read for many items (seen on a shop: opening a product
+    // loaded the details of 20 others): the first one stands for all of them.
+    if (trigger === 'user' && kind === 'api' && method === 'GET' && entry._action) {
+      const pattern = `${entry._action} ${host}${pathPattern(request.url)}`;
+      if (readsOfAction.has(pattern)) trigger = 'page';
+      readsOfAction.add(pattern);
+    }
 
     // A read asked twice is the same check. A change to the same address with
     // another body (quantity up, then down) is another thing the user did; the

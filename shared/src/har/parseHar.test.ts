@@ -747,3 +747,44 @@ describe('parseHar and a click answered with a bit of text', () => {
     ]);
   });
 });
+
+// Seen on bershka.com: opening one product loaded the details of 20 others, all after that click.
+describe('parseHar and one click reading the same thing for many items', () => {
+  const page = {
+    ...entry('https://www.shop.test/', { type: 'document', mime: 'text/html', text: '<p>x</p>' }),
+    _trigger: 'user',
+  };
+  const read = (url: string, action?: string, method = 'GET') => ({
+    ...entry(url, { method }),
+    _trigger: 'user',
+    ...(action === undefined ? {} : { _action: action }),
+  });
+
+  it('keeps the first one as the step', () => {
+    const entries = parsedEntries(
+      page,
+      read('https://www.shop.test/api/product/226931503/detail?lang=1', 'Click "Baggy"'),
+      read('https://www.shop.test/api/product/243039829/detail?lang=1', 'Click "Baggy"'),
+      read('https://www.shop.test/api/product/226931763/detail?lang=1', 'Click "Baggy"'),
+      read('https://www.shop.test/api/product/1/care', 'Click "Baggy"'),
+    );
+    expect(entries.map((e) => e.url)).toEqual([
+      'https://www.shop.test/',
+      'https://www.shop.test/api/product/226931503/detail?lang=1',
+      'https://www.shop.test/api/product/1/care',
+    ]);
+  });
+
+  it('keeps reads of other clicks, reads without click text, and every change', () => {
+    const entries = parsedEntries(
+      page,
+      read('https://www.shop.test/api/product/1/detail', 'Click "A"'),
+      read('https://www.shop.test/api/product/2/detail', 'Click "B"'),
+      read('https://www.shop.test/api/product/3/detail'),
+      read('https://www.shop.test/api/product/4/detail'),
+      read('https://www.shop.test/api/cart/1', 'Click "Add"', 'POST'),
+      read('https://www.shop.test/api/cart/2', 'Click "Add"', 'POST'),
+    );
+    expect(entries).toHaveLength(7);
+  });
+});

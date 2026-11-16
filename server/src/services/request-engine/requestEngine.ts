@@ -9,6 +9,7 @@ import type { RequestEngineConfig } from '../../config/env';
 import { AppError } from '../../errors/AppError';
 import { mapRequestError } from './errorMapper';
 import { buildOutgoingHeaders } from './headerPolicy';
+import type { CookieJar } from '../cookieJar';
 import { executeHttp } from './httpExecutor';
 import { normalizeResponse } from './responseNormalizer';
 import { createDispatchers, selectDispatcher } from './safeDispatcher';
@@ -21,6 +22,8 @@ export interface RequestEngine {
     request: ExecuteRequest,
     signal?: AbortSignal,
     mask?: (text: string) => string,
+    /** A run's cookies; a single request keeps its cookies only for its own redirects. */
+    cookies?: CookieJar,
   ): Promise<ExecutedResponse>;
   close(): Promise<void>;
 }
@@ -44,6 +47,7 @@ export function createRequestEngine(
     request: ExecuteRequest,
     signal?: AbortSignal,
     mask: (text: string) => string = (text) => text,
+    cookies?: CookieJar,
   ): Promise<ExecutedResponse> {
     const timeoutMs = request.options.timeoutMs ?? config.defaultTimeoutMs;
     if (timeoutMs > config.maxTimeoutMs) {
@@ -98,6 +102,7 @@ export function createRequestEngine(
           maxResponseBytes: config.maxResponseBytes,
           maxRedirects: config.maxRedirects,
           signal,
+          ...(cookies === undefined ? {} : { cookies }),
         },
       );
       const response = normalizeResponse(raw);

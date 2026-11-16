@@ -50,6 +50,9 @@ export function createMockTargetApp(): Express {
         'GET /large/:kb',
         'GET /redirect/:n',
         'GET /redirect-to?url=',
+        'GET /redirect-cookie',
+        'GET /bot-loop',
+        'GET /self-loop',
         'GET /auth/bearer',
         'GET /auth/basic',
         'GET /malformed-json',
@@ -150,6 +153,20 @@ export function createMockTargetApp(): Express {
       return;
     }
     res.redirect(302, `/redirect/${n - 1}`);
+  });
+
+  // A login sets its session cookie on the redirect; /echo then shows the Cookie header received.
+  app.get('/redirect-cookie', (_req, res) => {
+    res.append('Set-Cookie', 'session=from-redirect; Path=/').redirect(302, '/echo');
+  });
+
+  // What Akamai's bot protection answers a test tool (seen on a real shop): back to the same address.
+  app.get('/bot-loop', (_req, res) => {
+    res.append('Set-Cookie', '_abck=x~-1~y; Path=/').redirect(301, '/bot-loop');
+  });
+
+  app.get('/self-loop', (_req, res) => {
+    res.redirect(301, '/self-loop');
   });
 
   // Open redirect on purpose: used to test that the SSRF guard re-checks every hop.
