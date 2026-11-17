@@ -294,6 +294,27 @@ function shortName(entry: RecordedEntry, original: string): string {
 }
 
 /**
+ * {{name}}/rest written for a recorded address that ends with rest: name is
+ * the start of that address (https://www.shop.com). Other placeholders in
+ * rest may stand for any one part. Only an address is taken, never a secret.
+ */
+function inferLeadingVariable(
+  template: string,
+  recorded: string,
+  variables: Map<string, { value: string; secret: boolean }>,
+): void {
+  const match = /^\{\{\s*([A-Za-z_][\w.-]*)\s*\}\}/.exec(template);
+  if (!match?.[1] || variables.has(match[1])) return;
+  const pattern = template
+    .slice(match[0].length)
+    .split(/\{\{[^}]*\}\}/)
+    .map(escapeRegExp)
+    .join('[^/?&#]+');
+  const found = new RegExp(`^(https?://[^/?#]+[^?#]*?)${pattern}$`).exec(recorded);
+  if (found?.[1]) variables.set(match[1], { value: found[1], secret: false });
+}
+
+/**
  * A step the user caused is named after what they clicked, in their words:
  * 'Click "Add to cart"'. When one click led to several steps, the step's own
  * name follows, so the names stay apart. Steps with nothing clicked (the
@@ -583,6 +604,13 @@ export function checkDraft(
     variables.set(variable.key, { value: secret ? '' : variable.value, secret });
   }
 
+  // Seen with the local model: steps written as {{baseUrl}}/path with no
+  // baseUrl among the variables. The recording says what it stands for.
+  for (const step of output.steps) {
+    const entry = entryByIndex.get(step.sourceIndex);
+    if (entry) inferLeadingVariable(step.url, entry.url, variables);
+  }
+
   const captured = new Set<string>();
   // Placeholders only need to resolve to something URL-safe for these checks.
   const lookup: VariableLookup = (name) => {
@@ -652,11 +680,14 @@ export function checkDraft(
 
   // What the user did must be in the flow, whatever the model chose.
   const covered = new Set(steps.map((step) => step.sourceIndex));
+  const wanted = new Set(output.steps.map((step) => step.sourceIndex));
   const modelSteps = steps.length;
   for (const entry of recording) {
     if (covered.has(entry.index) || !isUserAction(entry)) continue;
-    // Pages and changes are certain; which reads after a click matter is the model's call.
-    if (entry.method === 'GET' && !/html/i.test(entry.responseContentType)) continue;
+    // Pages and changes are certain; which reads after a click matter is the
+    // model's call, but a read it chose and wrote unusably is rebuilt too.
+    const isRead = entry.method === 'GET' && !/html/i.test(entry.responseContentType);
+    if (isRead && !wanted.has(entry.index)) continue;
     const added = stepFromRecording(entry, originalSamples.get(entry.index) ?? '', variables);
     if (added) insertInRecordedOrder(steps, added);
   }

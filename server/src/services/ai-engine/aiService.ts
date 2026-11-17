@@ -82,6 +82,7 @@ export function draftNotices(
   omitted: readonly RecordedEntry[],
   addedSteps: number,
   backgroundSteps = 0,
+  droppedSteps = 0,
 ): string[] {
   const notices: string[] = [];
   if (backgroundSteps > 0) {
@@ -104,6 +105,11 @@ export function draftNotices(
   if (addedSteps > 0) {
     notices.push(
       `${addedSteps} step(s) for pages you opened or changes you made were added straight from the recording, with a status check; review their assertions.`,
+    );
+  }
+  if (droppedSteps > 0) {
+    notices.push(
+      `${droppedSteps} step(s) the AI wrote could not be sent as written (a variable it did not define, or a masked value). Your own requests among them were rebuilt from the recording; the others were left out.`,
     );
   }
   return notices;
@@ -255,7 +261,7 @@ export function createAiService(
           ...draft,
           notes: fallback
             ? [fallback]
-            : [...draftNotices(omitted, addedSteps, backgroundSteps), ...draft.notes],
+            : [...draftNotices(omitted, addedSteps, backgroundSteps, droppedSteps), ...draft.notes],
         },
         meta: { model: ai.model, mock: ai.isMock, droppedAssertions, droppedItems: droppedSteps },
       };

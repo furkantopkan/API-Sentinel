@@ -81,8 +81,9 @@ describe('checkDraft: every step must come from the recording', () => {
     expect(draft.steps).toEqual([]);
   });
 
-  it('drops a step whose variable is never defined', () => {
-    expect(check(output([step(0, '{{nope}}/users')])).draft.steps).toEqual([]);
+  it('drops a step whose variable is never defined and cannot be told from the recording', () => {
+    // A leading {{x}} can be read off the recorded address (see below); this one cannot.
+    expect(check(output([step(0, 'https://a.test/{{nope}}')])).draft.steps).toEqual([]);
   });
 
   it('drops a step that copied a masked value', () => {
@@ -923,5 +924,46 @@ describe('checkDraft with pages', () => {
       new Map([[0, '{"id":1}']]),
     );
     expect(draft.steps[0]?.assertions.map((a) => a.expected)).toEqual(['"id":1']);
+  });
+});
+
+// Seen with the local model on bershka.com: every step used {{baseUrl}}, no variable was defined.
+describe('checkDraft and a variable the model forgot to define', () => {
+  const clicked = (index: number, url: string): RecordedEntry => ({
+    ...recorded(index, url),
+    trigger: 'user',
+  });
+
+  it('reads the start of the address off the recording', () => {
+    const entries = [
+      clicked(0, 'https://www.shop.test/tr/'),
+      clicked(1, 'https://www.shop.test/store/44/product/9/detail?x=1'),
+    ];
+    const { draft } = check(
+      output([
+        step(0, '{{baseUrl}}/tr/'),
+        step(1, '{{baseUrl}}/store/{{storeId}}/product/9/detail?x=1'),
+      ]),
+      entries,
+    );
+    expect(draft.variables).toContainEqual({
+      key: 'baseUrl',
+      value: 'https://www.shop.test',
+      secret: false,
+    });
+    expect(draft.steps.map((s) => s.url)).toContain('{{baseUrl}}/tr/');
+  });
+
+  it("rebuilds a user's read the model wrote unusably, but not one it left out", () => {
+    const entries = [
+      clicked(0, 'https://www.shop.test/api/a'),
+      clicked(1, 'https://www.shop.test/api/b'),
+    ];
+    const { draft, addedSteps } = check(
+      output([step(0, 'https://www.shop.test/api/a/{{missing}}')]),
+      entries,
+    );
+    expect(draft.steps.map((s) => s.url)).toEqual(['{{baseUrl}}/api/a']);
+    expect(addedSteps).toBe(1);
   });
 });

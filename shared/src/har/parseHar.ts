@@ -55,7 +55,7 @@ export type HarEntry = z.infer<typeof harSchema>['log']['entries'][number];
 
 /** Error reporting and analytics: never part of a flow, and they use up the entry limit. */
 const TELEMETRY_URL =
-  /\/api\/\d+\/(envelope|store)\/|\/cdn-cgi\/|\/\/([^/]*\.)?(sentry\.io|google-analytics\.com|analytics\.google\.com|googletagmanager\.com|doubleclick\.net|hotjar\.(com|io)|clarity\.ms|segment\.(io|com)|mixpanel\.com|amplitude\.com|nr-data\.net|datadoghq\.(com|eu))\//i;
+  /\/api\/\d+\/(envelope|store)\/|\/cdn-cgi\/|\/\/([^/]*\.)?(sentry\.io|google-analytics\.com|analytics\.google\.com|googletagmanager\.com|doubleclick\.net|hotjar\.(com|io)|clarity\.ms|segment\.(io|com)|mixpanel\.com|amplitude\.com|nr-data\.net|fullstory\.com|datadoghq\.(com|eu))\//i;
 
 /** Added by the browser or tied to its session; a saved request must not depend on them. */
 const DROPPED_HEADERS = new Set([

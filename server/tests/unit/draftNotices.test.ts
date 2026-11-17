@@ -37,3 +37,10 @@ describe('draftNotices for requests the site sent by itself', () => {
     ]);
   });
 });
+
+describe('draftNotices about steps the AI wrote unusably', () => {
+  it('says how many and what happened to them', () => {
+    expect(draftNotices([], 0, 0, 2)[0]).toContain('2 step(s) the AI wrote could not be sent');
+    expect(draftNotices([], 0, 0, 0)).toEqual([]);
+  });
+});

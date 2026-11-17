@@ -374,6 +374,8 @@ describe('parseHar and other sites', () => {
           text: '',
         }),
         entry('https://bzr.openai.com/v1/sdk/events', { method: 'POST' }),
+        // Seen on bershka.com: session recording.
+        entry('https://rs.eu1.fullstory.com/rec/page', { method: 'POST' }),
         entry('https://cdn.vendor.net/pixel-config.json'),
       ),
     ).toEqual(['https://www.shop.com.tr/']);
