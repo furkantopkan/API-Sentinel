@@ -934,24 +934,56 @@ describe('checkDraft and a variable the model forgot to define', () => {
     trigger: 'user',
   });
 
-  it('reads the start of the address off the recording', () => {
+  it("reads the start of the address off the recording and keeps the model's steps", () => {
     const entries = [
       clicked(0, 'https://www.shop.test/tr/'),
       clicked(1, 'https://www.shop.test/store/44/product/9/detail?x=1'),
     ];
-    const { draft } = check(
-      output([
-        step(0, '{{baseUrl}}/tr/'),
-        step(1, '{{baseUrl}}/store/{{storeId}}/product/9/detail?x=1'),
-      ]),
+    const { draft, droppedSteps } = check(
+      output(
+        [
+          step(0, '{{baseUrl}}/tr/', { name: 'Home' }),
+          step(1, '{{baseUrl}}/store/{{storeId}}/product/9/detail?x=1', { name: 'Detail' }),
+        ],
+        [{ key: 'storeId', value: '44', secret: false }],
+      ),
       entries,
+    );
+    expect(droppedSteps).toBe(0);
+    expect(draft.steps.map((s) => s.name)).toEqual(['Home', 'Detail']);
+    expect(draft.variables).toContainEqual({
+      key: 'baseUrl',
+      value: 'https://www.shop.test',
+      secret: false,
+    });
+  });
+
+  // Another placeholder in the rest of the address stands for any one part.
+  it('reads it off a step whose address has other placeholders too', () => {
+    const { draft, droppedSteps } = check(
+      output(
+        [step(0, '{{baseUrl}}/store/{{storeId}}/x', { name: 'Only step' })],
+        [{ key: 'storeId', value: '44', secret: false }],
+      ),
+      [clicked(0, 'https://www.shop.test/store/44/x')],
+    );
+    expect(droppedSteps).toBe(0);
+    expect(draft.steps.map((s) => s.name)).toEqual(['Only step']);
+  });
+
+  it('never replaces a variable the model did define', () => {
+    const { draft } = check(
+      output(
+        [step(0, '{{baseUrl}}/', { name: 'Home' })],
+        [{ key: 'baseUrl', value: 'https://www.shop.test', secret: false }],
+      ),
+      [clicked(0, 'https://www.shop.test/tr/')],
     );
     expect(draft.variables).toContainEqual({
       key: 'baseUrl',
       value: 'https://www.shop.test',
       secret: false,
     });
-    expect(draft.steps.map((s) => s.url)).toContain('{{baseUrl}}/tr/');
   });
 
   it("rebuilds a user's read the model wrote unusably, but not one it left out", () => {

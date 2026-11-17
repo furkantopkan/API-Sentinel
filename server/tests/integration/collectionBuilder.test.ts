@@ -221,6 +221,18 @@ describe('POST /api/ai/build-collection', () => {
     expect(body.meta.droppedItems).toBe(1);
   });
 
+  it('tells the user when steps the AI wrote could not be used', async () => {
+    const { app } = appWith({ answer });
+    const response = await request(app)
+      .post('/api/ai/build-collection')
+      .send({ goal: 'Check', entries: [entry] })
+      .expect(200);
+    const { notes } = (response.body as { result: { notes: string[] } }).result;
+    expect(notes).toContainEqual(
+      expect.stringContaining('1 step(s) the AI wrote could not be sent'),
+    );
+  });
+
   it('tells the user when a long recording was reduced', async () => {
     const { app } = appWith({ answer });
     const long = Array.from({ length: 12 }, (_, index) => ({
