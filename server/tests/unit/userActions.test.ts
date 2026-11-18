@@ -109,3 +109,12 @@ describe('createActionTracker after a change was answered', () => {
     expect(tracker.triggerOf(1100)).toBe('user');
   });
 });
+
+describe('userActionScript and fields', () => {
+  it('reports typing and choosing, without the value of a field', () => {
+    const script = userActionScript('b');
+    expect(script).toContain("window.addEventListener('input',");
+    expect(script).toContain("window.addEventListener('change',");
+    expect(script).toContain("quoted('Type in', fieldName(field))");
+  });
+});

@@ -115,6 +115,30 @@ export function addShopRoutes(app: Express): void {
     );
   });
 
+  // Like a betting site the user tested: a button labelled for code, and a field that sends
+  // what was typed without any click (typed by the page, well after the click).
+  app.get('/shop/amount-flow', (_req, res) => {
+    page(
+      res,
+      'Coupon',
+      `<button aria-label="Header-Sub-FUTBOL">FUTBOL</button>
+      <label>Bet amount <input id="amount" value="50"></label><script>
+        document.querySelector('button').addEventListener('click', () => fetch('/json'));
+        const amount = document.querySelector('#amount');
+        let timer;
+        amount.addEventListener('input', () => {
+          clearTimeout(timer);
+          timer = setTimeout(() => fetch('/echo?amount=' + encodeURIComponent(amount.value)), 300);
+        });
+        setTimeout(() => document.querySelector('button').click(), 500);
+        setTimeout(() => {
+          amount.value = '100';
+          amount.dispatchEvent(new Event('input', { bubbles: true }));
+        }, 3500);
+      </script>`,
+    );
+  });
+
   app.get('/shop/flow', (_req, res) => {
     page(
       res,

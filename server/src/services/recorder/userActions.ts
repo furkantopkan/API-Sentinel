@@ -122,12 +122,37 @@ export function userActionScript(binding: string): string {
       // Icon fonts draw their icons with private-use characters: invisible in a name.
       .map((t) => (typeof t === 'string' ? t.replace(/\p{Co}/gu, '').replace(/\s+/g, ' ').trim() : ''))
       .filter((t) => t !== '');
-    const text = found.find((t) => /\p{L}/u.test(t)) || found.find((t) => /\p{N}/u.test(t)) || found[0];
+    // A name for code ("Header-Sub-FUTBOL", "btn_add") is what the site calls it, not what the user saw.
+    const code = (t) => /^[\p{L}\p{N}]+([-_][\p{L}\p{N}]+)+$/u.test(t);
+    const text = found.find((t) => /\p{L}/u.test(t) && !code(t)) || found.find((t) => /\p{L}/u.test(t)) || found.find((t) => /\p{N}/u.test(t)) || found[0];
     return text === undefined ? undefined : text.slice(0, MAX);
+  };
+  // A field by its name as shown (aria-label, its label, placeholder); its value is never read.
+  const fieldName = (field) => {
+    const label = field.labels && field.labels[0] ? lineOf(field.labels[0].innerText) : undefined;
+    const found = [field.getAttribute('aria-label'), label, field.getAttribute('placeholder'), field.getAttribute('title'), field.name]
+      .map((t) => (typeof t === 'string' ? t.replace(/\s+/g, ' ').trim() : ''))
+      .filter((t) => t !== '');
+    return found[0] === undefined ? undefined : found[0].slice(0, MAX);
   };
   const quoted = (verb, text) => (text === undefined ? undefined : verb + ' "' + text + '"');
   window.addEventListener('click', (event) => report(quoted('Click', textOf(event.target))), true);
   window.addEventListener('submit', (event) => report(quoted('Click', textOf(event.submitter))), true);
+  // Typing in a field (a bet amount, a quantity) makes many sites send a request with no click.
+  window.addEventListener('input', (event) => {
+    const field = event.target;
+    if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) {
+      if (field instanceof HTMLInputElement && /^(checkbox|radio|button|submit|reset|file)$/.test(field.type)) return;
+      report(quoted('Type in', fieldName(field)));
+    }
+  }, true);
+  window.addEventListener('change', (event) => {
+    const field = event.target;
+    if (field instanceof HTMLSelectElement) {
+      const chosen = field.selectedOptions[0];
+      report(quoted('Choose', chosen ? lineOf(chosen.textContent) : fieldName(field)));
+    }
+  }, true);
   window.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter') return;
     const field = event.target;

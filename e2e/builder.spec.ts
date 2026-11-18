@@ -277,3 +277,21 @@ test('AB-07: a failed create leaves no environment behind; a taken name gets a n
   await page.request.delete(`/api/collections/${taken.collection.id}`);
   await page.request.delete(`/api/environments/${environment!.id}`);
 });
+
+// Seen on a betting site: the amount typed into a field was sent without any click,
+// and the button's code label ("Header-Sub-FUTBOL") named the step instead of its text.
+test('AB-08: typing in a field is an action; steps use the text the user saw', async ({ page }) => {
+  const dialog = await openBuilder(page);
+  await dialog.getByLabel('Website to record').fill(`${MOCK}/shop/amount-flow`);
+  await dialog.getByRole('button', { name: 'Start recording' }).click();
+  // The page, the click's request and the typed amount's request.
+  await expect(dialog.getByRole('status')).toContainText('3 requests from your actions so far', {
+    timeout: 15_000,
+  });
+  await dialog.getByRole('button', { name: 'Finish recording' }).click();
+  await dialog.getByRole('button', { name: 'Build draft' }).click();
+  const steps = dialog.getByRole('list', { name: 'Draft steps' });
+  await expect(steps).toContainText('Click "FUTBOL"');
+  await expect(steps).toContainText('Type in "Bet amount"');
+  await expect(steps).toContainText('/echo?amount=100');
+});

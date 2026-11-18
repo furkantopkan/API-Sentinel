@@ -68,6 +68,7 @@ export function createMockTargetApp(): Express {
         'POST /shop/cart/remove?remove=',
         'GET /shop/flow',
         'GET /shop/tab-flow',
+        'GET /shop/amount-flow',
       ],
     });
   });
