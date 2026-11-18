@@ -290,6 +290,16 @@ function shortName(entry: RecordedEntry, original: string): string {
     const title = original.split('\n')[0]?.trim() ?? '';
     return `Open: ${clip(decodeEntities(title !== '' ? title : actionOf(url)), 60)}`;
   }
+  // A read is named after what it fetches, in words: Bulten/GetPreBulten -> "Get pre bulten".
+  if (entry.method === 'GET') {
+    const last = actionOf(url).split(REDACTED).join('…').split('/').at(-1) ?? '';
+    const words = last
+      .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+      .replace(/[-_]+/g, ' ')
+      .trim()
+      .toLowerCase();
+    if (words !== '') return clip(words.charAt(0).toUpperCase() + words.slice(1), 60);
+  }
   return `${entry.method} ${clip(actionOf(url).split(REDACTED).join('…'), 60)}`;
 }
 

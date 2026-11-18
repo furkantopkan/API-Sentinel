@@ -999,3 +999,24 @@ describe('checkDraft and a variable the model forgot to define', () => {
     expect(addedSteps).toBe(1);
   });
 });
+
+// Seen on nesine.com: a rebuilt read was named "GET Bulten/GetPreBulten".
+describe('checkDraft names a read rebuilt from the recording in words', () => {
+  it('turns the last part of its address into words', () => {
+    const entries: RecordedEntry[] = [
+      {
+        ...recorded(0, 'https://bulten.shop.test/v2/Bulten/GetPreBulten?sportId=2'),
+        trigger: 'user',
+      },
+      { ...recorded(1, 'https://www.shop.test/api/live-bulten'), trigger: 'user' },
+    ];
+    const { draft } = check(
+      output([
+        step(0, 'https://bulten.shop.test/{{missing}}'),
+        step(1, 'https://www.shop.test/{{missing}}'),
+      ]),
+      entries,
+    );
+    expect(draft.steps.map((s) => s.name)).toEqual(['Get pre bulten', 'Live bulten']);
+  });
+});
