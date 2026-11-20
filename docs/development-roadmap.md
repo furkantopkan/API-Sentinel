@@ -10,7 +10,8 @@
 | Sürüm 2 – Response Analyzer & Assertions | Faz 3 + Faz 4 |
 | Sürüm 3 – AI | Faz 5 |
 | Sürüm 4 – Collections & Raporlama | Faz 6 |
-| Portfolio | Faz 7 |
+| Sürüm 5 – AI Collection Builder | Faz 7 |
+| Portfolio | Faz 8 |
 
 ## Her modülde uygulanan döngü
 
@@ -146,7 +147,7 @@ Kararlar (2026-11-07, kullanıcı): veritabanı **`node:sqlite`** (Prisma yerine
 
 Prisma + SQLite, migration, CRUD endpoint'leri, React Router, TanStack Query, `{{variable}}` çözümleme, secret maskeleme, test geçmişi, JSON/HTML rapor, çalıştırma karşılaştırma.
 
-## Faz 7 – AI Collection Builder (devam ediyor)
+## Faz 7 – AI Collection Builder ✅ (2026-11-20 tamamlandı)
 
 Kullanıcı kararı (2026-11-08): portfolio hazırlığından önce yapılır. Kapsam: kullanıcının gösterdiği akış + isteğe bağlı hedef → AI taslağı → kullanıcı onayı → çalıştırılabilir collection. AI'ın kendisi istek atmaz ve ajan modu kapsam dışıdır. Kullanıcı kararı (2026-11-09): F12/HAR yerine uygulama içinden tek tıkla kayıt; HAR gelişmiş seçenek olarak kalır.
 
@@ -160,9 +161,14 @@ Kullanıcı kararı (2026-11-08): portfolio hazırlığından önce yapılır. K
 | Klasik siteler | Form gövdesi (urlencoded), collection çalıştırmasında cookie taşıma, kayıttaki cevapta tutmayan doğrulamaların atılması (kitapyurdu sepet akışı, 2026-11-10) |
 | Tıklama takibi | Kayıt penceresi tıklamaları bildirir; sitenin kendi istekleri taslağa girmez (2026-11-12) |
 | Eksiksiz akış | Eylem öncelikli kısaltma, atlanan eylemlerin kayıttan eklenmesi, AI başarısız olursa kayıttan taslak, en fazla 20 adım (2026-11-10) |
+| Tıklanan metin | Adımlar tıklanan öğenin metniyle adlandırılır (`Click "Sepete ekle"`); bir alana yazmak ve listeden seçmek de eylemdir, değer okunmaz (2026-11-18) |
+| Gürültü ayıklama | Sitenin kendi takip istekleri (`/track`, `…tag-load`), bot sensörü (`sensor_data`), başka sitelerin okumaları, aynı tıklamanın aynı uca tekrar eden okumaları ve aynı gövdeyle tekrarlanan değişiklikler adım olmaz (2026-11-13…16) |
+| Kararlı çalıştırma | Sayfa metni kontrolleri değişen sayılara bağlı değil; `Accept-Language` korunur; cookie'ler yönlendirmeler boyunca taşınır; bot koruması `BLOCKED_BY_SITE` olarak raporlanır, aşılmaya çalışılmaz (2026-11-14…16) |
+| AI onarımı | Modelin unuttuğu `{{baseUrl}}` kayıttan çıkarılır, kullanılamayan adımlar kayıttan yeniden kurulur ve notta bildirilir (2026-11-17) |
+| Site ortamı | Site başına tek ortam (ör. `hepsiburada.com`); collection kendi ortamını hatırlar ve onunla çalışır (2026-11-14 kullanıcı kararı) |
 | Onay | Taslak ekranı; veri değiştiren istekler işaretli ve uyarılı (2026-11-10 kullanıcı kararı: varsayılan açık); `POST /api/collections/import` tek işlemde kaydeder |
 
-**Durum:** Geliştirme, gerçek Ollama ile uçtan uca deneme, kullanıcının manuel testleri (RE-01…04) ve otomasyon testleri tamam. Bekleyen: kullanıcının hız iyileştirmesini uzun bir akışla doğrulaması.
+**Durum:** Tamamlandı. Kullanıcı gerçek sitelerde doğruladı (hepsiburada, kitapyurdu, Bershka, nesine); ayrıca demoblaze, practicesoftwaretesting, books.toscrape, automationexercise ve Wikipedia ile denendi (RE-01…12). Otomasyon: 318 shared + 529 server + 258 client testi, 59 E2E. Bilinen sınır: bot koruması araç isteklerini engelleyen sitelerde (Trendyol, LinkedIn, ara sıra Bershka) sayfa adımları `BLOCKED_BY_SITE` verir.
 
-## Faz 8 – Portfolio hazırlığı
+## Faz 8 – Portfolio hazırlığı (devam ediyor)
 README, mimari diyagram, ekran görüntüleri, demo senaryosu, test raporu, kapsamlı E2E, GitHub düzeni, güvenlik gözden geçirmesi.
