@@ -25,7 +25,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "npm run test --workspaces --if-present",
+    "test:coverage": "npm run test:coverage --workspaces --if-present",
     "test:e2e": "playwright test -c e2e",
+    "traceability": "node scripts/traceability.mjs",
     "app:install": "node scripts/app.mjs install",
     "app:uninstall": "node scripts/app.mjs uninstall",
     "app:start": "node scripts/app.mjs start",
@@ -36,6 +38,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.0",
+    "@vitest/coverage-v8": "^5.1.0",
     "concurrently": "^10.0.6",
     "eslint": "^10.14.0",
     "eslint-plugin-react-hooks": "^7.1.1",
