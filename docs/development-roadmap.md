@@ -176,7 +176,7 @@ README, mimari diyagram, ekran görüntüleri, demo senaryosu, test raporu, kaps
 | Modül | Durum |
 |---|---|
 | 8.1 Güvenlik gözden geçirmesi | ✅ 2026-11-20: 3 bulgu düzeltildi (güvenlik başlıkları, CSRF, DNS rebinding); [rapor](security-review.md) |
-| 8.2 Kapsamlı E2E | Sırada |
-| 8.3 GitHub düzeni (CI, lisans) | Bekliyor |
+| 8.2 Kapsamlı E2E | ✅ 2026-11-20: 159 manuel senaryonun 158'i otomasyonla izleniyor (`npm run traceability`), 1'i gerekçeli manuel; boşluklar için 16 yeni test; birim kapsamı (`npm run test:coverage`): shared %92,9, server %89,8 satır; client ekranları E2E ile sınanır |
+| 8.3 GitHub düzeni (CI, lisans) | Sırada |
 | 8.4 README + mimari diyagram + ekran görüntüleri | Bekliyor |
 | 8.5 Demo senaryosu + test raporu | Bekliyor |
