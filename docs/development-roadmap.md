@@ -172,3 +172,11 @@ Kullanıcı kararı (2026-11-08): portfolio hazırlığından önce yapılır. K
 
 ## Faz 8 – Portfolio hazırlığı (devam ediyor)
 README, mimari diyagram, ekran görüntüleri, demo senaryosu, test raporu, kapsamlı E2E, GitHub düzeni, güvenlik gözden geçirmesi.
+
+| Modül | Durum |
+|---|---|
+| 8.1 Güvenlik gözden geçirmesi | ✅ 2026-11-20: 3 bulgu düzeltildi (güvenlik başlıkları, CSRF, DNS rebinding); [rapor](security-review.md) |
+| 8.2 Kapsamlı E2E | Sırada |
+| 8.3 GitHub düzeni (CI, lisans) | Bekliyor |
+| 8.4 README + mimari diyagram + ekran görüntüleri | Bekliyor |
+| 8.5 Demo senaryosu + test raporu | Bekliyor |
