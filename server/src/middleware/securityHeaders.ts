@@ -49,8 +49,8 @@ export const sameOriginChanges: RequestHandler = (req, _res, next) => {
   } catch {
     // "null" (a sandboxed frame or file) or anything unreadable: not a local page.
   }
-  const local = LOCAL_NAMES.has(host) || LOCAL_NAMES.has(`[${host}]`);
-  if (!local) {
+  // URL keeps the brackets of an IPv6 host: "[::1]".
+  if (!LOCAL_NAMES.has(host)) {
     throw new AppError('FORBIDDEN_ORIGIN', 'Changes are accepted only from this app.', 403);
   }
   next();
