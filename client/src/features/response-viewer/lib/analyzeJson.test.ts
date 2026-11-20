@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { analyzeJson, formatJsonSummary } from './analyzeJson';
 
 describe('analyzeJson', () => {
-  it('counts every value, the depth and the types', () => {
+  it('AN-02: counts every value, the depth and the types', () => {
     const summary = analyzeJson({ a: [1, 'x', null], b: { c: true } });
 
     expect(summary).toEqual({

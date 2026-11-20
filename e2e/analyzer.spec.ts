@@ -10,7 +10,9 @@ async function send(page: Page, url: string) {
   await expect(page.getByTestId('response-status')).toBeVisible();
 }
 
-test('JSON tree: summary, types and the path of a selected field', async ({ page }) => {
+test('AN-01, 02, 05: JSON tree: summary, types and the path of a selected field', async ({
+  page,
+}) => {
   await send(page, `${MOCK}/nested`);
 
   await expect(page.getByLabel('JSON summary')).toHaveText(
@@ -27,7 +29,9 @@ test('JSON tree: summary, types and the path of a selected field', async ({ page
   await expect(details.getByTestId('type-badge')).toHaveText('string');
 });
 
-test('big integers: warning in the tree, exact digits in the raw view', async ({ page }) => {
+test('AN-10 / 11 / 12: big integers: warning in the tree, exact digits in the raw view', async ({
+  page,
+}) => {
   await send(page, `${MOCK}/bigint`);
 
   await expect(page.getByRole('note')).toContainText('larger than 2^53');
@@ -35,7 +39,7 @@ test('big integers: warning in the tree, exact digits in the raw view', async ({
   await expect(page.getByText('12345678901234567890')).toBeVisible();
 });
 
-test('a 20 000-item array renders one page at a time', async ({ page }) => {
+test('AN-13 / 14: a 20 000-item array renders one page at a time', async ({ page }) => {
   await send(page, `${MOCK}/large-json/20000`);
 
   await expect(page.getByRole('button', { name: 'Show more (19900 remaining)' })).toBeVisible();
@@ -43,7 +47,7 @@ test('a 20 000-item array renders one page at a time', async ({ page }) => {
   await expect(page.getByRole('treeitem')).toHaveCount(401);
 });
 
-test('Info tab shows encoding and decoded vs wire size', async ({ page }) => {
+test('AN-15: Info tab shows encoding and decoded vs wire size', async ({ page }) => {
   await send(page, `${MOCK}/gzip`);
 
   await page
@@ -53,4 +57,18 @@ test('Info tab shows encoding and decoded vs wire size', async ({ page }) => {
   const info = page.getByRole('table', { name: 'Response metadata' });
   await expect(info).toContainText('gzip');
   await expect(info).toContainText(/bytes decoded \(Content-Length on the wire: \d+\)/);
+});
+
+test('AN-18: a new Send clears the selected field', async ({ page }) => {
+  await send(page, `${MOCK}/nested`);
+  await page.getByRole('button', { name: 'Expand all' }).click();
+  await page
+    .getByRole('treeitem', { name: 'first name' })
+    .getByRole('button', { name: /"first name"/ })
+    .click();
+  await expect(page.getByLabel('Selected field')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect(page.getByTestId('response-status')).toContainText('200');
+  await expect(page.getByLabel('Selected field')).toHaveCount(0);
 });

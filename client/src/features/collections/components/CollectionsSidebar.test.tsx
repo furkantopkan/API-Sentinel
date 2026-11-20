@@ -48,7 +48,7 @@ function setup(overrides: Partial<ComponentProps<typeof CollectionsSidebar>> = {
 }
 
 describe('CollectionsSidebar', () => {
-  it('shows an empty state', () => {
+  it('CO-01: shows an empty state', () => {
     setup({ state: { status: 'ready', collections: [] } });
 
     expect(screen.getByText(/No collections yet/)).toBeTruthy();
@@ -72,7 +72,7 @@ describe('CollectionsSidebar', () => {
     expect(props.onCreate).toHaveBeenCalledWith('Orders');
   });
 
-  it('does not allow an empty name', async () => {
+  it('CO-15: does not allow an empty name', async () => {
     const { user } = setup();
 
     await user.click(screen.getByRole('button', { name: '+ New' }));

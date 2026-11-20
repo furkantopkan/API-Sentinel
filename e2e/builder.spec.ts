@@ -14,7 +14,9 @@ async function openBuilder(page: Page) {
   return dialog;
 }
 
-test('AB-01: record a flow, build a draft and create a collection', async ({ page }) => {
+test('RE-01, 07 · AB-01: record a flow, build a draft and create a collection', async ({
+  page,
+}) => {
   const dialog = await openBuilder(page);
   await expect(dialog.getByRole('button', { name: 'Build draft' })).toBeDisabled();
 
@@ -45,7 +47,7 @@ test('AB-01: record a flow, build a draft and create a collection', async ({ pag
   await expect(page.getByRole('listitem', { name: `Collection ${name}` })).toBeVisible();
 });
 
-test('AB-02: closing the builder cancels the recording', async ({ page }) => {
+test('RE-03 · AB-02: closing the builder cancels the recording', async ({ page }) => {
   const dialog = await openBuilder(page);
   await dialog.getByLabel('Website to record').fill(`${MOCK}/recording-page`);
   await dialog.getByRole('button', { name: 'Start recording' }).click();
@@ -62,7 +64,7 @@ test('AB-02: closing the builder cancels the recording', async ({ page }) => {
     .toBe(false);
 });
 
-test('AB-03: a private address is refused with a clear message', async ({ page }) => {
+test('RE-04 · AB-03: a private address is refused with a clear message', async ({ page }) => {
   const dialog = await openBuilder(page);
   await dialog.getByLabel('Website to record').fill('http://192.168.1.1/');
   await dialog.getByRole('button', { name: 'Start recording' }).click();
@@ -102,7 +104,9 @@ test('AB-04: a HAR file still works as the advanced option', async ({ page }) =>
 });
 
 // Like the real shop the user tested: a form body, JSON labelled as HTML, pages, and a session cookie.
-test('AB-05: a shop flow keeps the form, the pages and the cart session', async ({ page }) => {
+test('RE-05 · AB-05: a shop flow keeps the form, the pages and the cart session', async ({
+  page,
+}) => {
   const dialog = await openBuilder(page);
   await dialog.getByLabel('Website to record').fill(`${MOCK}/shop/flow`);
   await dialog.getByRole('button', { name: 'Start recording' }).click();
@@ -182,7 +186,7 @@ test('AB-06: a page opened in a new tab is part of the recording', async ({ page
 
 // Seen in use: the collection was not created, but its environment stayed behind,
 // selected, and another collection then ran with it and missed its own variables.
-test('AB-07: a failed create leaves no environment behind; a taken name gets a number', async ({
+test('RE-11 · AB-07: a failed create leaves no environment behind; a taken name gets a number', async ({
   page,
 }) => {
   const har = {
@@ -280,7 +284,9 @@ test('AB-07: a failed create leaves no environment behind; a taken name gets a n
 
 // Seen on a betting site: the amount typed into a field was sent without any click,
 // and the button's code label ("Header-Sub-FUTBOL") named the step instead of its text.
-test('AB-08: typing in a field is an action; steps use the text the user saw', async ({ page }) => {
+test('RE-10 · AB-08: typing in a field is an action; steps use the text the user saw', async ({
+  page,
+}) => {
   const dialog = await openBuilder(page);
   await dialog.getByLabel('Website to record').fill(`${MOCK}/shop/amount-flow`);
   await dialog.getByRole('button', { name: 'Start recording' }).click();

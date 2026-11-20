@@ -87,7 +87,7 @@ afterAll(async () => {
 });
 
 describe('successful requests', () => {
-  it('GET returns status, headers, JSON body, size and duration', async () => {
+  it('API-001: GET returns status, headers, JSON body, size and duration', async () => {
     const response = await engine.execute(req({ url: `${base}/json` }));
 
     expect(response.status).toBe(200);
@@ -101,7 +101,7 @@ describe('successful requests', () => {
     expect(response.headers.some(([name]) => name.toLowerCase() === 'content-type')).toBe(true);
   });
 
-  it('POST sends query params, headers and the JSON body', async () => {
+  it('API-002, 004: POST sends query params, headers and the JSON body', async () => {
     const response = await engine.execute(
       req({
         method: 'POST',
@@ -134,14 +134,15 @@ describe('successful requests', () => {
     [{ type: 'bearer', token: MOCK_BEARER_TOKEN }, '/auth/bearer', 200],
     [{ type: 'bearer', token: 'wrong' }, '/auth/bearer', 401],
     [{ type: 'basic', ...MOCK_BASIC_USER }, '/auth/basic', 200],
-  ] as const)('auth %j on %s → %i', async (auth, path, status) => {
+    [{ type: 'basic', username: MOCK_BASIC_USER.username, password: 'wrong' }, '/auth/basic', 401],
+  ] as const)('API-011, 012: auth %j on %s → %i', async (auth, path, status) => {
     const response = await engine.execute(req({ url: `${base}${path}`, auth }));
 
     expect(response.status).toBe(status);
   });
 
   it.each([404, 500, 503])(
-    'returns target status %i as a normal response (not an error)',
+    'API-009, 010: returns target status %i as a normal response (not an error)',
     async (code) => {
       const response = await engine.execute(req({ url: `${base}/status/${code}` }));
 
@@ -236,7 +237,7 @@ describe('redirects', () => {
 });
 
 describe('limits and failures', () => {
-  it('fails with TIMEOUT when the target is slower than timeoutMs', async () => {
+  it('API-007: fails with TIMEOUT when the target is slower than timeoutMs', async () => {
     const started = Date.now();
     const code = await errorCode(
       engine.execute(
@@ -258,13 +259,13 @@ describe('limits and failures', () => {
     expect(code).toBe('VALIDATION_ERROR');
   });
 
-  it('fails with RESPONSE_TOO_LARGE above maxResponseBytes (64 KB here)', async () => {
+  it('API-017: fails with RESPONSE_TOO_LARGE above maxResponseBytes (64 KB here)', async () => {
     expect(await errorCode(engine.execute(req({ url: `${base}/large/100` })))).toBe(
       'RESPONSE_TOO_LARGE',
     );
   });
 
-  it('fails with CONNECTION_ERROR when nothing listens on the port', async () => {
+  it('API-013: fails with CONNECTION_ERROR when nothing listens on the port', async () => {
     expect(await errorCode(engine.execute(req({ url: `http://127.0.0.1:${closedPort}/` })))).toBe(
       'CONNECTION_ERROR',
     );
@@ -381,7 +382,7 @@ describe('SSRF protection', () => {
     );
   });
 
-  it('re-checks redirects: an allowlisted target cannot bounce us to an internal address', async () => {
+  it('SEC-008: re-checks redirects: an allowlisted target cannot bounce us to an internal address', async () => {
     const code = await errorCode(
       engine.execute(
         req({
@@ -394,7 +395,7 @@ describe('SSRF protection', () => {
     expect(code).toBe('BLOCKED_TARGET');
   });
 
-  it('never writes paths, query strings or secrets to the log', async () => {
+  it('SEC-011, EN-19: never writes paths, query strings or secrets to the log', async () => {
     logLines.length = 0;
     await engine.execute(
       req({
@@ -496,7 +497,7 @@ describe('cookies across redirects, like a browser', () => {
   });
 
   // Seen on bershka.com: Akamai answers a test tool by redirecting it to the same address forever.
-  it("names a bot protection's redirect loop for what it is", async () => {
+  it("RE-12: names a bot protection's redirect loop for what it is", async () => {
     await expect(engine.execute(req({ url: `${base}/bot-loop` }))).rejects.toMatchObject({
       code: 'BLOCKED_BY_SITE',
       message: expect.stringContaining('bot protection') as unknown,
@@ -509,4 +510,38 @@ describe('cookies across redirects, like a browser', () => {
       message: expect.stringContaining('same address') as unknown,
     });
   });
+});
+
+// The manual security scenarios, automated: every internal address is refused
+// before a connection is made, whatever way it is written.
+describe('SSRF: internal addresses in every spelling', () => {
+  it.each([
+    ['SEC-001', 'http://127.0.0.1/'],
+    ['SEC-002', 'http://localhost:3001/api/health'],
+    ['SEC-003', 'http://169.254.169.254/latest/meta-data/'],
+    ['SEC-004', 'http://10.0.0.1/'],
+    ['SEC-004', 'http://192.168.1.1/'],
+    ['SEC-004', 'http://172.16.0.1/'],
+    ['SEC-005', 'http://[::1]/'],
+    ['SEC-005', 'http://[::ffff:127.0.0.1]/'],
+    ['SEC-006', 'http://2130706433/'],
+    ['SEC-006', 'http://0x7f.1/'],
+    ['SEC-006', 'http://0177.0.0.1/'],
+    ['SEC-007', 'http://0.0.0.0/'],
+  ])('%s: refuses %s with BLOCKED_TARGET', async (_id, url) => {
+    expect(await errorCode(engine.execute(req({ url })))).toBe('BLOCKED_TARGET');
+  });
+
+  it.each(['file:///etc/passwd', 'gopher://127.0.0.1/', 'ftp://example.com/'])(
+    'SEC-009: refuses %s with INVALID_URL',
+    async (url) => {
+      expect(await errorCode(engine.execute(req({ url })))).toBe('INVALID_URL');
+    },
+  );
+});
+
+it('API-015: an empty 204 answer is a response with an empty body, not an error', async () => {
+  const response = await engine.execute(req({ url: `${base}/empty` }));
+  expect(response.status).toBe(204);
+  expect(response.body).toEqual({ kind: 'empty' });
 });

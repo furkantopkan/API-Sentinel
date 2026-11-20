@@ -297,7 +297,7 @@ describe('checkDraft: assertions match what the response can satisfy', () => {
   });
 });
 
-describe('fitRecording: a long recording must fit the model', () => {
+describe('RE-06: fitRecording: a long recording must fit the model', () => {
   const sized = (index: number, chars: number) =>
     recorded(index, `https://a.test/${String(index)}`, 'x'.repeat(chars));
   const size = (entries: RecordedEntry[]) =>
@@ -449,7 +449,7 @@ describe('checkDraft: every page and change of the user is in the flow', () => {
   ];
   const samples = new Map(recording.map((e) => [e.index, e.responseSample]));
 
-  it('adds the ones the AI left out, in recorded order, with what is certain', () => {
+  it('RE-06: adds the ones the AI left out, in recorded order, with what is certain', () => {
     const { draft, addedSteps } = checkDraft(
       output([step(2, '{{baseUrl}}/cart')], [BASE]),
       recording,
@@ -735,7 +735,7 @@ describe('checkDraft: a change added from the recording', () => {
     ]);
   });
 
-  it('chains an id even when the model copied it into a variable, and names the step without it', () => {
+  it('RE-08: chains an id even when the model copied it into a variable, and names the step without it', () => {
     const ITEM = '03c4c61b-c0ca-4df9-80ff-844b2c63b222';
     const add: RecordedEntry = {
       ...recorded(0, 'https://a.test/api/basket', JSON.stringify({ basketItemId: ITEM })),

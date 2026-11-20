@@ -13,3 +13,29 @@ describe('initialTheme', () => {
     expect(initialTheme('purple', true)).toBe('dark');
   });
 });
+
+// Private windows and blocked site data make localStorage throw; the theme still works.
+describe('theme storage when the browser refuses it', () => {
+  it('reads nothing and does not throw', async () => {
+    const { readStoredTheme, storeTheme } = await import('./theme');
+    const blocked = {
+      getItem: () => {
+        throw new Error('blocked');
+      },
+      setItem: () => {
+        throw new Error('blocked');
+      },
+    };
+    const original = globalThis.window;
+    Object.defineProperty(globalThis, 'window', {
+      value: { localStorage: blocked },
+      configurable: true,
+    });
+    try {
+      expect(readStoredTheme()).toBeNull();
+      expect(() => storeTheme('dark')).not.toThrow();
+    } finally {
+      Object.defineProperty(globalThis, 'window', { value: original, configurable: true });
+    }
+  });
+});

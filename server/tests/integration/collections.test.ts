@@ -86,7 +86,7 @@ describe('collections', () => {
     expect((await list()).map((c) => c.name)).toEqual(['Alpha', 'beta', 'Gamma']);
   });
 
-  it('renames a collection and keeps its requests', async () => {
+  it('CO-12: renames a collection and keeps its requests', async () => {
     const collection = await newCollection();
     await newRequest(collection.id);
 

@@ -141,7 +141,7 @@ describe('recorderService', () => {
     await expect(recorder.start(SITE)).resolves.toBeUndefined();
   });
 
-  it('keeps the traffic when the user closes the window', async () => {
+  it('RE-02: keeps the traffic when the user closes the window', async () => {
     const { browser, state } = fakeBrowser();
     const recorder = service(browser);
     await recorder.start(SITE);

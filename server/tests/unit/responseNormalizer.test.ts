@@ -28,7 +28,7 @@ describe('classifyBody', () => {
     expect(classifyBody(utf8('[1,2]'), undefined).kind).toBe('json');
   });
 
-  it('flags declared-but-invalid JSON as text with malformedJson', () => {
+  it('API-016: flags declared-but-invalid JSON as text with malformedJson', () => {
     expect(classifyBody(utf8('{"a":'), 'application/json')).toEqual({
       kind: 'text',
       text: '{"a":',
@@ -44,7 +44,7 @@ describe('classifyBody', () => {
     });
   });
 
-  it('returns HTML as plain text (never interpreted)', () => {
+  it('API-008, AN-17: returns HTML as plain text (never interpreted)', () => {
     expect(classifyBody(utf8('<script>x</script>'), 'text/html').kind).toBe('text');
   });
 });

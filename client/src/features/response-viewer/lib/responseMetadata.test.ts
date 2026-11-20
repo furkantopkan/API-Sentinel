@@ -44,7 +44,7 @@ describe('responseMetadata', () => {
     expect(valueOf(rows, 'Content-Encoding')).toBe('none');
   });
 
-  it('compares the decoded size with Content-Length for compressed bodies', () => {
+  it('AN-15: compares the decoded size with Content-Length for compressed bodies', () => {
     const rows = responseMetadata(
       response({
         sizeBytes: 138,
@@ -72,7 +72,7 @@ describe('responseMetadata', () => {
     expect(valueOf(rows, 'Cache-Control')).toBeUndefined();
   });
 
-  it('lists the redirect chain in order', () => {
+  it('AN-16: lists the redirect chain in order', () => {
     const rows = responseMetadata(
       response({
         redirects: [

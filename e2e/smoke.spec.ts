@@ -12,14 +12,14 @@ async function send(page: import('@playwright/test').Page, url: string) {
   await page.getByRole('button', { name: 'Send', exact: true }).click();
 }
 
-test('GET to the mock target shows 200 and the JSON body', async ({ page }) => {
+test('API-001: GET to the mock target shows 200 and the JSON body', async ({ page }) => {
   await send(page, `${MOCK}/json`);
 
   await expect(page.getByTestId('response-status')).toContainText('200');
   await expect(page.getByText('"Ada Lovelace"')).toBeVisible();
 });
 
-test('a loopback target is blocked by the SSRF guard', async ({ page }) => {
+test('SEC-001: a loopback target is blocked by the SSRF guard', async ({ page }) => {
   await send(page, 'http://127.0.0.1:3998/api/health');
 
   const alert = page.getByRole('alert');
@@ -54,7 +54,7 @@ test('an invalid JSON body blocks sending', async ({ page }) => {
   expect(executeCalls).toBe(0);
 });
 
-test('HTML responses are shown as text, never executed', async ({ page }) => {
+test('API-008, AN-17: HTML responses are shown as text, never executed', async ({ page }) => {
   let dialogOpened = false;
   page.on('dialog', (dialog) => {
     dialogOpened = true;
@@ -65,4 +65,22 @@ test('HTML responses are shown as text, never executed', async ({ page }) => {
 
   await expect(page.getByText('<script>alert("xss")</script>', { exact: false })).toBeVisible();
   expect(dialogOpened).toBe(false);
+});
+
+test('API-018: Copy body puts the response body on the clipboard', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await send(page, `${MOCK}/json`);
+  await expect(page.getByTestId('response-status')).toContainText('200');
+
+  await page.getByRole('button', { name: 'Copy body' }).click();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(JSON.parse(copied)).toMatchObject({ id: 1, name: 'Ada Lovelace' });
+});
+
+test('API-020: while a request is on its way, Send becomes Cancel', async ({ page }) => {
+  await send(page, `${MOCK}/delay/1500`);
+
+  await expect(page.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
+  await expect(page.getByTestId('response-status')).toContainText('200', { timeout: 10_000 });
+  await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeVisible();
 });

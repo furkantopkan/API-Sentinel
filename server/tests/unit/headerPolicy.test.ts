@@ -52,7 +52,7 @@ describe('buildOutgoingHeaders', () => {
     expect(Object.values(headers)).not.toContain('orphan');
   });
 
-  it('combines repeated headers with ", "', () => {
+  it('API-004: combines repeated headers with ", "', () => {
     const headers = buildOutgoingHeaders(
       [row('X-Tag', 'a'), row('x-tag', 'b')],
       { type: 'none' },
@@ -63,7 +63,7 @@ describe('buildOutgoingHeaders', () => {
   });
 
   it.each(['Host', 'content-length', 'Transfer-Encoding', 'Connection', 'Expect'])(
-    'rejects the managed header %s with FORBIDDEN_HEADER',
+    'SEC-010: rejects the managed header %s with FORBIDDEN_HEADER',
     (name) => {
       const code = errorCodeOf(() =>
         buildOutgoingHeaders([row(name, 'x')], { type: 'none' }, options),
@@ -81,7 +81,7 @@ describe('buildOutgoingHeaders', () => {
 
   // Header injection: a CR/LF in the value would start a new, attacker-chosen header.
   it.each(['a\r\nX-Injected: 1', 'a\nb', 'a\0b'])(
-    'rejects header values with line breaks or NUL (%j)',
+    'SEC-010: rejects header values with line breaks or NUL (%j)',
     (value) => {
       const code = errorCodeOf(() =>
         buildOutgoingHeaders([row('X-A', value)], { type: 'none' }, options),

@@ -22,7 +22,7 @@ function details() {
 }
 
 describe('JsonTreeView', () => {
-  it('opens the root and its children, but not deeper levels', () => {
+  it('AN-01: opens the root and its children, but not deeper levels', () => {
     render(<JsonTreeView data={data} />);
 
     expect(screen.getByRole('treeitem', { name: 'data' }).getAttribute('aria-expanded')).toBe(
@@ -48,7 +48,7 @@ describe('JsonTreeView', () => {
     }
   });
 
-  it('expands and collapses a node', async () => {
+  it('AN-03: expands and collapses a node', async () => {
     const user = userEvent.setup();
     render(<JsonTreeView data={data} />);
 
@@ -59,7 +59,7 @@ describe('JsonTreeView', () => {
     expect(screen.queryByRole('treeitem', { name: '0' })).toBeNull();
   });
 
-  it('Expand all opens every level; Collapse all keeps only the root open', async () => {
+  it('AN-04: Expand all opens every level; Collapse all keeps only the root open', async () => {
     const user = userEvent.setup();
     render(<JsonTreeView data={data} />);
 
@@ -75,7 +75,7 @@ describe('JsonTreeView', () => {
     );
   });
 
-  it('shows path, type and size of the selected field and copies the path', async () => {
+  it('AN-05 / 06: shows path, type and size of the selected field and copies the path', async () => {
     const user = userEvent.setup(); // also installs a clipboard stub
     render(<JsonTreeView data={data} />);
 
@@ -90,7 +90,7 @@ describe('JsonTreeView', () => {
     expect(await navigator.clipboard.readText()).toBe('data.items[0].name');
   });
 
-  it('quotes keys that are not identifiers', async () => {
+  it('AN-07: quotes keys that are not identifiers', async () => {
     const user = userEvent.setup();
     render(<JsonTreeView data={data} />);
 
@@ -99,7 +99,7 @@ describe('JsonTreeView', () => {
     expect(details().getByText('meta["first name"]')).toBeTruthy();
   });
 
-  it('copies the value of a container as indented JSON', async () => {
+  it('AN-08: copies the value of a container as indented JSON', async () => {
     const user = userEvent.setup();
     render(<JsonTreeView data={data} />);
 
@@ -109,7 +109,7 @@ describe('JsonTreeView', () => {
     expect(await navigator.clipboard.readText()).toBe('{\n  "first name": "Ada"\n}');
   });
 
-  it('renders big arrays one page at a time', async () => {
+  it('AN-13 / 14: renders big arrays one page at a time', async () => {
     const user = userEvent.setup();
     const big = Array.from({ length: 250 }, (_, i) => i);
     render(<JsonTreeView data={big} />);
@@ -122,7 +122,7 @@ describe('JsonTreeView', () => {
     expect(screen.queryByRole('button', { name: /Show more/ })).toBeNull();
   });
 
-  it('flags integers that lost precision', async () => {
+  it('AN-11: flags integers that lost precision', async () => {
     const user = userEvent.setup();
     render(<JsonTreeView data={{ id: 2 ** 60 }} />);
 
@@ -136,5 +136,17 @@ describe('JsonTreeView', () => {
 
     expect(screen.getByText('"<img src=x onerror=alert(1)>"')).toBeTruthy();
     expect(document.querySelector('img')).toBeNull();
+  });
+});
+
+describe('JsonTreeView with empty containers', () => {
+  it('AN-09: shows [0 items] and {0 keys} with nothing to open', () => {
+    render(<JsonTreeView data={{ list: [], map: {} }} />);
+    const list = screen.getByRole('treeitem', { name: 'list' });
+    const map = screen.getByRole('treeitem', { name: 'map' });
+    expect(list.textContent).toContain('[0 items]');
+    expect(map.textContent).toContain('{0 keys}');
+    expect(within(list).queryByRole('button', { name: /^(Expand|Collapse) / })).toBeNull();
+    expect(within(map).queryByRole('button', { name: /^(Expand|Collapse) / })).toBeNull();
   });
 });

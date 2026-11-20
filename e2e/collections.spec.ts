@@ -80,7 +80,7 @@ test('CO-06: leaving unsaved changes asks first; cancelling keeps them', async (
   await expect(page.getByLabel('Open request')).toContainText('Unsaved request');
 });
 
-test('renames a saved request in place, keeping unsaved edits out of the stored copy', async ({
+test('CO-18: renames a saved request in place, keeping unsaved edits out of the stored copy', async ({
   page,
 }) => {
   const collection = unique('Rename');
@@ -170,4 +170,43 @@ test('CO-17: a saved request can be sent and its assertions run', async ({ page 
       .getByRole('tablist', { name: 'Response sections' })
       .getByRole('tab', { name: 'Tests 1/1' }),
   ).toBeVisible();
+});
+
+test('CO-11: "Save as" can put the copy into another collection', async ({ page }) => {
+  const first = unique('First home');
+  const second = unique('Second home');
+  const request = unique('Moving');
+  await createCollection(page, first);
+  await createCollection(page, second);
+  await urlInput(page).fill(`${MOCK}/json`);
+  await saveAs(page, request, first);
+  await saveAs(page, `${request} copy`, second);
+
+  await expect(page.getByRole('listitem', { name: `Collection ${second}` })).toContainText(
+    `${request} copy`,
+  );
+  await expect(page.getByRole('listitem', { name: `Collection ${first}` })).not.toContainText(
+    `${request} copy`,
+  );
+});
+
+test('CO-16: closing the tab with unsaved changes asks the browser to confirm', async ({
+  page,
+}) => {
+  const collection = unique('Unload');
+  const request = unique('Edited');
+  await createCollection(page, collection);
+  await urlInput(page).fill(`${MOCK}/json`);
+  await saveAs(page, request, collection);
+  await urlInput(page).fill(`${MOCK}/text`);
+  await expect(dirtyMark(page)).toBeVisible();
+
+  const asked = new Promise<string>((resolve) =>
+    page.once('dialog', (dialog) => {
+      resolve(dialog.type());
+      void dialog.dismiss();
+    }),
+  );
+  await page.close({ runBeforeUnload: true });
+  expect(await asked).toBe('beforeunload');
 });

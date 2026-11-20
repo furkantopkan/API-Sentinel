@@ -118,7 +118,7 @@ describe('request body handling', () => {
     expect(JSON.stringify(response.body)).not.toContain('SECRET456');
   });
 
-  it('returns 413 PAYLOAD_TOO_LARGE when the body exceeds the configured limit', async () => {
+  it('SEC-012: returns 413 PAYLOAD_TOO_LARGE when the body exceeds the configured limit', async () => {
     const response = await request(app)
       .post('/api/health')
       .set('Content-Type', 'application/json')

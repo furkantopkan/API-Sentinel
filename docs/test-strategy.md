@@ -266,6 +266,11 @@ Otomasyon: `parseHar`, `checkDraft`, `fitRecording`, `ollamaClient`, `recorderSe
 - API-001…API-017 ve SEC-001…SEC-012'nin otomatik karşılıkları (mümkün olanlar).
 - Zod doğrulama hataları (eksik alan, yanlış method).
 
+**İzlenebilirlik (Faz 8.2)**
+Bölüm 4'teki her senaryo kimliği (`API-001`, `CO-03…05` …) en az bir otomasyon testinin adında geçer; geçmiyorsa aşağıda gerekçesiyle "yalnızca manuel" olarak listelenir. `npm run traceability` bunu denetler ve eksik varsa hata verir. Gerçek sitelerdeki kayıt senaryolarının (RE-…) otomasyonu, aynı davranışı yerel mock sitede veya kayıttan alınmış örnek veriyle sınar.
+
+**Yalnızca manuel:** CO-09 (sunucuyu yeniden başlatıp verinin korunduğunu görmek; otomasyon testleri gerçek veritabanı dosyasına dokunmaz, `:memory:` kullanır).
+
 **E2E (Faz 2 sonu, smoke)**
 - GET → 200 görünür; geçersiz JSON → Send engellenir; engellenen hedef → hata mesajı.
 

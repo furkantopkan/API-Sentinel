@@ -271,7 +271,7 @@ describe('parseHar with more requests than the limit', () => {
 });
 
 describe('parseHar with what the recorder saw', () => {
-  it('uses only the user actions, but counts everything that was found', () => {
+  it('RE-07: uses only the user actions, but counts everything that was found', () => {
     const result = parseHar(
       har(
         { ...entry('https://a.test/cart/add', { method: 'POST' }), _trigger: 'user' },
@@ -569,7 +569,7 @@ describe('parseHar with what the user clicked', () => {
     ...(action === undefined ? {} : { _action: action }),
   });
 
-  it("leaves out another site's reads after a click unless a later step needs their value", () => {
+  it("RE-09: leaves out another site's reads after a click unless a later step needs their value", () => {
     const entries = parsedEntries(
       page,
       mine('https://gum.criteo.com/sid/json', { text: '{"sid":"zzz"}' }, 'Click "Accept"'),
@@ -585,7 +585,7 @@ describe('parseHar with what the user clicked', () => {
     expect(entries[1]?.trigger).toBe('page');
   });
 
-  it('keeps a change made twice to the same address, but a read only once', () => {
+  it('RE-09: keeps a change made twice to the same address, but a read only once', () => {
     const entries = parsedEntries(
       page,
       mine('https://www.shop.com.tr/api/basket/item/9', { method: 'PATCH', body: '{"q":2}' }),
@@ -626,7 +626,7 @@ describe('parseHar with what the user clicked', () => {
 
 // Seen on a real shop (Akamai): after every click, a POST to a random address of the site itself.
 describe('parseHar and bot protection sensors', () => {
-  it('leaves out a sensor report, known only by its body', () => {
+  it('RE-09: leaves out a sensor report, known only by its body', () => {
     const entries = parsedEntries(
       entry('https://www.shop.com.tr/', { type: 'document', mime: 'text/html', text: '<p>x</p>' }),
       entry('https://www.shop.com.tr/X1ewx77xw93/ru3cck/EmQxAg', {
@@ -690,7 +690,7 @@ describe('parseHar and a site tracking itself', () => {
   };
   const mine = (url: string, method = 'POST') => ({ ...entry(url, { method }), _trigger: 'user' });
 
-  it('leaves out tracking calls on the site itself', () => {
+  it('RE-10: leaves out tracking calls on the site itself', () => {
     const entries = parsedEntries(
       page,
       mine('https://www.site.com/li/track'),
@@ -737,7 +737,7 @@ describe('parseHar and a click answered with a bit of text', () => {
     _trigger: trigger,
   });
 
-  it("keeps it when the user's click sent it, not when the page did", () => {
+  it("RE-10: keeps it when the user's click sent it, not when the page did", () => {
     const entries = parsedEntries(
       page,
       bit('https://shop.test/add_to_cart/1', 'user'),
@@ -762,7 +762,7 @@ describe('parseHar and one click reading the same thing for many items', () => {
     ...(action === undefined ? {} : { _action: action }),
   });
 
-  it('keeps the first one as the step', () => {
+  it('RE-12: keeps the first one as the step', () => {
     const entries = parsedEntries(
       page,
       read('https://www.shop.test/api/product/226931503/detail?lang=1', 'Click "Baggy"'),

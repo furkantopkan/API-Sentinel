@@ -30,7 +30,7 @@ test('AI-01…03: generate test cases in mock mode, invalid suggestion removed',
 });
 
 // Regression: results were lost when switching to another response tab (user report, Phase 5).
-test('AI results survive tab switches; a new Send keeps test cases but hides the analysis', async ({
+test('AI-11, 16: AI results survive tab switches; a new Send keeps test cases but hides the analysis', async ({
   page,
 }) => {
   await sendAndOpenAi(page);

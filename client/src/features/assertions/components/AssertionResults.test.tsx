@@ -36,7 +36,7 @@ describe('AssertionResults', () => {
     expect(screen.getByText(/No enabled assertions/)).toBeTruthy();
   });
 
-  it('shows the summary and one row per result with expected and actual', () => {
+  it('AS-20: shows the summary and one row per result with expected and actual', () => {
     render(
       <AssertionResults
         results={[result('1', 'pass'), result('2', 'fail'), result('3', 'error')]}

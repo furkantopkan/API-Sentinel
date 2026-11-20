@@ -22,7 +22,7 @@ describe('mapRequestError', () => {
     ['CERT_HAS_EXPIRED', 'CONNECTION_ERROR', 502],
     ['ERR_TLS_CERT_ALTNAME_INVALID', 'CONNECTION_ERROR', 502],
     ['Z_DATA_ERROR', 'CONNECTION_ERROR', 502],
-  ])('maps %s to %s (%i)', (lowLevel, code, status) => {
+  ])('API-013, 014: maps %s to %s (%i)', (lowLevel, code, status) => {
     const mapped = mapRequestError(withCode(lowLevel), 'api.example.com');
 
     expect(mapped?.code).toBe(code);

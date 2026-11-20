@@ -164,7 +164,7 @@ describe('running a collection', () => {
     expect(blocked?.errorMessage).toContain('10.0.0.1');
   });
 
-  it("reports a refusal by the site's bot protection as an error that says so", async () => {
+  it("RU-18: reports a refusal by the site's bot protection as an error that says so", async () => {
     const run = await startRun(
       await createCollection([
         { name: 'Page', url: `${base}/bot-blocked` },

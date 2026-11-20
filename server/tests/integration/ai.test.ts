@@ -202,14 +202,14 @@ describe('POST /api/ai/analyze', () => {
 });
 
 describe('errors and limits', () => {
-  it('returns 503 AI_NOT_CONFIGURED when AI is off, without calling anything', async () => {
+  it('AI-14, 15: returns 503 AI_NOT_CONFIGURED when AI is off, without calling anything', async () => {
     const response = await request(appWith(null)).post('/api/ai/test-cases').send(BODY);
 
     expect(response.status).toBe(503);
     expect(apiErrorResponseSchema.parse(response.body).error.code).toBe('AI_NOT_CONFIGURED');
   });
 
-  it('returns 429 RATE_LIMITED after the per-minute limit', async () => {
+  it('AI-13: returns 429 RATE_LIMITED after the per-minute limit', async () => {
     const app = appWith(createMockAiClient(), { rate: 2 });
     const statuses: number[] = [];
     for (let i = 0; i < 3; i++) {
@@ -241,7 +241,7 @@ describe('errors and limits', () => {
     expect(JSON.stringify(response.body)).not.toContain('LEAKED-OUTPUT');
   });
 
-  it('logs only the task and outcome, never content', async () => {
+  it('AI-12: logs only the task and outcome, never content', async () => {
     const logs: string[] = [];
     const { client } = fakeClient();
     await request(appWith(client, { logs })).post('/api/ai/test-cases').send(BODY);
