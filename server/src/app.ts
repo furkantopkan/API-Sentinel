@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import type { AppConfig } from './config/env';
 import { errorHandler } from './middleware/errorHandler';
 import { localHostOnly } from './middleware/localHostOnly';
+import { sameOriginChanges, securityHeaders } from './middleware/securityHeaders';
 import { notFoundHandler } from './middleware/notFoundHandler';
 import { openDatabase, type Database } from './db/database';
 import { createCollectionRepository } from './repositories/collectionRepository';
@@ -105,7 +106,10 @@ export function createApp(config: AppConfig, deps: AppDependencies = {}): Expres
   // Do not advertise the framework in an `X-Powered-By` header.
   app.disable('x-powered-by');
 
-  if (config.serveClient) app.use(localHostOnly);
+  app.use(securityHeaders);
+  // DNS rebinding: whenever the server is reachable only from this machine, only local names may address it.
+  if (LOOPBACK_HOSTS.has(config.host)) app.use(localHostOnly);
+  app.use('/api', sameOriginChanges);
 
   // A long recording is sent to the AI builder in one piece; everything else keeps the normal limit.
   app.use('/api/ai/build-collection', express.json({ limit: BUILD_COLLECTION_BODY_LIMIT }));
