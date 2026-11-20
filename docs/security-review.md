@@ -31,6 +31,8 @@ Yöntem: kod okuma + çalışan uygulamaya karşı gerçek deneme. Her bulgu bir
 
 Testler: `server/tests/integration/app.test.ts` (başlıklar, CSRF, host adı).
 
+**CSP ile ortaya çıkan: Zod'un eval denemesi (manuel testte, Firefox konsolunda).** Zod, şema oluşturulurken sayfanın `new Function`'a izin verip vermediğini dener; CSP reddeder, Zod sessizce yavaş yola geçer ama tarayıcı reddi konsola ihlal olarak yazar. `shared` paketi artık tarayıcıda, hiçbir şema oluşmadan önce Zod'u `jitless` ayarına alır; şemalar aynı çalışır. Test: `client/src/app/zodWithoutEval.test.ts`; derlenmiş arayüz `securitypolicyviolation` olayları dinlenerek denendi: ihlal yok.
+
 ## Kabul edilen riskler
 
 - **`minimatch` uyarısı:** yalnızca geliştirme aracı ESLint'i etkiler, kendi dosya kalıplarımızı işler. ESLint güncellendiğinde kapanır.
