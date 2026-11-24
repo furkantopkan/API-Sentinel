@@ -3,8 +3,10 @@
 // Run with `npm run traceability`; exits with 1 when a scenario has neither.
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
+// fileURLToPath: right on every system, also for folders with spaces in their name.
+const root = fileURLToPath(new URL('..', import.meta.url));
 
 /** "CO-03…05", "AN-03 / 04", "RU-15, 16" -> every id they stand for. */
 export function expandIds(text) {
