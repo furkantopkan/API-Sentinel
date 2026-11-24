@@ -6,6 +6,13 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
+    ignore:
+      # Pinned on purpose (CLAUDE.md): typescript-eslint does not support TypeScript 7 yet.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      # Types of the oldest supported Node (package.json "engines"), so newer APIs are not used by mistake.
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
     groups:
       # Small updates come in one pull request instead of many.
       minor-and-patch:
