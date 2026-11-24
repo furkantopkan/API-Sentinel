@@ -177,6 +177,6 @@ README, mimari diyagram, ekran görüntüleri, demo senaryosu, test raporu, kaps
 |---|---|
 | 8.1 Güvenlik gözden geçirmesi | ✅ 2026-11-20: 3 bulgu düzeltildi (güvenlik başlıkları, CSRF, DNS rebinding); [rapor](security-review.md) |
 | 8.2 Kapsamlı E2E | ✅ 2026-11-20: 159 manuel senaryonun 158'i otomasyonla izleniyor (`npm run traceability`), 1'i gerekçeli manuel; boşluklar için 16 yeni test; birim kapsamı (`npm run test:coverage`): shared %92,9, server %89,8 satır; client ekranları E2E ile sınanır |
-| 8.3 GitHub düzeni (CI, lisans) | Sırada |
-| 8.4 README + mimari diyagram + ekran görüntüleri | Bekliyor |
+| 8.3 GitHub düzeni (CI, lisans) | ✅ 2026-11-24: GitHub Actions (Node 24 ve 26; kontroller, kapsam, izlenebilirlik, derleme, E2E), MIT lisansı, PR/issue şablonları, Dependabot; temiz klonda tüm adımlar geçti. Depoyu açıp push etmek kullanıcıya kalır |
+| 8.4 README + mimari diyagram + ekran görüntüleri | Sırada |
 | 8.5 Demo senaryosu + test raporu | Bekliyor |
